@@ -8,9 +8,9 @@ using System.Text.RegularExpressions;
 
 namespace System.Net.Torrent
 {
-    public class HTTPScraper : BaseScraper, IScraper
+    public class HTTPTrackerClient : BaseScraper, ITrackerClient
     {
-        public HTTPScraper(int timeout) 
+        public HTTPTrackerClient(int timeout) 
             : base(timeout)
         {
 

@@ -5,11 +5,11 @@ using System.Net.Sockets;
 
 namespace System.Net.Torrent
 {
-    public class UDPScraper : BaseScraper, IScraper
+    public class UDPTrackerClient : BaseScraper, ITrackerClient
     {
         private byte[] _currentConnectionId;
 
-        public UDPScraper(Int32 timeout) 
+        public UDPTrackerClient(Int32 timeout) 
             : base(timeout)
         {
             _currentConnectionId = BaseCurrentConnectionId;

@@ -5,7 +5,7 @@ using System.Text;
 
 namespace System.Net.Torrent
 {
-    public interface IScraper
+    public interface ITrackerClient
     {
         String Tracker { get; }
         Int32 Port { get; }
