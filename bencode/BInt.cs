@@ -98,5 +98,10 @@ namespace System.Net.Torrent.bencode
         {
             return Value.GetHashCode();
         }
+
+        public override string ToString()
+        {
+            return String.Format("{0}", Value);
+        }
     }
 }

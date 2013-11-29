@@ -10,12 +10,15 @@ namespace System.Net.Torrent.bencode
     {
         internal BString()
         {
+
         }
+
         public BString(string value)
         {
             Value = value;
         }
 
+        private byte[] _byteValue = null;
         private string _value = string.Empty;
         public string Value
         {
@@ -26,6 +29,7 @@ namespace System.Net.Torrent.bencode
                     _value = value;
             }
         }
+        public byte[] ByteValue { get; set; }
 
         /// <summary>
         /// Decode the next token as a string.
@@ -45,12 +49,11 @@ namespace System.Net.Torrent.bencode
             }
 
             // Read chars out
-            char[] stringData = new char[int.Parse(numberLength)];
-            inputStream.Read(stringData, 0, stringData.Length);
-            //byte[] stringData = inputStream.ReadBytes(int.Parse(numberLength));
-
+            //char[] stringData = new char[int.Parse(numberLength)];
+            //inputStream.Read(stringData, 0, stringData.Length);
+            byte[] stringData = inputStream.ReadBytes(int.Parse(numberLength));
             // Return
-            return new BString { Value = new String(stringData) };
+            return new BString { Value = BencodingUtils.ExtendedASCIIEncoding.GetString(stringData), ByteValue = stringData };
         }
 
         public void Encode(BinaryWriter writer)

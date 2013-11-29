@@ -75,7 +75,16 @@
 
             return false;
         }
+        public static String Hex(byte[] bytes, Endianness e = Endianness.Machine)
+        {
+            String str = "";
 
+            foreach (byte b in bytes)
+            {
+                str += String.Format("{0:X2}", b);
+            }
 
+            return str;
+        }
     }
 }
