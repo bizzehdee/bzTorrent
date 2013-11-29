@@ -8,7 +8,7 @@ using System.Threading;
 
 namespace System.Net.Torrent
 {
-    public class PeerWire
+    public class PeerWireClient
     {
         private readonly byte[] _bitTorrentProtocolHeader = new byte[] { 0x42, 0x69, 0x74, 0x54, 0x6F, 0x72, 0x72, 0x65, 0x6E, 0x74, 0x20, 0x70, 0x72, 0x6F, 0x74, 0x6F, 0x63, 0x6F, 0x6C };
 
@@ -21,7 +21,7 @@ namespace System.Net.Torrent
         private DateTime _lastKeepAlive;
         public bool KeepAlive { get; set; }
 
-        public PeerWire(Int32 timeout)
+        public PeerWireClient(Int32 timeout)
         {
             Timeout = timeout;
             _client = new TcpClient

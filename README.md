@@ -5,5 +5,9 @@ Open source bittorrent scraper and peer wire implementation written in C#
 
 - [x] UDP Announce
 - [x] UDP Scrape
-- [ ] HTTP Announce
-- [ ] HTTP Scrape
+- [x] HTTP Announce
+- [x] HTTP Scrape
+- [ ] PeerWire (TCP) Client (underway)
+- [ ] DHT
+- [ ] Local Peer Discovery
+- [ ] Peer Exchange
