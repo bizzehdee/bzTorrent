@@ -18,20 +18,16 @@ namespace System.Net.Torrent
 
         public IEnumerable<IPEndPoint> Announce(string url, string hash)
         {
-            throw new NotImplementedException();
-        }
+            byte[] hashBytes = Pack.Hex(hash);
 
-        public Dictionary<string, IEnumerable<IPEndPoint>> Announce(string url, string[] hashes)
-        {
-            byte[] hashBytes = Pack.Hex(hashes[0]);
+            String realUrl = url.Replace("scrape", "announce") + "?";
 
-            String realUrl = url;
             String hashEncoded = "";
             foreach (byte b in hashBytes)
             {
                 hashEncoded += String.Format("%{0:X2}", b);
             }
-            realUrl += "?info_hash=" + hashEncoded;
+            realUrl += "info_hash=" + hashEncoded;
             realUrl += "&peer_id=" + hashEncoded;
             realUrl += "&port=12345";
             realUrl += "&uploaded=0";
@@ -46,13 +42,55 @@ namespace System.Net.Torrent
             HttpWebResponse webResponse = (HttpWebResponse)webRequest.GetResponse();
 
             Stream stream = webResponse.GetResponseStream();
-            StreamReader reader = new StreamReader(stream);
+            BinaryReader binaryReader = new BinaryReader(stream);
 
-            String response = reader.ReadToEnd();
+            byte[] bytes = new byte[0];
 
-            IBencodingType decoded = BencodingUtils.Decode(response);
+            while (true)
+            {
+                try
+                {
+                    byte[] b = new byte[1];
+                    b[0] = (byte)binaryReader.ReadByte();
+                    bytes = bytes.Concat(b).ToArray();
+                }
+                catch (Exception)
+                {
+                    break;
+                }
+            }
 
-            return null;
+            BDict decoded = (BDict)BencodingUtils.Decode(bytes);
+            if (decoded.Count == 0) return null;
+
+            if (!decoded.ContainsKey("peers")) return null;
+
+            BString peerBinary = (BString)decoded["peers"];
+
+            return GetPeers(peerBinary.ByteValue);
+        }
+
+        private IEnumerable<IPEndPoint> GetPeers(byte[] peerData)
+        {
+            for (int i = 0; i < peerData.Length; i += 6)
+            {
+                long addr = Unpack.UInt32(peerData, i, Unpack.Endianness.Big);
+                ushort port = Unpack.UInt16(peerData, i + 4, Unpack.Endianness.Big);
+
+                yield return new IPEndPoint(addr, port);
+            }
+        }
+
+        public Dictionary<string, IEnumerable<IPEndPoint>> Announce(string url, string[] hashes)
+        {
+            Dictionary<string, IEnumerable<IPEndPoint>> returnValue = new Dictionary<string, IEnumerable<IPEndPoint>>();
+
+            foreach (String hash in hashes)
+            {
+                returnValue.Add(hash, Announce(url, hash));
+            }
+
+            return returnValue;
         }
 
         public Dictionary<string, Tuple<uint, uint, uint>> Scrape(string url, string[] hashes)
