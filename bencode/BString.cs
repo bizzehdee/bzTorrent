@@ -148,5 +148,15 @@ namespace System.Net.Torrent.bencode
         {
             return Value;
         }
+
+        public static implicit operator BString(String x)
+        {
+            return new BString(x);
+        }
+
+        public static implicit operator String(BString x)
+        {
+            return x.Value;
+        }
     }
 }

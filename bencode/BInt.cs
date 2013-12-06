@@ -30,6 +30,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 using System;
 using System.IO;
+using System.Runtime.CompilerServices;
 
 namespace System.Net.Torrent.bencode
 {
@@ -132,6 +133,16 @@ namespace System.Net.Torrent.bencode
         public override string ToString()
         {
             return String.Format("{0}", Value);
+        }
+
+        public static implicit operator BInt(long x)
+        {
+            return new BInt(x);
+        }
+
+        public static implicit operator long(BInt x)
+        {
+            return x.Value;
         }
     }
 }
