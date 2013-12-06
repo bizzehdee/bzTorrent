@@ -28,13 +28,10 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
 */
 
-using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net.Torrent.bencode;
-using System.Text;
-using System.Text.RegularExpressions;
 
 namespace System.Net.Torrent
 {
@@ -57,6 +54,7 @@ namespace System.Net.Torrent
             {
                 hashEncoded += String.Format("%{0:X2}", b);
             }
+
             realUrl += "info_hash=" + hashEncoded;
             realUrl += "&peer_id=" + hashEncoded;
             realUrl += "&port=12345";
@@ -72,6 +70,9 @@ namespace System.Net.Torrent
             HttpWebResponse webResponse = (HttpWebResponse)webRequest.GetResponse();
 
             Stream stream = webResponse.GetResponseStream();
+
+            if (stream == null) return null;
+
             BinaryReader binaryReader = new BinaryReader(stream);
 
             byte[] bytes = new byte[0];
@@ -81,7 +82,7 @@ namespace System.Net.Torrent
                 try
                 {
                     byte[] b = new byte[1];
-                    b[0] = (byte)binaryReader.ReadByte();
+                    b[0] = binaryReader.ReadByte();
                     bytes = bytes.Concat(b).ToArray();
                 }
                 catch (Exception)
@@ -95,12 +96,14 @@ namespace System.Net.Torrent
 
             if (!decoded.ContainsKey("peers")) return null;
 
-            BString peerBinary = (BString)decoded["peers"];
+            if (!(decoded["peers"] is BString)) throw new NotSupportedException("Dictionary based peers not supported");
+
+            BString peerBinary = (BString) decoded["peers"];
 
             return GetPeers(peerBinary.ByteValue);
         }
 
-        private IEnumerable<IPEndPoint> GetPeers(byte[] peerData)
+        private static IEnumerable<IPEndPoint> GetPeers(byte[] peerData)
         {
             for (int i = 0; i < peerData.Length; i += 6)
             {
@@ -113,14 +116,7 @@ namespace System.Net.Torrent
 
         public Dictionary<string, IEnumerable<IPEndPoint>> Announce(string url, string[] hashes)
         {
-            Dictionary<string, IEnumerable<IPEndPoint>> returnValue = new Dictionary<string, IEnumerable<IPEndPoint>>();
-
-            foreach (String hash in hashes)
-            {
-                returnValue.Add(hash, Announce(url, hash));
-            }
-
-            return returnValue;
+            return hashes.ToDictionary(hash => hash, hash => Announce(url, hash));
         }
 
         public Dictionary<string, Tuple<uint, uint, uint>> Scrape(string url, string[] hashes)
@@ -134,10 +130,7 @@ namespace System.Net.Torrent
             {
                 byte[] hashBytes = Pack.Hex(hash);
 
-                foreach (byte b in hashBytes)
-                {
-                    hashEncoded += String.Format("%{0:X2}", b);
-                }
+                hashEncoded = hashBytes.Aggregate(hashEncoded, (current, b) => current + String.Format("%{0:X2}", b));
 
                 realUrl += "info_hash=" + hashEncoded + "&";
             }
@@ -148,6 +141,9 @@ namespace System.Net.Torrent
             HttpWebResponse webResponse = (HttpWebResponse)webRequest.GetResponse();
 
             Stream stream = webResponse.GetResponseStream();
+
+            if (stream == null) return null;
+
             BinaryReader binaryReader = new BinaryReader(stream);
 
             byte[] bytes = new byte[0];
@@ -157,7 +153,7 @@ namespace System.Net.Torrent
                 try
                 {
                     byte[] b = new byte[1];
-                    b[0] = (byte)binaryReader.ReadByte();
+                    b[0] = binaryReader.ReadByte();
                     bytes = bytes.Concat(b).ToArray();
                 }
                 catch (Exception)
