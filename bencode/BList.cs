@@ -150,7 +150,7 @@ namespace System.Net.Torrent.bencode
         /// <param name="index"></param>
         /// <returns></returns>
         /// <exception cref="ArgumentNullException">If the value is null</exception>
-        public IBencodingType this[int index]
+        public new IBencodingType this[int index]
         {
             get { return base[index]; }
             set

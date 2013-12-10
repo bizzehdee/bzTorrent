@@ -30,6 +30,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net.Sockets;
@@ -45,16 +46,20 @@ namespace System.Net.Torrent
 
         private readonly TcpClient _client;
         private byte[] _internalBuffer;
+        private readonly List<IBTExtension> _protocolExtensions;
+        private readonly Dictionary<String, Int64> _extOutgoing = new Dictionary<string, long>();
+        private readonly Dictionary<Int64, String> _extIncoming = new Dictionary<Int64, String>();
 
         public Int32 Timeout { get; private set; }
         public bool[] PieceBitFild { get; set; }
-        public bool KeepAlive { get; set; }
-
+        public bool KeepConnectionAlive { get; set; }
         public bool UseExtended { get; set; }
         public bool UseFast { get; set; }
+        public String LocalPeerID { get; set; }
+        public String RemotePeerID { get; set; }
+        public String Hash { get; set; }
 
-        public BDict ExtendedHandshake { get; private set; }
-
+        public event Action<PeerWireClient> KeepAlive;
         public event Action<PeerWireClient> Choke;
         public event Action<PeerWireClient> UnChoke;
         public event Action<PeerWireClient> Interested;
@@ -62,6 +67,7 @@ namespace System.Net.Torrent
         public event Action<PeerWireClient, Int32> Have;
         public event Action<PeerWireClient, Int32, bool[]> BitField;
         public event Action<PeerWireClient, Int32, Int32, Int32> Request;
+        public event Action<PeerWireClient, Int32, Int32, byte[]> Piece;
         public event Action<PeerWireClient, Int32, Int32, Int32> Cancel;
         public event Action<PeerWireClient> HaveAll;
         public event Action<PeerWireClient> HaveNone;
@@ -69,7 +75,10 @@ namespace System.Net.Torrent
 
         public PeerWireClient(Int32 timeout)
         {
+            _protocolExtensions = new List<IBTExtension>();
+
             Timeout = timeout;
+
             _client = new TcpClient
             {
                 Client =
@@ -78,8 +87,8 @@ namespace System.Net.Torrent
                     SendTimeout = timeout*1000
                 }
             };
+
             _internalBuffer = new byte[0];
-            KeepAlive = true;
         }
 
         public void Connect(IPEndPoint endPoint)
@@ -97,9 +106,17 @@ namespace System.Net.Torrent
             _client.Close();
         }
 
+        public void Handshake()
+        {
+            Handshake(Pack.Hex(Hash), Encoding.ASCII.GetBytes(LocalPeerID));
+        }
+
         public void Handshake(String hash, String peerId)
         {
-            Handshake(Pack.Hex(hash), Encoding.ASCII.GetBytes(peerId));
+            LocalPeerID = peerId;
+            Hash = hash;
+
+            Handshake();
         }
 
         public void Handshake(byte[] hash, byte[] peerId)
@@ -118,6 +135,27 @@ namespace System.Net.Torrent
 
             _client.Client.Send(sendBuf);
 
+            if (UseExtended)
+            {
+                BDict handshakeDict = new BDict();
+                BDict mDict = new BDict();
+                Int32 i = 1;
+                foreach (IBTExtension extension in _protocolExtensions)
+                {
+                    _extOutgoing.Add(extension.Protocol, i);
+                    mDict.Add(extension.Protocol, new BInt(i));
+                    i++;
+                }
+
+                handshakeDict.Add("m", mDict);
+
+                String handshakeEncoded = BencodingUtils.EncodeString(handshakeDict);
+                Int32 length = 2 + handshakeEncoded.Length;
+                sendBuf = Pack.Int32(length, Pack.Endianness.Big).Concat(new[] { (byte)20 }).Concat(new[] { (byte)0 }).Concat(Encoding.ASCII.GetBytes(handshakeEncoded)).ToArray();
+
+                _client.Client.Send(sendBuf);
+            }
+
             byte[] readBuf = new byte[68];
             _client.Client.Receive(readBuf);
 
@@ -130,6 +168,11 @@ namespace System.Net.Torrent
 
             //byte[] recBuffer = new byte[128];
             //_client.Client.BeginReceive(recBuffer, 0, 128, SocketFlags.None, OnReceived, recBuffer);
+        }
+
+        public void SendKeepAlive()
+        {
+            _client.Client.Send(Pack.Int32(0));
         }
 
         public void SendChoke()
@@ -155,6 +198,50 @@ namespace System.Net.Torrent
         public void SendHave(Int32 index)
         {
             _client.Client.Send(Pack.Int32(5, Pack.Endianness.Big).Concat(new byte[] { 4 }).Concat(Pack.Int32(index)).ToArray());
+        }
+
+        public void SendBitField(bool[] bitField)
+        {
+            SendBitField(bitField, false);
+        }
+
+        public void SendBitField(bool[] bitField, bool obsf)
+        {
+            long[] obsfIDs =  new long[0];
+
+            if (obsf && bitField.Length > 32)
+            {
+                obsfIDs = new long[Math.Min(16, bitField.Length / 16)];
+
+                for (int i = 0; i < obsfIDs.Length; i++)
+                {
+                    
+                }
+            }
+
+            byte[] bytes = new byte[bitField.Length / 8];
+
+            for (int i = 0; i < bitField.Length; i++)
+            {
+                if (obsfIDs.Contains(i)) continue;
+
+                int x = (int)Math.Floor((double)i/8);
+                ushort p = (ushort) (i%8);
+
+                if(bitField[i]) bytes[x] = bytes[x].SetBit(p);
+            }
+
+            _client.Client.Send(Pack.Int32(1 + bitField.Length, Pack.Endianness.Big).Concat(new byte[] { 5 }).Concat(bytes).ToArray());
+        }
+
+        public void SendRequest(Int32 index, Int32 start, Int32 length)
+        {
+            _client.Client.Send(Pack.Int32(13, Pack.Endianness.Big).Concat(new byte[] { 6 }).Concat(Pack.Int32(index)).Concat(Pack.Int32(start)).Concat(Pack.Int32(length)).ToArray());
+        }
+
+        public void SendCancel(Int32 index, Int32 start, Int32 length)
+        {
+            _client.Client.Send(Pack.Int32(13, Pack.Endianness.Big).Concat(new byte[] { 8 }).Concat(Pack.Int32(index)).Concat(Pack.Int32(start)).Concat(Pack.Int32(length)).ToArray());
         }
 
         public void OnReceived(IAsyncResult ar)
@@ -197,7 +284,12 @@ namespace System.Net.Torrent
 
             if (commandLength == 0)
             {
-                if (KeepAlive) _client.Client.Send(Pack.Int32(0));
+                if (KeepConnectionAlive)
+                {
+                    SendKeepAlive();
+                    OnKeepAlive();
+                }
+
                 return true;
             }
 
@@ -237,7 +329,7 @@ namespace System.Net.Torrent
                     break;
                 case 7:
                     //piece
-                    _internalBuffer = _internalBuffer.Skip(commandLength-9).ToArray();
+                    ProcessPiece(commandLength-1);
                     break;
                 case 8:
                     //cancel
@@ -343,6 +435,13 @@ namespace System.Net.Torrent
             }
         }
 
+        private void ProcessPiece(Int32 length)
+        {
+            _internalBuffer = _internalBuffer.Skip(length - 8).ToArray();
+
+            OnPiece(0, 0, null);
+        }
+
         private void ProcessExtended(Int32 length)
         {
             Int32 msgId = _internalBuffer[0];
@@ -350,7 +449,27 @@ namespace System.Net.Torrent
             byte[] buffer = _internalBuffer.Take(length-1).ToArray();
             _internalBuffer = _internalBuffer.Skip(length-1).ToArray();
 
-            if (msgId == 0) ExtendedHandshake = (BDict)BencodingUtils.Decode(buffer);
+            if (msgId == 0)
+            {
+                BDict extendedHandshake = (BDict) BencodingUtils.Decode(buffer);
+
+                BDict mDict = (BDict)extendedHandshake["m"];
+                foreach (KeyValuePair<string, IBencodingType> pair in mDict)
+                {
+                    BInt i = (BInt)pair.Value;
+                    _extIncoming.Add(i, pair.Key);
+                }
+            }
+            else
+            {
+                KeyValuePair<Int64, String> pair = _extIncoming.FirstOrDefault(f => f.Key == msgId);
+                IBTExtension ext = _protocolExtensions.First(f => f.Protocol == pair.Value);
+
+                if (ext != null)
+                {
+                    ext.OnExtendedMessage(this, buffer);
+                }
+            }
         }
 
         private void ProcessAllowFast()
@@ -364,6 +483,12 @@ namespace System.Net.Torrent
         #endregion
 
         #region Event Dispatchers
+
+        private void OnKeepAlive()
+        {
+            if (KeepAlive != null) KeepAlive(this);
+        }
+
         private void OnChoke()
         {
             if (Choke != null) Choke(this);
@@ -399,6 +524,11 @@ namespace System.Net.Torrent
             if (Request != null) Request(this, index, begin, length);
         }
 
+        private void OnPiece(Int32 index, Int32 begin, byte[] bytes)
+        {
+            if (Piece != null) Piece(this, index, begin, bytes);
+        }
+
         private void OnCancel(Int32 index, Int32 begin, Int32 length)
         {
             if (Cancel != null) Cancel(this, index, begin, length);
@@ -419,5 +549,15 @@ namespace System.Net.Torrent
             if (AllowedFast != null) AllowedFast(this, pieceIndex);
         }
         #endregion
+
+        public void RegisterProtocolExtension(IBTExtension extension)
+        {
+            _protocolExtensions.Add(extension);
+        }
+
+        public void UnregisterProtocolExtension(IBTExtension extension)
+        {
+            _protocolExtensions.Remove(extension);
+        }
     }
 }

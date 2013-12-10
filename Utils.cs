@@ -37,6 +37,11 @@ namespace System.Net.Torrent
             return (t & (1 << n)) != 0;
         }
 
+        public static byte SetBit(this byte t, UInt16 n)
+        {
+            return (byte)(t | (1 << n));
+        }
+
         public static byte[] CopyBytes(byte[] bytes, Int32 start, Int32 length)
         {
             byte[] intBytes = new byte[length];

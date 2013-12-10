@@ -46,7 +46,10 @@
     <Compile Include="bencode\BList.cs" />
     <Compile Include="bencode\BString.cs" />
     <Compile Include="bencode\IBencodingType.cs" />
+    <Compile Include="Extensions\UTMetadata.cs" />
+    <Compile Include="Extensions\UTPeerExchange.cs" />
     <Compile Include="HTTPTrackerClient.cs" />
+    <Compile Include="IBTExtension.cs" />
     <Compile Include="ITrackerClient.cs" />
     <Compile Include="Pack.cs" />
     <Compile Include="PeerWireClient.cs" />

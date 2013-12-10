@@ -48,7 +48,6 @@ namespace System.Net.Torrent.bencode
             Value = value;
         }
 
-        private byte[] _byteValue = null;
         private string _value = string.Empty;
         public string Value
         {
