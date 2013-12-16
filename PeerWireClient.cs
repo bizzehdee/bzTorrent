@@ -28,10 +28,7 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
 */
 
-using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.IO;
 using System.Linq;
 using System.Net.Sockets;
 using System.Net.Torrent.bencode;
@@ -42,18 +39,21 @@ namespace System.Net.Torrent
 {
     public class PeerWireClient
     {
+        private readonly Object _locker = new Object();
         private readonly byte[] _bitTorrentProtocolHeader = { 0x42, 0x69, 0x74, 0x54, 0x6F, 0x72, 0x72, 0x65, 0x6E, 0x74, 0x20, 0x70, 0x72, 0x6F, 0x74, 0x6F, 0x63, 0x6F, 0x6C };
 
-        private readonly TcpClient _client;
-        private byte[] _internalBuffer;
+        private readonly Socket _socket;
+        private byte[] _internalBuffer; //async internal buffer
         private readonly List<IBTExtension> _protocolExtensions;
         private readonly Dictionary<String, Int64> _extOutgoing = new Dictionary<string, long>();
         private readonly Dictionary<Int64, String> _extIncoming = new Dictionary<Int64, String>();
 
         public Int32 Timeout { get; private set; }
-        public bool[] PieceBitFild { get; set; }
+        public bool[] PeerBitField { get; set; }
         public bool KeepConnectionAlive { get; set; }
         public bool UseExtended { get; set; }
+        public bool RemoteUsesExtended { get; private set; }
+        public bool RemoteUsesFast { get; private set; }
         public bool UseFast { get; set; }
         public String LocalPeerID { get; set; }
         public String RemotePeerID { get; set; }
@@ -79,31 +79,40 @@ namespace System.Net.Torrent
 
             Timeout = timeout;
 
-            _client = new TcpClient
-            {
-                Client =
-                {
-                    ReceiveTimeout = timeout*1000,
-                    SendTimeout = timeout*1000
-                }
-            };
+            _socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+            _socket.ReceiveTimeout = timeout * 1000;
+            _socket.SendTimeout = timeout * 1000;
+
+            _internalBuffer = new byte[0];
+        }
+
+        public PeerWireClient(Int32 timeout, Socket socket)
+        {
+            _protocolExtensions = new List<IBTExtension>();
+
+            Timeout = timeout;
+
+            _socket = socket;
+            _socket.ReceiveTimeout = timeout * 1000;
+            _socket.SendTimeout = timeout * 1000;
 
             _internalBuffer = new byte[0];
         }
 
         public void Connect(IPEndPoint endPoint)
         {
-            _client.Connect(endPoint);
+            _socket.Connect(endPoint);
         }
 
         public void Connect(String ipHost, Int32 port)
         {
-            _client.Connect(ipHost, port);
+            _socket.Connect(ipHost, port);
         }
 
         public void Disconnect()
         {
-            _client.Close();
+            _socket.Disconnect(false);
+            _socket.Close();
         }
 
         public void Handshake()
@@ -133,7 +142,7 @@ namespace System.Net.Torrent
 
             byte[] sendBuf = (new[] { (byte)_bitTorrentProtocolHeader.Length }).Concat(_bitTorrentProtocolHeader).Concat(reservedBytes).Concat(hash).Concat(peerId).ToArray();
 
-            _client.Client.Send(sendBuf);
+            _socket.Send(sendBuf);
 
             if (UseExtended)
             {
@@ -153,51 +162,63 @@ namespace System.Net.Torrent
                 Int32 length = 2 + handshakeEncoded.Length;
                 sendBuf = Pack.Int32(length, Pack.Endianness.Big).Concat(new[] { (byte)20 }).Concat(new[] { (byte)0 }).Concat(Encoding.ASCII.GetBytes(handshakeEncoded)).ToArray();
 
-                _client.Client.Send(sendBuf);
+                _socket.Send(sendBuf);
             }
 
             byte[] readBuf = new byte[68];
-            _client.Client.Receive(readBuf);
+            try
+            {
+                _socket.Receive(readBuf);
+            }
+            catch (SocketException)
+            {
+                return;
+            }
 
             Int32 resLen = readBuf[0];
             if (resLen != 19)
             {
-                _client.Close();
+                _socket.Disconnect(false);
+                _socket.Close();
                 throw new InvalidProgramException("Invalid response received from peer");
             }
 
-            //byte[] recBuffer = new byte[128];
-            //_client.Client.BeginReceive(recBuffer, 0, 128, SocketFlags.None, OnReceived, recBuffer);
+            byte[] recReserved = readBuf.Skip(20).Take(8).ToArray();
+            RemoteUsesExtended = (recReserved[5] & 0x10) == 0x10;
+            RemoteUsesFast = (recReserved[7] & 0x04) == 0x04;
+
+            byte[] recBuffer = new byte[128];
+            _socket.BeginReceive(recBuffer, 0, 128, SocketFlags.None, OnReceived, recBuffer);
         }
 
         public void SendKeepAlive()
         {
-            _client.Client.Send(Pack.Int32(0));
+            _socket.Send(Pack.Int32(0));
         }
 
         public void SendChoke()
         {
-            _client.Client.Send(Pack.Int32(1, Pack.Endianness.Big).Concat(new byte[] { 0 }).ToArray());
+            _socket.Send(Pack.Int32(1, Pack.Endianness.Big).Concat(new byte[] { 0 }).ToArray());
         }
 
         public void SendUnChoke()
         {
-            _client.Client.Send(Pack.Int32(1, Pack.Endianness.Big).Concat(new byte[] { 1 }).ToArray());
+            _socket.Send(Pack.Int32(1, Pack.Endianness.Big).Concat(new byte[] { 1 }).ToArray());
         }
 
         public void SendInterested()
         {
-            _client.Client.Send(Pack.Int32(1, Pack.Endianness.Big).Concat(new byte[] { 2 }).ToArray());
+            _socket.Send(Pack.Int32(1, Pack.Endianness.Big).Concat(new byte[] { 2 }).ToArray());
         }
 
         public void SendNotInterested()
         {
-            _client.Client.Send(Pack.Int32(1, Pack.Endianness.Big).Concat(new byte[] { 3 }).ToArray());
+            _socket.Send(Pack.Int32(1, Pack.Endianness.Big).Concat(new byte[] { 3 }).ToArray());
         }
 
         public void SendHave(Int32 index)
         {
-            _client.Client.Send(Pack.Int32(5, Pack.Endianness.Big).Concat(new byte[] { 4 }).Concat(Pack.Int32(index)).ToArray());
+            _socket.Send(Pack.Int32(5, Pack.Endianness.Big).Concat(new byte[] { 4 }).Concat(Pack.Int32(index)).ToArray());
         }
 
         public void SendBitField(bool[] bitField)
@@ -231,48 +252,51 @@ namespace System.Net.Torrent
                 if(bitField[i]) bytes[x] = bytes[x].SetBit(p);
             }
 
-            _client.Client.Send(Pack.Int32(1 + bitField.Length, Pack.Endianness.Big).Concat(new byte[] { 5 }).Concat(bytes).ToArray());
+            _socket.Send(Pack.Int32(1 + bitField.Length, Pack.Endianness.Big).Concat(new byte[] { 5 }).Concat(bytes).ToArray());
         }
 
         public void SendRequest(Int32 index, Int32 start, Int32 length)
         {
-            _client.Client.Send(Pack.Int32(13, Pack.Endianness.Big).Concat(new byte[] { 6 }).Concat(Pack.Int32(index)).Concat(Pack.Int32(start)).Concat(Pack.Int32(length)).ToArray());
+            _socket.Send(Pack.Int32(13, Pack.Endianness.Big).Concat(new byte[] { 6 }).Concat(Pack.Int32(index)).Concat(Pack.Int32(start)).Concat(Pack.Int32(length)).ToArray());
         }
 
         public void SendCancel(Int32 index, Int32 start, Int32 length)
         {
-            _client.Client.Send(Pack.Int32(13, Pack.Endianness.Big).Concat(new byte[] { 8 }).Concat(Pack.Int32(index)).Concat(Pack.Int32(start)).Concat(Pack.Int32(length)).ToArray());
+            _socket.Send(Pack.Int32(13, Pack.Endianness.Big).Concat(new byte[] { 8 }).Concat(Pack.Int32(index)).Concat(Pack.Int32(start)).Concat(Pack.Int32(length)).ToArray());
         }
 
         public void OnReceived(IAsyncResult ar)
         {
-            if (_client.Client == null) return;
+            if (_socket == null) return;
 
             byte[] data = (byte[])ar.AsyncState;
 
-            Int32 len = _client.Client.EndReceive(ar);
+            Int32 len = _socket.EndReceive(ar);
 
-            /*lock (_internalBuffer) */_internalBuffer = _internalBuffer == null ? data : _internalBuffer.Concat(data.Take(len)).ToArray();
+            lock (_locker)
+            {
+                _internalBuffer = _internalBuffer == null ? data : _internalBuffer.Concat(data.Take(len)).ToArray();
+            }
 
             byte[] recBuffer = new byte[128];
-            if (_client.Client.Connected) _client.Client.BeginReceive(recBuffer, 0, 128, SocketFlags.None, OnReceived, recBuffer);
+            if (_socket.Connected) _socket.BeginReceive(recBuffer, 0, 128, SocketFlags.None, OnReceived, recBuffer);
         }
 
         public bool Process()
         {
             Thread.Sleep(10);
 
-            if (_client.Client.Connected && _client.Client.Available > 0)
+            /*if (_socket.Connected && _socket.Available > 0)
             {
-                byte[] recBuffer = new byte[_client.Client.Available];
-                _client.Client.Receive(recBuffer);
+                byte[] recBuffer = new byte[_socket.Available];
+                _socket.Receive(recBuffer);
 
                 _internalBuffer = _internalBuffer == null ? recBuffer : _internalBuffer.Concat(recBuffer).ToArray();
-            }
+            }*/
 
             if (_internalBuffer.Length < 4)
             {
-                if (!_client.Connected) return false;
+                if (!_socket.Connected) return false;
 
                 Thread.Sleep(10);
                 return true;
@@ -280,7 +304,10 @@ namespace System.Net.Torrent
 
             Int32 commandLength = Unpack.Int32(_internalBuffer, 0, Unpack.Endianness.Big);
 
-            /*lock (_internalBuffer) */_internalBuffer = _internalBuffer.Skip(4).ToArray();
+            lock (_locker)
+            {
+                _internalBuffer = _internalBuffer.Skip(4).ToArray();
+            }
 
             if (commandLength == 0)
             {
@@ -295,7 +322,10 @@ namespace System.Net.Torrent
 
             Int32 commandId = _internalBuffer[0];
 
-            /*lock (_internalBuffer) */_internalBuffer = _internalBuffer.Skip(1).ToArray();
+            lock (_locker)
+            {
+                _internalBuffer = _internalBuffer.Skip(1).ToArray();
+            }
 
             switch (commandId)
             {
@@ -337,11 +367,11 @@ namespace System.Net.Torrent
                     break;
                 case 9:
                     //port
-                    _internalBuffer = _internalBuffer.Skip(2).ToArray();
+                    lock (_locker) _internalBuffer = _internalBuffer.Skip(2).ToArray();
                     break;
                 case 13:
                     //Suggest Piece
-                    _internalBuffer = _internalBuffer.Skip(4).ToArray();
+                    lock (_locker) _internalBuffer = _internalBuffer.Skip(4).ToArray();
                     break;
                 case 14:
                     //have all
@@ -353,7 +383,7 @@ namespace System.Net.Torrent
                     break;
                 case 16:
                     //Reject Request
-                    _internalBuffer = _internalBuffer.Skip(12).ToArray();
+                    lock (_locker) _internalBuffer = _internalBuffer.Skip(12).ToArray();
                     break;
                 case 17:
                     //Allowed Fast
@@ -362,8 +392,6 @@ namespace System.Net.Torrent
                 case 20:
                     //ext protocol
                     ProcessExtended(commandLength - 1);
-                    break;
-                default:
                     break;
             }
 
@@ -374,56 +402,59 @@ namespace System.Net.Torrent
 
         private void ProcessBitfield(Int32 length)
         {
-            PieceBitFild = new bool[length * 8];
-            for (int i = 0; i < length; i++)
+            if (_internalBuffer.Length < length)
             {
-                byte b = 0;
-
-                try
-                {
-                    b = _internalBuffer[0];
-                }
-                catch
-                {
-                    
-                }
-
-                PieceBitFild[(i * 8) + 0] = b.GetBit(0);
-                PieceBitFild[(i * 8) + 1] = b.GetBit(1);
-                PieceBitFild[(i * 8) + 2] = b.GetBit(2);
-                PieceBitFild[(i * 8) + 3] = b.GetBit(3);
-                PieceBitFild[(i * 8) + 4] = b.GetBit(4);
-                PieceBitFild[(i * 8) + 5] = b.GetBit(5);
-                PieceBitFild[(i * 8) + 6] = b.GetBit(6);
-                PieceBitFild[(i * 8) + 7] = b.GetBit(7);
-
-                /*lock (_internalBuffer) */_internalBuffer = _internalBuffer.Skip(1).ToArray();
+                //not sent entire bitfield, kill the connection
+                Disconnect();
+                return;
             }
 
-            OnBitField(length*8, PieceBitFild);
+            PeerBitField = new bool[length * 8];
+            for (int i = 0; i < length; i++)
+            {
+                byte b = _internalBuffer[0];
+
+                PeerBitField[(i * 8) + 0] = b.GetBit(0);
+                PeerBitField[(i * 8) + 1] = b.GetBit(1);
+                PeerBitField[(i * 8) + 2] = b.GetBit(2);
+                PeerBitField[(i * 8) + 3] = b.GetBit(3);
+                PeerBitField[(i * 8) + 4] = b.GetBit(4);
+                PeerBitField[(i * 8) + 5] = b.GetBit(5);
+                PeerBitField[(i * 8) + 6] = b.GetBit(6);
+                PeerBitField[(i * 8) + 7] = b.GetBit(7);
+
+                lock (_locker)
+                {
+                    _internalBuffer = _internalBuffer.Skip(1).ToArray();
+                }
+            }
+
+            OnBitField(length*8, PeerBitField);
         }
 
         private void ProcessHave()
         {
             Int32 pieceIndex = Unpack.Int32(_internalBuffer, 0, Unpack.Endianness.Big);
-            
-            /*lock (_internalBuffer)
-            {*/
-                _internalBuffer = _internalBuffer.Skip(4).ToArray();
-            /*}*/
 
-            PieceBitFild[pieceIndex] = true;
+            lock (_locker)
+            {
+                _internalBuffer = _internalBuffer.Skip(4).ToArray();
+            }
+
+            PeerBitField[pieceIndex] = true;
             OnHave(pieceIndex);
         }
 
         private void ProcessRequest(bool cancel)
         {
             Int32 index = Unpack.Int32(_internalBuffer, 0, Unpack.Endianness.Big);
-            _internalBuffer = _internalBuffer.Skip(4).ToArray();
-            Int32 begin = Unpack.Int32(_internalBuffer, 0, Unpack.Endianness.Big);
-            _internalBuffer = _internalBuffer.Skip(4).ToArray();
-            Int32 length = Unpack.Int32(_internalBuffer, 0, Unpack.Endianness.Big);
-            _internalBuffer = _internalBuffer.Skip(4).ToArray();
+            Int32 begin = Unpack.Int32(_internalBuffer, 4, Unpack.Endianness.Big);
+            Int32 length = Unpack.Int32(_internalBuffer, 8, Unpack.Endianness.Big);
+
+            lock (_locker)
+            {
+                _internalBuffer = _internalBuffer.Skip(12).ToArray();
+            }
 
             if (!cancel)
             {
@@ -437,7 +468,10 @@ namespace System.Net.Torrent
 
         private void ProcessPiece(Int32 length)
         {
-            _internalBuffer = _internalBuffer.Skip(length - 8).ToArray();
+            lock (_locker)
+            {
+                _internalBuffer = _internalBuffer.Skip(length - 8).ToArray();
+            }
 
             OnPiece(0, 0, null);
         }
@@ -445,9 +479,10 @@ namespace System.Net.Torrent
         private void ProcessExtended(Int32 length)
         {
             Int32 msgId = _internalBuffer[0];
-            _internalBuffer = _internalBuffer.Skip(1).ToArray();
+            lock (_locker) _internalBuffer = _internalBuffer.Skip(1).ToArray();
+            
             byte[] buffer = _internalBuffer.Take(length-1).ToArray();
-            _internalBuffer = _internalBuffer.Skip(length-1).ToArray();
+            lock (_locker) _internalBuffer = _internalBuffer.Skip(length - 1).ToArray();
 
             if (msgId == 0)
             {
@@ -475,7 +510,8 @@ namespace System.Net.Torrent
         private void ProcessAllowFast()
         {
             Int32 index = Unpack.Int32(_internalBuffer, 0, Unpack.Endianness.Big);
-            _internalBuffer = _internalBuffer.Skip(4).ToArray();
+
+            lock (_locker) _internalBuffer = _internalBuffer.Skip(4).ToArray();
 
             OnAllowFast(index);
         }
