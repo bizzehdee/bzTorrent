@@ -42,7 +42,7 @@ namespace System.Net.Torrent
         private readonly Object _locker = new Object();
         private readonly byte[] _bitTorrentProtocolHeader = { 0x42, 0x69, 0x74, 0x54, 0x6F, 0x72, 0x72, 0x65, 0x6E, 0x74, 0x20, 0x70, 0x72, 0x6F, 0x74, 0x6F, 0x63, 0x6F, 0x6C };
 
-        private readonly Socket _socket;
+        internal readonly Socket Socket;
         private byte[] _internalBuffer; //async internal buffer
         private readonly List<IBTExtension> _protocolExtensions;
         private readonly Dictionary<String, Int64> _extOutgoing = new Dictionary<string, long>();
@@ -79,9 +79,9 @@ namespace System.Net.Torrent
 
             Timeout = timeout;
 
-            _socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-            _socket.ReceiveTimeout = timeout * 1000;
-            _socket.SendTimeout = timeout * 1000;
+            Socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+            Socket.ReceiveTimeout = timeout * 1000;
+            Socket.SendTimeout = timeout * 1000;
 
             _internalBuffer = new byte[0];
         }
@@ -92,27 +92,27 @@ namespace System.Net.Torrent
 
             Timeout = timeout;
 
-            _socket = socket;
-            _socket.ReceiveTimeout = timeout * 1000;
-            _socket.SendTimeout = timeout * 1000;
+            Socket = socket;
+            Socket.ReceiveTimeout = timeout * 1000;
+            Socket.SendTimeout = timeout * 1000;
 
             _internalBuffer = new byte[0];
         }
 
         public void Connect(IPEndPoint endPoint)
         {
-            _socket.Connect(endPoint);
+            Socket.Connect(endPoint);
         }
 
         public void Connect(String ipHost, Int32 port)
         {
-            _socket.Connect(ipHost, port);
+            Socket.Connect(ipHost, port);
         }
 
         public void Disconnect()
         {
-            _socket.Disconnect(false);
-            _socket.Close();
+            Socket.Disconnect(false);
+            Socket.Close();
         }
 
         public void Handshake()
@@ -142,7 +142,7 @@ namespace System.Net.Torrent
 
             byte[] sendBuf = (new[] { (byte)_bitTorrentProtocolHeader.Length }).Concat(_bitTorrentProtocolHeader).Concat(reservedBytes).Concat(hash).Concat(peerId).ToArray();
 
-            _socket.Send(sendBuf);
+            Socket.Send(sendBuf);
 
             if (UseExtended)
             {
@@ -162,13 +162,13 @@ namespace System.Net.Torrent
                 Int32 length = 2 + handshakeEncoded.Length;
                 sendBuf = Pack.Int32(length, Pack.Endianness.Big).Concat(new[] { (byte)20 }).Concat(new[] { (byte)0 }).Concat(Encoding.ASCII.GetBytes(handshakeEncoded)).ToArray();
 
-                _socket.Send(sendBuf);
+                Socket.Send(sendBuf);
             }
 
             byte[] readBuf = new byte[68];
             try
             {
-                _socket.Receive(readBuf);
+                Socket.Receive(readBuf);
             }
             catch (SocketException)
             {
@@ -178,8 +178,8 @@ namespace System.Net.Torrent
             Int32 resLen = readBuf[0];
             if (resLen != 19)
             {
-                _socket.Disconnect(false);
-                _socket.Close();
+                Socket.Disconnect(false);
+                Socket.Close();
                 throw new InvalidProgramException("Invalid response received from peer");
             }
 
@@ -188,37 +188,37 @@ namespace System.Net.Torrent
             RemoteUsesFast = (recReserved[7] & 0x04) == 0x04;
 
             byte[] recBuffer = new byte[128];
-            _socket.BeginReceive(recBuffer, 0, 128, SocketFlags.None, OnReceived, recBuffer);
+            Socket.BeginReceive(recBuffer, 0, 128, SocketFlags.None, OnReceived, recBuffer);
         }
 
         public void SendKeepAlive()
         {
-            _socket.Send(Pack.Int32(0));
+            Socket.Send(Pack.Int32(0));
         }
 
         public void SendChoke()
         {
-            _socket.Send(Pack.Int32(1, Pack.Endianness.Big).Concat(new byte[] { 0 }).ToArray());
+            Socket.Send(Pack.Int32(1, Pack.Endianness.Big).Concat(new byte[] { 0 }).ToArray());
         }
 
         public void SendUnChoke()
         {
-            _socket.Send(Pack.Int32(1, Pack.Endianness.Big).Concat(new byte[] { 1 }).ToArray());
+            Socket.Send(Pack.Int32(1, Pack.Endianness.Big).Concat(new byte[] { 1 }).ToArray());
         }
 
         public void SendInterested()
         {
-            _socket.Send(Pack.Int32(1, Pack.Endianness.Big).Concat(new byte[] { 2 }).ToArray());
+            Socket.Send(Pack.Int32(1, Pack.Endianness.Big).Concat(new byte[] { 2 }).ToArray());
         }
 
         public void SendNotInterested()
         {
-            _socket.Send(Pack.Int32(1, Pack.Endianness.Big).Concat(new byte[] { 3 }).ToArray());
+            Socket.Send(Pack.Int32(1, Pack.Endianness.Big).Concat(new byte[] { 3 }).ToArray());
         }
 
         public void SendHave(Int32 index)
         {
-            _socket.Send(Pack.Int32(5, Pack.Endianness.Big).Concat(new byte[] { 4 }).Concat(Pack.Int32(index)).ToArray());
+            Socket.Send(Pack.Int32(5, Pack.Endianness.Big).Concat(new byte[] { 4 }).Concat(Pack.Int32(index)).ToArray());
         }
 
         public void SendBitField(bool[] bitField)
@@ -252,26 +252,26 @@ namespace System.Net.Torrent
                 if(bitField[i]) bytes[x] = bytes[x].SetBit(p);
             }
 
-            _socket.Send(Pack.Int32(1 + bitField.Length, Pack.Endianness.Big).Concat(new byte[] { 5 }).Concat(bytes).ToArray());
+            Socket.Send(Pack.Int32(1 + bitField.Length, Pack.Endianness.Big).Concat(new byte[] { 5 }).Concat(bytes).ToArray());
         }
 
         public void SendRequest(Int32 index, Int32 start, Int32 length)
         {
-            _socket.Send(Pack.Int32(13, Pack.Endianness.Big).Concat(new byte[] { 6 }).Concat(Pack.Int32(index)).Concat(Pack.Int32(start)).Concat(Pack.Int32(length)).ToArray());
+            Socket.Send(Pack.Int32(13, Pack.Endianness.Big).Concat(new byte[] { 6 }).Concat(Pack.Int32(index)).Concat(Pack.Int32(start)).Concat(Pack.Int32(length)).ToArray());
         }
 
         public void SendCancel(Int32 index, Int32 start, Int32 length)
         {
-            _socket.Send(Pack.Int32(13, Pack.Endianness.Big).Concat(new byte[] { 8 }).Concat(Pack.Int32(index)).Concat(Pack.Int32(start)).Concat(Pack.Int32(length)).ToArray());
+            Socket.Send(Pack.Int32(13, Pack.Endianness.Big).Concat(new byte[] { 8 }).Concat(Pack.Int32(index)).Concat(Pack.Int32(start)).Concat(Pack.Int32(length)).ToArray());
         }
 
         public void OnReceived(IAsyncResult ar)
         {
-            if (_socket == null) return;
+            if (Socket == null) return;
 
             byte[] data = (byte[])ar.AsyncState;
 
-            Int32 len = _socket.EndReceive(ar);
+            Int32 len = Socket.EndReceive(ar);
 
             lock (_locker)
             {
@@ -279,7 +279,7 @@ namespace System.Net.Torrent
             }
 
             byte[] recBuffer = new byte[128];
-            if (_socket.Connected) _socket.BeginReceive(recBuffer, 0, 128, SocketFlags.None, OnReceived, recBuffer);
+            if (Socket.Connected) Socket.BeginReceive(recBuffer, 0, 128, SocketFlags.None, OnReceived, recBuffer);
         }
 
         public bool Process()
@@ -296,7 +296,7 @@ namespace System.Net.Torrent
 
             if (_internalBuffer.Length < 4)
             {
-                if (!_socket.Connected) return false;
+                if (!Socket.Connected) return false;
 
                 Thread.Sleep(10);
                 return true;
@@ -493,12 +493,19 @@ namespace System.Net.Torrent
                 {
                     BInt i = (BInt)pair.Value;
                     _extIncoming.Add(i, pair.Key);
+
+                    IBTExtension ext = _protocolExtensions.FirstOrDefault(f => f.Protocol == pair.Key);
+
+                    if (ext != null)
+                    {
+                        ext.OnHandshake(this, buffer);
+                    }
                 }
             }
             else
             {
                 KeyValuePair<Int64, String> pair = _extIncoming.FirstOrDefault(f => f.Key == msgId);
-                IBTExtension ext = _protocolExtensions.First(f => f.Protocol == pair.Value);
+                IBTExtension ext = _protocolExtensions.FirstOrDefault(f => f.Protocol == pair.Value);
 
                 if (ext != null)
                 {
@@ -589,11 +596,23 @@ namespace System.Net.Torrent
         public void RegisterProtocolExtension(IBTExtension extension)
         {
             _protocolExtensions.Add(extension);
+            extension.Init(this);
         }
 
         public void UnregisterProtocolExtension(IBTExtension extension)
         {
             _protocolExtensions.Remove(extension);
+            extension.Deinit(this);
+        }
+
+        public Int64 GetOutgoingMessageID(IBTExtension extension)
+        {
+            if (_extOutgoing.ContainsKey(extension.Protocol))
+            {
+                return _extOutgoing[extension.Protocol];
+            }
+
+            return -1;
         }
     }
 }
