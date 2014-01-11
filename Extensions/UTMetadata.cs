@@ -11,14 +11,19 @@ namespace System.Net.Torrent.Extensions
         private PeerWireClient _peerWireClient;
         private Int64 _metadataSize;
         private Int64 _pieceCount;
+		private Int64 _piecesReceived;
+	    private byte[] _metadataBuffer;
 
         public string Protocol
         {
             get { return "ut_metadata"; }
         }
 
+		public event Action<PeerWireClient, IBTExtension, BDict> MetaDataReceived;
+
         public void Init(PeerWireClient peerWireClient)
         {
+			_metadataBuffer = new byte[0];
             _peerWireClient = peerWireClient;
         }
 
@@ -42,19 +47,30 @@ namespace System.Net.Torrent.Extensions
 
         public void OnExtendedMessage(PeerWireClient peerWireClient, byte[] bytes)
         {
-            Int64 startAt = 0;
-            BDict dict = (BDict)BencodingUtils.Decode(bytes);
+            Int32 startAt = 0;
+			BDict dict = (BDict)BencodingUtils.Decode(bytes, ref startAt);
+	        _piecesReceived += 1;
 
-            if (dict.ContainsKey("total_size"))
-            {
-                startAt = bytes.Length - (BInt)dict["total_size"];
-            }
+	        if (_pieceCount >= _piecesReceived)
+	        {
+				_metadataBuffer = _metadataBuffer.Concat(bytes.Skip(startAt)).ToArray();
+	        }
 
-            BDict metadata = (BDict) BencodingUtils.Decode(bytes.Skip((int) startAt).ToArray());
+	        if (_pieceCount == _piecesReceived)
+	        {
+				BDict metadata = (BDict)BencodingUtils.Decode(_metadataBuffer);
+
+		        if (MetaDataReceived != null)
+		        {
+			        MetaDataReceived(peerWireClient, this, metadata);
+		        }
+	        }
         }
 
         public void RequestMetaData()
         {
+			byte[] sendBuffer = new byte[0];
+
             for (Int32 i = 0; i < _pieceCount; i++)
             {
                 BDict masterBDict = new BDict();
@@ -67,8 +83,10 @@ namespace System.Net.Torrent.Extensions
                 buffer = buffer.Concat(new byte[] {(byte) _peerWireClient.GetOutgoingMessageID(this)}).ToArray();
                 buffer = buffer.Concat(Encoding.ASCII.GetBytes(encoded)).ToArray();
 
-                _peerWireClient.Socket.Send(buffer);
+	            sendBuffer = sendBuffer.Concat(buffer).ToArray();
             }
+
+			_peerWireClient.Socket.Send(sendBuffer);
         }
 
     }
