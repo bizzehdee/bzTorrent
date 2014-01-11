@@ -41,22 +41,25 @@ namespace System.Net.Torrent.bencode
         /// Assumes the next token is a list.
         /// </summary>
         /// <param name="inputStream"></param>
+		/// <param name="bytesConsumed"></param>
         /// <returns>Decoded list</returns>
-        public static BList Decode(BinaryReader inputStream)
+		public static BList Decode(BinaryReader inputStream, ref int bytesConsumed)
         {
             // Get past 'l'
             inputStream.Read();
+	        bytesConsumed++;
 
             BList res = new BList();
 
             // Read elements till an 'e'
             while (inputStream.PeekChar() != 'e')
             {
-                res.Add(BencodingUtils.Decode(inputStream));
+                res.Add(BencodingUtils.Decode(inputStream, ref bytesConsumed));
             }
 
             // Get past 'e'
             inputStream.Read();
+			bytesConsumed++;
 
             return res;
         }

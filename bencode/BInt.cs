@@ -29,6 +29,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 using System;
+using System.Globalization;
 using System.IO;
 using System.Runtime.CompilerServices;
 
@@ -52,11 +53,13 @@ namespace System.Net.Torrent.bencode
         /// Assumes the next token is a int.
         /// </summary>
         /// <param name="inputStream"></param>
+		/// <param name="bytesConsumed"></param>
         /// <returns>Decoded int</returns>
-        public static BInt Decode(BinaryReader inputStream)
+		public static BInt Decode(BinaryReader inputStream, ref int bytesConsumed)
         {
             // Get past 'i'
             inputStream.Read();
+	        bytesConsumed++;
 
             // Read numbers till an 'e'
             string number = "";
@@ -65,7 +68,11 @@ namespace System.Net.Torrent.bencode
             while ((ch = inputStream.ReadChar()) != 'e')
             {
                 number += ch;
+
+				bytesConsumed++;
             }
+
+			bytesConsumed++;
 
             BInt res = new BInt { Value = long.Parse(number) };
 
@@ -78,7 +85,7 @@ namespace System.Net.Torrent.bencode
             writer.Write('i');
 
             // Write value
-            writer.Write(Value.ToString().ToCharArray());
+            writer.Write(Value.ToString(CultureInfo.InvariantCulture).ToCharArray());
 
             // Write footer
             writer.Write('e');

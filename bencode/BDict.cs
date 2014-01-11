@@ -41,28 +41,30 @@ namespace System.Net.Torrent.bencode
         /// Assumes the next token is a dictionary.
         /// </summary>
         /// <param name="inputStream"></param>
+		/// <param name="bytesConsumed"></param>
         /// <returns>Decoded dictionary</returns>
-        public static BDict Decode(BinaryReader inputStream)
+		public static BDict Decode(BinaryReader inputStream, ref int bytesConsumed)
         {
             // Get past 'd'
             char c = (char)inputStream.ReadByte();
-
+	        bytesConsumed++;
             BDict res = new BDict();
 
             // Read elements till an 'e'
             while (inputStream.PeekChar() != 'e')
             {
                 // Key
-                BString key = BString.Decode(inputStream);
+                BString key = BString.Decode(inputStream, ref bytesConsumed);
 
                 // Value
-                IBencodingType value = BencodingUtils.Decode(inputStream);
+                IBencodingType value = BencodingUtils.Decode(inputStream, ref bytesConsumed);
 
                 res[key.Value] = value;
             }
 
             // Get past 'e'
             inputStream.Read();
+			bytesConsumed++;
 
             return res;
         }

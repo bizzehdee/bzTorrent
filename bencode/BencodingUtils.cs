@@ -96,6 +96,12 @@ namespace System.Net.Torrent.bencode
         {
             return Decode(new MemoryStream(byteArray));
         }
+
+		public static IBencodingType Decode(byte[] byteArray, ref int bytesConsumed)
+		{
+			return Decode(new MemoryStream(byteArray), ref bytesConsumed);
+		}
+
         /// <summary>
         /// Parse a bencoded stream (for example a file).
         /// </summary>
@@ -105,10 +111,20 @@ namespace System.Net.Torrent.bencode
         {
             using (BinaryReader sr = new BinaryReader(inputStream, ExtendedASCIIEncoding))
             {
-                return Decode(sr);
+	            int bytesConsumed = 0;
+				return Decode(sr, ref bytesConsumed);
             }
         }
-        internal static IBencodingType Decode(BinaryReader inputStream)
+
+		public static IBencodingType Decode(Stream inputStream, ref int bytesConsumed)
+		{
+			using (BinaryReader sr = new BinaryReader(inputStream, ExtendedASCIIEncoding))
+			{
+				return Decode(sr, ref bytesConsumed);
+			}
+		}
+
+		internal static IBencodingType Decode(BinaryReader inputStream, ref int bytesConsumed)
         {
             char next = (char)inputStream.PeekChar();
 
@@ -116,15 +132,15 @@ namespace System.Net.Torrent.bencode
             {
                 case 'i':
                     // Integer
-                    return BInt.Decode(inputStream);
+                    return BInt.Decode(inputStream, ref bytesConsumed);
 
                 case 'l':
                     // List
-                    return BList.Decode(inputStream);
+                    return BList.Decode(inputStream, ref bytesConsumed);
 
                 case 'd':
                     // List
-                    return BDict.Decode(inputStream);
+					return BDict.Decode(inputStream, ref bytesConsumed);
 
                 case '0':
                 case '1':
@@ -137,7 +153,7 @@ namespace System.Net.Torrent.bencode
                 case '8':
                 case '9':
                     // String
-                    return BString.Decode(inputStream);
+					return BString.Decode(inputStream, ref bytesConsumed);
             }
 
             return null;
