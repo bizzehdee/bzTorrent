@@ -79,11 +79,13 @@ namespace System.Net.Torrent
 
             Timeout = timeout;
 
-            Socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-            Socket.ReceiveTimeout = timeout * 1000;
-            Socket.SendTimeout = timeout * 1000;
+            Socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp)
+            {
+	            ReceiveTimeout = timeout*1000,
+	            SendTimeout = timeout*1000
+            };
 
-            _internalBuffer = new byte[0];
+	        _internalBuffer = new byte[0];
         }
 
         public PeerWireClient(Int32 timeout, Socket socket)
@@ -228,16 +230,23 @@ namespace System.Net.Torrent
 
         public void SendBitField(bool[] bitField, bool obsf)
         {
-            long[] obsfIDs =  new long[0];
+			int[] obsfIDs = new int[0];
 
             if (obsf && bitField.Length > 32)
             {
-                obsfIDs = new long[Math.Min(16, bitField.Length / 16)];
+				Random rand = new Random();
+	            int obsfCount = Math.Min(16, bitField.Length/16);
+	            int distObsf = 0;
+				obsfIDs = new int[obsfCount];
 
-                for (int i = 0; i < obsfIDs.Length; i++)
-                {
-                    
-                }
+				while (distObsf < obsfCount)
+				{
+					int piece = rand.Next(0, bitField.Length);
+					if (obsfIDs.Contains(piece)) continue;
+
+					obsfIDs[distObsf] = piece;
+					distObsf++;
+				}
             }
 
             byte[] bytes = new byte[bitField.Length / 8];
@@ -253,7 +262,20 @@ namespace System.Net.Torrent
             }
 
             Socket.Send(Pack.Int32(1 + bitField.Length, Pack.Endianness.Big).Concat(new byte[] { 5 }).Concat(bytes).ToArray());
+
+	        if (obsfIDs.Length > 0)
+	        {
+				foreach (int obsfID in obsfIDs)
+		        {
+			        SendHave(obsfID);
+		        }
+	        }
         }
+
+	    public void SendPiece()
+	    {
+		    
+	    }
 
         public void SendRequest(Int32 index, Int32 start, Int32 length)
         {
