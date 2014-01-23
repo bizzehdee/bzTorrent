@@ -272,10 +272,10 @@ namespace System.Net.Torrent
 	        }
         }
 
-	    public void SendPiece()
-	    {
-		    
-	    }
+		public void SendPiece(Int32 index, Int32 start, byte[] data)
+		{
+			Socket.Send(Pack.Int32(9 + data.Length, Pack.Endianness.Big).Concat(new byte[] { 7 }).Concat(Pack.Int32(index)).Concat(Pack.Int32(start)).Concat(data).ToArray());
+		}
 
         public void SendRequest(Int32 index, Int32 start, Int32 length)
         {
