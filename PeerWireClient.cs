@@ -56,7 +56,7 @@ namespace System.Net.Torrent
         public bool RemoteUsesFast { get; private set; }
         public bool UseFast { get; set; }
         public String LocalPeerID { get; set; }
-        public String RemotePeerID { get; set; }
+        public String RemotePeerID { get; private set; }
         public String Hash { get; set; }
 
         public event Action<PeerWireClient> KeepAlive;
@@ -144,7 +144,14 @@ namespace System.Net.Torrent
 
             byte[] sendBuf = (new[] { (byte)_bitTorrentProtocolHeader.Length }).Concat(_bitTorrentProtocolHeader).Concat(reservedBytes).Concat(hash).Concat(peerId).ToArray();
 
-            Socket.Send(sendBuf);
+	        try
+	        {
+				Socket.Send(sendBuf);
+	        }
+	        catch (SocketException ex)
+	        {
+		        return;
+	        }
 
             if (UseExtended)
             {
