@@ -45,9 +45,9 @@ namespace System.Net.Torrent
             _currentConnectionId = BaseCurrentConnectionId;
         }
 
-        public Dictionary<String, Tuple<UInt32, UInt32, UInt32>> Scrape(String url, String[] hashes)
+		public Dictionary<String, ScrapeInfo> Scrape(String url, String[] hashes)
         {
-            Dictionary<String, Tuple<UInt32, UInt32, UInt32>> returnVal = new Dictionary<string, Tuple<UInt32, UInt32, UInt32>>();
+			Dictionary<String, ScrapeInfo> returnVal = new Dictionary<string, ScrapeInfo>();
 
             ValidateInput(url, hashes, ScraperType.UDP);
 
@@ -113,7 +113,7 @@ namespace System.Net.Torrent
                 UInt32 completed = UnpackN(recBuf, startIndex + 4);
                 UInt32 leachers = UnpackN(recBuf, startIndex + 8);
 
-                returnVal.Add(hash, new Tuple<uint, uint, uint>(seeders, completed, leachers));
+				returnVal.Add(hash, new ScrapeInfo(seeders, completed, leachers, ScraperType.UDP));
 
                 startIndex += 12;
             }

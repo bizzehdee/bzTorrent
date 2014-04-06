@@ -53,7 +53,7 @@ namespace System.Net.Torrent
             Timeout = timeout;
         }
 
-        protected enum ScraperType
+	    public enum ScraperType
         {
             UDP,
             HTTP
@@ -103,5 +103,30 @@ namespace System.Net.Torrent
                 Tracker = match.Groups[0].Value;
             }
         }
+
+	    public class ScrapeInfo
+	    {
+			public UInt32 Seeders { get; set; }
+		    public UInt32 Complete { get; set; }
+			public UInt32 Leachers { get; set; }
+		    public UInt32 Downloaded { get; set; }
+		    public UInt32 Incomplete { get; set; }
+
+		    public ScrapeInfo(UInt32 a, UInt32 b, UInt32 c, ScraperType type)
+		    {
+			    if (type == ScraperType.HTTP)
+			    {
+				    Complete = a;
+				    Downloaded = b;
+				    Incomplete = c;
+				}
+				else if (type == ScraperType.UDP)
+				{
+					Seeders = a;
+					Complete = b;
+					Leachers = c;
+				}
+		    }
+	    }
     }
 }

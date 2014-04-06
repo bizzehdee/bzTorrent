@@ -148,7 +148,7 @@ namespace System.Net.Torrent
 	        {
 				Socket.Send(sendBuf);
 	        }
-	        catch (SocketException ex)
+	        catch (SocketException)
 	        {
 		        return;
 	        }

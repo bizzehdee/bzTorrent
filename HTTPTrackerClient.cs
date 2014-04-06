@@ -119,9 +119,9 @@ namespace System.Net.Torrent
             return hashes.ToDictionary(hash => hash, hash => Announce(url, hash));
         }
 
-        public Dictionary<string, Tuple<uint, uint, uint>> Scrape(string url, string[] hashes)
+		public Dictionary<string, ScrapeInfo> Scrape(string url, string[] hashes)
         {
-            Dictionary<String, Tuple<UInt32, UInt32, UInt32>> returnVal = new Dictionary<string, Tuple<UInt32, UInt32, UInt32>>();
+			Dictionary<String, ScrapeInfo> returnVal = new Dictionary<string, ScrapeInfo>();
 
             String realUrl = url.Replace("announce", "scrape") + "?";
 
@@ -176,12 +176,11 @@ namespace System.Net.Torrent
                 if (d.ContainsKey("complete") && d.ContainsKey("downloaded") && d.ContainsKey("incomplete"))
                 {
                     String rk = Unpack.Hex(BencodingUtils.ExtendedASCIIEncoding.GetBytes(k));
-                    returnVal.Add(rk, new Tuple<uint, uint, uint>((uint)((BInt)d["complete"]).Value, (uint)((BInt)d["downloaded"]).Value, (uint)((BInt)d["incomplete"]).Value));
+					returnVal.Add(rk, new ScrapeInfo((uint)((BInt)d["complete"]).Value, (uint)((BInt)d["downloaded"]).Value, (uint)((BInt)d["incomplete"]).Value, ScraperType.HTTP));
                 }
             }
 
             return returnVal;
         }
-
     }
 }

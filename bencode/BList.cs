@@ -36,7 +36,7 @@ namespace System.Net.Torrent.bencode
 {
     public class BList : List<IBencodingType>, IEquatable<BList>, IEquatable<IList<IBencodingType>>, IBencodingType
     {
-        /// <summary>
+	    /// <summary>
         /// Decode the next token as a list.
         /// Assumes the next token is a list.
         /// </summary>
