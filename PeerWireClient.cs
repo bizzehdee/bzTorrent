@@ -72,6 +72,7 @@ namespace System.Net.Torrent
         public event Action<PeerWireClient, Int32, Int32, Int32> Cancel;
 		public event Action<PeerWireClient, UInt16> Port;
 		public event Action<PeerWireClient, Int32> SuggestPiece;
+		public event Action<PeerWireClient, Int32, Int32, Int32> Reject;
         public event Action<PeerWireClient> HaveAll;
         public event Action<PeerWireClient> HaveNone;
         public event Action<PeerWireClient, Int32> AllowedFast;
@@ -425,7 +426,7 @@ namespace System.Net.Torrent
                     break;
                 case 16:
                     //Reject Request
-                    lock (_locker) _internalBuffer = _internalBuffer.Skip(12).ToArray();
+		            ProcessReject();
                     break;
                 case 17:
                     //Allowed Fast
@@ -541,6 +542,20 @@ namespace System.Net.Torrent
 
             OnPiece(0, 0, null);
         }
+
+	    private void ProcessReject()
+	    {
+			Int32 index = Unpack.Int32(_internalBuffer, 0, Unpack.Endianness.Big);
+			Int32 begin = Unpack.Int32(_internalBuffer, 4, Unpack.Endianness.Big);
+			Int32 length = Unpack.Int32(_internalBuffer, 8, Unpack.Endianness.Big);
+
+			lock (_locker)
+			{
+				_internalBuffer = _internalBuffer.Skip(12).ToArray();
+			}
+
+		    OnReject(index, begin, length);
+	    }
 
         private void ProcessExtended(Int32 length)
         {
@@ -664,10 +679,15 @@ namespace System.Net.Torrent
             if (HaveAll != null) HaveAll(this);
         }
 
-        private void OnHaveNone()
-        {
-            if (HaveNone != null) HaveNone(this);
-        }
+		private void OnHaveNone()
+		{
+			if (HaveNone != null) HaveNone(this);
+		}
+
+		private void OnReject(Int32 index, Int32 begin, Int32 length)
+		{
+			if (Reject != null) Reject(this, index, begin, length);
+		}
 
         private void OnAllowFast(Int32 pieceIndex)
         {
