@@ -29,6 +29,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Net.Sockets;
 using System.Net.Torrent.bencode;
@@ -69,6 +70,8 @@ namespace System.Net.Torrent
         public event Action<PeerWireClient, Int32, Int32, Int32> Request;
         public event Action<PeerWireClient, Int32, Int32, byte[]> Piece;
         public event Action<PeerWireClient, Int32, Int32, Int32> Cancel;
+		public event Action<PeerWireClient, UInt16> Port;
+		public event Action<PeerWireClient, Int32> SuggestPiece;
         public event Action<PeerWireClient> HaveAll;
         public event Action<PeerWireClient> HaveNone;
         public event Action<PeerWireClient, Int32> AllowedFast;
@@ -144,15 +147,6 @@ namespace System.Net.Torrent
 
             byte[] sendBuf = (new[] { (byte)_bitTorrentProtocolHeader.Length }).Concat(_bitTorrentProtocolHeader).Concat(reservedBytes).Concat(hash).Concat(peerId).ToArray();
 
-	        try
-	        {
-				Socket.Send(sendBuf);
-	        }
-	        catch (SocketException)
-	        {
-		        return;
-	        }
-
             if (UseExtended)
             {
                 BDict handshakeDict = new BDict();
@@ -168,10 +162,23 @@ namespace System.Net.Torrent
                 handshakeDict.Add("m", mDict);
 
                 String handshakeEncoded = BencodingUtils.EncodeString(handshakeDict);
-                Int32 length = 2 + handshakeEncoded.Length;
-                sendBuf = Pack.Int32(length, Pack.Endianness.Big).Concat(new[] { (byte)20 }).Concat(new[] { (byte)0 }).Concat(Encoding.ASCII.GetBytes(handshakeEncoded)).ToArray();
+	            byte[] handshakeBytes = Encoding.ASCII.GetBytes(handshakeEncoded);
+				Int32 length = 2 + handshakeBytes.Length;
+				sendBuf = sendBuf.Concat(Pack.Int32(length, Pack.Endianness.Big).Concat(new[] { (byte)20 }).Concat(new[] { (byte)0 }).Concat(handshakeBytes).ToArray()).ToArray();
 
                 Socket.Send(sendBuf);
+            }
+            else
+            {
+				try
+				{
+					Socket.Send(sendBuf);
+				}
+				catch (SocketException ex)
+				{
+					Trace.TraceInformation(ex.Message);
+					return;
+				}
             }
 
             byte[] readBuf = new byte[68];
@@ -179,8 +186,9 @@ namespace System.Net.Torrent
             {
                 Socket.Receive(readBuf);
             }
-            catch (SocketException)
+            catch (SocketException ex)
             {
+				Trace.TraceInformation(ex.Message);
                 return;
             }
 
@@ -289,10 +297,15 @@ namespace System.Net.Torrent
             Socket.Send(Pack.Int32(13, Pack.Endianness.Big).Concat(new byte[] { 6 }).Concat(Pack.Int32(index)).Concat(Pack.Int32(start)).Concat(Pack.Int32(length)).ToArray());
         }
 
-        public void SendCancel(Int32 index, Int32 start, Int32 length)
-        {
-            Socket.Send(Pack.Int32(13, Pack.Endianness.Big).Concat(new byte[] { 8 }).Concat(Pack.Int32(index)).Concat(Pack.Int32(start)).Concat(Pack.Int32(length)).ToArray());
-        }
+		public void SendCancel(Int32 index, Int32 start, Int32 length)
+		{
+			Socket.Send(Pack.Int32(13, Pack.Endianness.Big).Concat(new byte[] { 8 }).Concat(Pack.Int32(index)).Concat(Pack.Int32(start)).Concat(Pack.Int32(length)).ToArray());
+		}
+
+		public void SendExtended(Int32 extMsgId, Int32 start, Int32 length)
+		{
+			
+		}
 
         public void OnReceived(IAsyncResult ar)
         {
@@ -396,11 +409,11 @@ namespace System.Net.Torrent
                     break;
                 case 9:
                     //port
-                    lock (_locker) _internalBuffer = _internalBuffer.Skip(2).ToArray();
+		            ProcessPort();
                     break;
                 case 13:
                     //Suggest Piece
-                    lock (_locker) _internalBuffer = _internalBuffer.Skip(4).ToArray();
+		            ProcessSuggest();
                     break;
                 case 14:
                     //have all
@@ -428,6 +441,18 @@ namespace System.Net.Torrent
         }
 
         #region Processors
+		private void ProcessHave()
+		{
+			Int32 pieceIndex = Unpack.Int32(_internalBuffer, 0, Unpack.Endianness.Big);
+
+			lock (_locker)
+			{
+				_internalBuffer = _internalBuffer.Skip(4).ToArray();
+			}
+
+			PeerBitField[pieceIndex] = true;
+			OnHave(pieceIndex);
+		}
 
         private void ProcessBitfield(Int32 length)
         {
@@ -461,18 +486,6 @@ namespace System.Net.Torrent
             OnBitField(length*8, PeerBitField);
         }
 
-        private void ProcessHave()
-        {
-            Int32 pieceIndex = Unpack.Int32(_internalBuffer, 0, Unpack.Endianness.Big);
-
-            lock (_locker)
-            {
-                _internalBuffer = _internalBuffer.Skip(4).ToArray();
-            }
-
-            PeerBitField[pieceIndex] = true;
-            OnHave(pieceIndex);
-        }
 
         private void ProcessRequest(bool cancel)
         {
@@ -494,6 +507,30 @@ namespace System.Net.Torrent
                 OnCancel(index, begin, length);
             }
         }
+
+		private void ProcessPort()
+		{
+			UInt16 port = Unpack.UInt16(_internalBuffer, 0, Unpack.Endianness.Big);
+
+			lock (_locker)
+			{
+				_internalBuffer = _internalBuffer.Skip(2).ToArray();
+			}
+
+			OnPort(port);
+		}
+
+		private void ProcessSuggest()
+		{
+			Int32 index = Unpack.Int32(_internalBuffer, 0, Unpack.Endianness.Big);
+
+			lock (_locker)
+			{
+				_internalBuffer = _internalBuffer.Skip(4).ToArray();
+			}
+
+			OnSuggest(index);
+		}
 
         private void ProcessPiece(Int32 length)
         {
@@ -601,10 +638,26 @@ namespace System.Net.Torrent
             if (Piece != null) Piece(this, index, begin, bytes);
         }
 
-        private void OnCancel(Int32 index, Int32 begin, Int32 length)
+		private void OnCancel(Int32 index, Int32 begin, Int32 length)
         {
             if (Cancel != null) Cancel(this, index, begin, length);
         }
+
+	    private void OnPort(UInt16 port)
+	    {
+			if (Port != null)
+			{
+				Port(this, port);
+			}
+	    }
+
+	    private void OnSuggest(Int32 pieceIndex)
+	    {
+		    if (SuggestPiece != null)
+		    {
+			    SuggestPiece(this, pieceIndex);
+		    }
+	    }
 
         private void OnHaveAll()
         {
