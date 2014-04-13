@@ -103,9 +103,38 @@ namespace System.Net.Torrent.Extensions
             }
         }
 
-        public void SendMessage(PeerWireClient peerWireClient, IPEndPoint[] addedEndPoints, byte[] flags)
-        {
+		public void SendMessage(PeerWireClient peerWireClient, IPEndPoint[] addedEndPoints, byte[] flags, IPEndPoint[] droppedEndPoints)
+		{
+			if (addedEndPoints == null && droppedEndPoints == null) return;
 
-        }
+			BDict d = new BDict();
+
+			if (addedEndPoints != null)
+			{
+				byte[] added = new byte[addedEndPoints.Length * 6];
+				for (int x = 0; x < addedEndPoints.Length; x++)
+				{
+					addedEndPoints[x].Address.GetAddressBytes().CopyTo(added, x * 6);
+					BitConverter.GetBytes((ushort)addedEndPoints[x].Port).CopyTo(added, (x * 6)+4);
+				}
+
+				d.Add("added", new BString { ByteValue = added });
+			}
+
+			if (droppedEndPoints != null)
+			{
+				byte[] dropped = new byte[droppedEndPoints.Length * 6];
+				for (int x = 0; x < droppedEndPoints.Length; x++)
+				{
+					droppedEndPoints[x].Address.GetAddressBytes().CopyTo(dropped, x * 6);
+
+					dropped.SetValue((ushort)droppedEndPoints[x].Port, (x * 6) + 2);
+				}
+
+				d.Add("dropped", new BString { ByteValue = dropped });
+			}
+
+			peerWireClient.SendExtended(peerWireClient.GetOutgoingMessageID(this), BencodingUtils.EncodeBytes(d));
+		}
     }
 }
