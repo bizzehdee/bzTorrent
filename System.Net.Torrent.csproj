@@ -52,6 +52,7 @@
     <Compile Include="IBTExtension.cs" />
     <Compile Include="ITrackerClient.cs" />
     <Compile Include="Pack.cs" />
+    <Compile Include="PeerMessageBuilder.cs" />
     <Compile Include="PeerWireClient.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="UDPTrackerClient.cs" />

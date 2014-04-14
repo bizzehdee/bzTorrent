@@ -166,6 +166,7 @@ namespace System.Net.Torrent
                 String handshakeEncoded = BencodingUtils.EncodeString(handshakeDict);
 	            byte[] handshakeBytes = Encoding.ASCII.GetBytes(handshakeEncoded);
 				Int32 length = 2 + handshakeBytes.Length;
+
 				sendBuf = sendBuf.Concat(Pack.Int32(length, Pack.Endianness.Big).Concat(new[] { (byte)20 }).Concat(new[] { (byte)0 }).Concat(handshakeBytes).ToArray()).ToArray();
 
                 Socket.Send(sendBuf);
@@ -225,35 +226,35 @@ namespace System.Net.Torrent
 
 		public bool SendChoke()
         {
-			int sent = Socket.Send(Pack.Int32(1, Pack.Endianness.Big).Concat(new byte[] { 0 }).ToArray());
+			int sent = Socket.Send(new PeerMessageBuilder(0).Message());
 
 			return sent == 5;
         }
 
 		public bool SendUnChoke()
         {
-			int sent = Socket.Send(Pack.Int32(1, Pack.Endianness.Big).Concat(new byte[] { 1 }).ToArray());
+			int sent = Socket.Send(new PeerMessageBuilder(1).Message());
 
 			return sent == 5;
         }
 
 		public bool SendInterested()
-        {
-			int sent = Socket.Send(Pack.Int32(1, Pack.Endianness.Big).Concat(new byte[] { 2 }).ToArray());
+		{
+			int sent = Socket.Send(new PeerMessageBuilder(2).Message());
 
 			return sent == 5;
         }
 
 		public bool SendNotInterested()
         {
-			int sent = Socket.Send(Pack.Int32(1, Pack.Endianness.Big).Concat(new byte[] { 3 }).ToArray());
+			int sent = Socket.Send(new PeerMessageBuilder(3).Message());
 
 			return sent == 5;
         }
 
-		public bool SendHave(Int32 index)
+		public bool SendHave(UInt32 index)
         {
-			int sent = Socket.Send(Pack.Int32(5, Pack.Endianness.Big).Concat(new byte[] { 4 }).Concat(Pack.Int32(index)).ToArray());
+			int sent = Socket.Send(new PeerMessageBuilder(4).Add(index).Message());
 
 			return sent == 9;
         }
@@ -265,18 +266,18 @@ namespace System.Net.Torrent
 
         public bool SendBitField(bool[] bitField, bool obsf)
         {
-			int[] obsfIDs = new int[0];
+			UInt32[] obsfIDs = new UInt32[0];
 
             if (obsf && bitField.Length > 32)
             {
 				Random rand = new Random();
-	            int obsfCount = Math.Min(16, bitField.Length/16);
-	            int distObsf = 0;
-				obsfIDs = new int[obsfCount];
+				UInt32 obsfCount = (UInt32)Math.Min(16, bitField.Length / 16);
+				UInt32 distObsf = 0;
+				obsfIDs = new UInt32[obsfCount];
 
 				while (distObsf < obsfCount)
 				{
-					int piece = rand.Next(0, bitField.Length);
+					UInt32 piece = (UInt32)rand.Next(0, bitField.Length);
 					if (obsfIDs.Contains(piece)) continue;
 
 					obsfIDs[distObsf] = piece;
@@ -286,7 +287,7 @@ namespace System.Net.Torrent
 
             byte[] bytes = new byte[bitField.Length / 8];
 
-            for (int i = 0; i < bitField.Length; i++)
+			for (UInt32 i = 0; i < bitField.Length; i++)
             {
                 if (obsfIDs.Contains(i)) continue;
 
@@ -299,11 +300,11 @@ namespace System.Net.Torrent
 	            }
             }
 
-            int sent = Socket.Send(Pack.Int32(1 + bitField.Length, Pack.Endianness.Big).Concat(new byte[] { 5 }).Concat(bytes).ToArray());
+			int sent = Socket.Send(new PeerMessageBuilder(5).Add(bytes).Message());
 
 	        if (obsfIDs.Length > 0)
 	        {
-				foreach (int obsfID in obsfIDs)
+				foreach (UInt32 obsfID in obsfIDs)
 		        {
 			        SendHave(obsfID);
 		        }
@@ -312,23 +313,23 @@ namespace System.Net.Torrent
 	        return sent == (5 + bitField.Length);
         }
 
-		public bool SendPiece(Int32 index, Int32 start, byte[] data)
-		{
-			int sent = Socket.Send(Pack.Int32(9 + data.Length, Pack.Endianness.Big).Concat(new byte[] { 7 }).Concat(Pack.Int32(index, Pack.Endianness.Big)).Concat(Pack.Int32(start, Pack.Endianness.Big)).Concat(data).ToArray());
-
-			return (sent == 13 + data.Length);
-		}
-
-        public bool SendRequest(Int32 index, Int32 start, Int32 length)
+		public bool SendRequest(UInt32 index, UInt32 start, UInt32 length)
         {
-			int sent = Socket.Send(Pack.Int32(13, Pack.Endianness.Big).Concat(new byte[] { 6 }).Concat(Pack.Int32(index, Pack.Endianness.Big)).Concat(Pack.Int32(start, Pack.Endianness.Big)).Concat(Pack.Int32(length, Pack.Endianness.Big)).ToArray());
+			int sent = Socket.Send(new PeerMessageBuilder(6).Add(index).Add(start).Add(length).Message());
 
 	        return sent == 17;
         }
 
-		public bool SendCancel(Int32 index, Int32 start, Int32 length)
+		public bool SendPiece(UInt32 index, UInt32 start, byte[] data)
 		{
-			int sent = Socket.Send(Pack.Int32(13, Pack.Endianness.Big).Concat(new byte[] { 8 }).Concat(Pack.Int32(index, Pack.Endianness.Big)).Concat(Pack.Int32(start, Pack.Endianness.Big)).Concat(Pack.Int32(length, Pack.Endianness.Big)).ToArray());
+			int sent = Socket.Send(new PeerMessageBuilder(7).Add(index).Add(start).Add(data).Message());
+
+			return (sent == 13 + data.Length);
+		}
+
+		public bool SendCancel(UInt32 index, UInt32 start, UInt32 length)
+		{
+			int sent = Socket.Send(new PeerMessageBuilder(8).Add(index).Add(start).Add(length).Message());
 
 			return sent == 13;
 		}
@@ -337,9 +338,9 @@ namespace System.Net.Torrent
 		{
 			Int32 length = 2 + bytes.Length;
 
-			int sent = Socket.Send(Pack.Int32(length, Pack.Endianness.Big).Concat(new [] { (byte)20} ).Concat(new [] { extMsgId }).Concat(bytes).ToArray());
+			int sent = Socket.Send(new PeerMessageBuilder(20).Add(extMsgId).Add(bytes).Message());
 
-			return sent == (4+length);
+			return sent == (4 + length);
 		}
 
         public void OnReceived(IAsyncResult ar)
