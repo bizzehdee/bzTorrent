@@ -36,6 +36,11 @@ namespace System.Net.Torrent.bencode
 {
     public class BList : List<IBencodingType>, IEquatable<BList>, IEquatable<IList<IBencodingType>>, IBencodingType
     {
+	    public override int GetHashCode()
+	    {
+		    return base.GetHashCode();
+	    }
+
 	    /// <summary>
         /// Decode the next token as a list.
         /// Assumes the next token is a list.
@@ -105,6 +110,7 @@ namespace System.Net.Torrent.bencode
 
             return true;
         }
+
         public override bool Equals(object obj)
         {
             BList other = obj as BList;
