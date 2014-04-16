@@ -43,13 +43,18 @@ namespace System.Net.Torrent
         private readonly Object _locker = new Object();
         private readonly byte[] _bitTorrentProtocolHeader = { 0x42, 0x69, 0x74, 0x54, 0x6F, 0x72, 0x72, 0x65, 0x6E, 0x74, 0x20, 0x70, 0x72, 0x6F, 0x74, 0x6F, 0x63, 0x6F, 0x6C };
 
-        internal readonly Socket Socket;
+		internal readonly IWireIO Socket;
         private byte[] _internalBuffer; //async internal buffer
         private readonly List<IBTExtension> _protocolExtensions;
 		private readonly Dictionary<String, byte> _extOutgoing = new Dictionary<string, byte>();
 		private readonly Dictionary<byte, String> _extIncoming = new Dictionary<byte, String>();
+	    private bool _handshakeComplete;
+	    private IAsyncResult _async;
 
-        public Int32 Timeout { get; private set; }
+	    private int _dynamicBufferSize = 1024;
+	    private int _maxBufferSize = 1024*256;
+
+        public Int32 Timeout { get { return Socket.Timeout; } }
         public bool[] PeerBitField { get; set; }
         public bool KeepConnectionAlive { get; set; }
         public bool UseExtended { get; set; }
@@ -62,6 +67,8 @@ namespace System.Net.Torrent
         public String RemotePeerID { get; private set; }
         public String Hash { get; set; }
 
+		public event Action<PeerWireClient> NoData;
+	    public event Action<PeerWireClient> HandshakeComplete;
         public event Action<PeerWireClient> KeepAlive;
         public event Action<PeerWireClient> Choke;
         public event Action<PeerWireClient> UnChoke;
@@ -79,31 +86,14 @@ namespace System.Net.Torrent
         public event Action<PeerWireClient> HaveNone;
         public event Action<PeerWireClient, Int32> AllowedFast;
 
-        public PeerWireClient(Int32 timeout)
-        {
-            _protocolExtensions = new List<IBTExtension>();
+	    public PeerWireClient(IWireIO io)
+	    {
+		    Socket = io;
 
-            Timeout = timeout;
+			_protocolExtensions = new List<IBTExtension>();
 
-            Socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-	        Socket.ReceiveTimeout = timeout*1000;
-	        Socket.SendTimeout = timeout*1000;
-
-	        _internalBuffer = new byte[0];
-        }
-
-        public PeerWireClient(Int32 timeout, Socket socket)
-        {
-            _protocolExtensions = new List<IBTExtension>();
-
-            Timeout = timeout;
-
-            Socket = socket;
-            Socket.ReceiveTimeout = timeout * 1000;
-            Socket.SendTimeout = timeout * 1000;
-
-            _internalBuffer = new byte[0];
-        }
+			_internalBuffer = new byte[0];
+	    }
 
         public void Connect(IPEndPoint endPoint)
         {
@@ -112,29 +102,33 @@ namespace System.Net.Torrent
 
         public void Connect(String ipHost, Int32 port)
         {
-            Socket.Connect(ipHost, port);
+            Socket.Connect(new IPEndPoint(IPAddress.Parse(ipHost), port));
         }
 
         public void Disconnect()
         {
-            Socket.Disconnect(false);
-            //Socket.Close();
+			if(_async != null)
+			{
+				Socket.EndReceive(_async);
+			}
+
+            Socket.Disconnect();
         }
 
-        public void Handshake()
+		public bool Handshake()
         {
-            Handshake(Pack.Hex(Hash), Encoding.ASCII.GetBytes(LocalPeerID));
+            return Handshake(Pack.Hex(Hash), Encoding.ASCII.GetBytes(LocalPeerID));
         }
 
-        public void Handshake(String hash, String peerId)
+        public bool Handshake(String hash, String peerId)
         {
             LocalPeerID = peerId;
             Hash = hash;
 
-            Handshake();
+            return Handshake();
         }
 
-        public void Handshake(byte[] hash, byte[] peerId)
+		public bool Handshake(byte[] hash, byte[] peerId)
         {
             if (hash == null) throw new ArgumentNullException("hash", "Hash cannot be null");
             if (peerId == null) throw new ArgumentNullException("peerId", "Peer ID cannot be null");
@@ -180,41 +174,14 @@ namespace System.Net.Torrent
 				catch (SocketException ex)
 				{
 					Trace.TraceInformation(ex.Message);
-					return;
+					return false;
 				}
             }
 
-            byte[] readBuf = new byte[68];
-            try
-            {
-                Socket.Receive(readBuf);
-            }
-            catch (SocketException ex)
-            {
-				Trace.TraceInformation(ex.Message);
-                return;
-            }
+			byte[] recBuffer = new byte[_dynamicBufferSize];
+			_async = Socket.BeginReceive(recBuffer, 0, _dynamicBufferSize, OnReceived, recBuffer);
 
-            Int32 resLen = readBuf[0];
-            if (resLen != 19)
-            {
-	            if (resLen == 0)
-	            {
-		            // keep alive?
-					Thread.Sleep(100);
-
-					Disconnect();
-		            return;
-	            }
-            }
-
-            byte[] recReserved = readBuf.Skip(20).Take(8).ToArray();
-            RemoteUsesExtended = (recReserved[5] & 0x10) == 0x10;
-            RemoteUsesFast = (recReserved[7] & 0x04) == 0x04;
-			RemoteUsesDHT = (recReserved[7] & 0x1) == 0x1;
-
-            byte[] recBuffer = new byte[128];
-            Socket.BeginReceive(recBuffer, 0, 128, SocketFlags.None, OnReceived, recBuffer);
+			return true;
         }
 
         public bool SendKeepAlive()
@@ -351,32 +318,78 @@ namespace System.Net.Torrent
 
             Int32 len = Socket.EndReceive(ar);
 
+	        _async = null;
+
             lock (_locker)
             {
                 _internalBuffer = _internalBuffer == null ? data : _internalBuffer.Concat(data.Take(len)).ToArray();
             }
 
-            byte[] recBuffer = new byte[128];
+	        if (_dynamicBufferSize < _internalBuffer.Length && _dynamicBufferSize < _maxBufferSize)
+	        {
+		        _dynamicBufferSize += 1024;
+	        }
+
+			byte[] recBuffer = new byte[_dynamicBufferSize];
 
 	        if (Socket.Connected)
 	        {
-		        Socket.BeginReceive(recBuffer, 0, 128, SocketFlags.None, OnReceived, recBuffer);
+				_async = Socket.BeginReceive(recBuffer, 0, _dynamicBufferSize, OnReceived, recBuffer);
 	        }
         }
 
         public bool Process()
         {
-            Thread.Sleep(10);
-
             if (_internalBuffer.Length < 4)
             {
-                if (!Socket.Connected) return false;
+	            OnNoData();
 
-                Thread.Sleep(10);
-                return true;
+	            return Socket.Connected;
             }
 
+	        if (!_handshakeComplete)
+			{
+				Int32 resLen = _internalBuffer[0];
+				if (resLen != 19)
+				{
+					if (resLen == 0)
+					{
+						// keep alive?
+						Thread.Sleep(100);
+
+						Disconnect();
+						return false;
+					}
+				}
+
+				_handshakeComplete = true;
+
+				byte[] recReserved = _internalBuffer.Skip(20).Take(8).ToArray();
+				RemoteUsesExtended = (recReserved[5] & 0x10) == 0x10;
+				RemoteUsesFast = (recReserved[7] & 0x04) == 0x04;
+				RemoteUsesDHT = (recReserved[7] & 0x1) == 0x1;
+
+				byte[] remoteIdbytes = _internalBuffer.Skip(48).Take(20).ToArray();
+
+				RemotePeerID = Encoding.ASCII.GetString(remoteIdbytes);
+
+				lock (_locker)
+				{
+					_internalBuffer = _internalBuffer.Skip(68).ToArray();
+				}
+
+				OnHandshake();
+
+				return true;
+			}
+
             Int32 commandLength = Unpack.Int32(_internalBuffer, 0, Unpack.Endianness.Big);
+
+	        if (commandLength > _internalBuffer.Length)
+	        {
+				//need more data first
+		        return true;
+	        }
 
             lock (_locker)
             {
@@ -657,6 +670,22 @@ namespace System.Net.Torrent
         #endregion
 
         #region Event Dispatchers
+
+		private void OnNoData()
+		{
+			if (NoData != null)
+			{
+				NoData(this);
+			}
+		}
+
+		private void OnHandshake()
+		{
+			if (HandshakeComplete != null)
+			{
+				HandshakeComplete(this);
+			}
+		}
 
         private void OnKeepAlive()
         {

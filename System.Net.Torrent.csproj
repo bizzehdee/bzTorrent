@@ -51,6 +51,7 @@
     <Compile Include="HTTPTrackerClient.cs" />
     <Compile Include="IBTExtension.cs" />
     <Compile Include="ITrackerClient.cs" />
+    <Compile Include="IWireIO.cs" />
     <Compile Include="Pack.cs" />
     <Compile Include="PeerMessageBuilder.cs" />
     <Compile Include="PeerWireClient.cs" />
@@ -58,6 +59,7 @@
     <Compile Include="UDPTrackerClient.cs" />
     <Compile Include="Unpack.cs" />
     <Compile Include="Utils.cs" />
+    <Compile Include="WireIO.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
