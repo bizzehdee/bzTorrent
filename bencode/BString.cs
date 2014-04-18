@@ -29,6 +29,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 using System;
+using System.Globalization;
 using System.IO;
 
 namespace System.Net.Torrent.bencode
@@ -91,10 +92,10 @@ namespace System.Net.Torrent.bencode
 
         public void Encode(BinaryWriter writer)
         {
-            byte[] ascii = BencodingUtils.ExtendedASCIIEncoding.GetBytes(Value);
+            byte[] ascii = ByteValue ?? BencodingUtils.ExtendedASCIIEncoding.GetBytes(Value);
 
             // Write length
-            writer.Write(BencodingUtils.ExtendedASCIIEncoding.GetBytes(ascii.Length.ToString()));
+            writer.Write(BencodingUtils.ExtendedASCIIEncoding.GetBytes(ascii.Length.ToString(CultureInfo.InvariantCulture)));
 
             // Write seperator
             writer.Write(':');
