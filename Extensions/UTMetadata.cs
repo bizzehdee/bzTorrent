@@ -28,8 +28,6 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
 */
 
-using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Net.Torrent.bencode;
 using System.Text;
@@ -111,7 +109,7 @@ namespace System.Net.Torrent.Extensions
                 byte[] buffer = Pack.Int32(2 + encoded.Length, Pack.Endianness.Big);
                 buffer = buffer.Concat(new byte[] {20}).ToArray();
                 buffer = buffer.Concat(new byte[] {(byte) _peerWireClient.GetOutgoingMessageID(this)}).ToArray();
-                buffer = buffer.Concat(Encoding.ASCII.GetBytes(encoded)).ToArray();
+				buffer = buffer.Concat(Encoding.GetEncoding(1252).GetBytes(encoded)).ToArray();
 
 	            sendBuffer = sendBuffer.Concat(buffer).ToArray();
             }
