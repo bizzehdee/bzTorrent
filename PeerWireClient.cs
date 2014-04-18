@@ -48,13 +48,16 @@ namespace System.Net.Torrent
         private readonly List<IBTExtension> _protocolExtensions;
 		private readonly Dictionary<String, byte> _extOutgoing = new Dictionary<string, byte>();
 		private readonly Dictionary<byte, String> _extIncoming = new Dictionary<byte, String>();
+		private bool _handshakeSent;
 	    private bool _handshakeComplete;
 	    private IAsyncResult _async;
 
-	    private int _dynamicBufferSize = 1024;
-	    private int _maxBufferSize = 1024*256;
+		private const int MinBufferSize = 1024;
+		private const int MaxBufferSize = 1024 * 256;
+		private int _dynamicBufferSize = 1024*16;
+	    
 
-        public Int32 Timeout { get { return Socket.Timeout; } }
+	    public Int32 Timeout { get { return Socket.Timeout; } }
         public bool[] PeerBitField { get; set; }
         public bool KeepConnectionAlive { get; set; }
         public bool UseExtended { get; set; }
@@ -93,6 +96,9 @@ namespace System.Net.Torrent
 			_protocolExtensions = new List<IBTExtension>();
 
 			_internalBuffer = new byte[0];
+
+			byte[] recBuffer = new byte[_dynamicBufferSize];
+			_async = Socket.BeginReceive(recBuffer, 0, _dynamicBufferSize, OnReceived, recBuffer);
 	    }
 
         public void Connect(IPEndPoint endPoint)
@@ -178,8 +184,7 @@ namespace System.Net.Torrent
 				}
             }
 
-			byte[] recBuffer = new byte[_dynamicBufferSize];
-			_async = Socket.BeginReceive(recBuffer, 0, _dynamicBufferSize, OnReceived, recBuffer);
+			_handshakeSent = true;
 
 			return true;
         }
@@ -323,12 +328,19 @@ namespace System.Net.Torrent
             lock (_locker)
             {
                 _internalBuffer = _internalBuffer == null ? data : _internalBuffer.Concat(data.Take(len)).ToArray();
-            }
+			}
 
-	        if (_dynamicBufferSize < _internalBuffer.Length && _dynamicBufferSize < _maxBufferSize)
-	        {
-		        _dynamicBufferSize += 1024;
-	        }
+			#region Automatically alter the buffer size
+			if (_internalBuffer.Length > _dynamicBufferSize && (_dynamicBufferSize - 1024) >= MinBufferSize)
+			{
+				_dynamicBufferSize -= 1024;
+			}
+
+			if (_internalBuffer.Length < _dynamicBufferSize && (_dynamicBufferSize + 1024) <= MaxBufferSize)
+			{
+				_dynamicBufferSize += 1024;
+			}
+			#endregion
 
 			byte[] recBuffer = new byte[_dynamicBufferSize];
 
@@ -369,6 +381,13 @@ namespace System.Net.Torrent
 				RemoteUsesFast = (recReserved[7] & 0x04) == 0x04;
 				RemoteUsesDHT = (recReserved[7] & 0x1) == 0x1;
 
+				byte[] remoteHashBytes = _internalBuffer.Skip(28).Take(20).ToArray();
+				if (String.IsNullOrEmpty(Hash))
+				{
+					String remoteHash = Unpack.Hex(remoteHashBytes);
+					Hash = remoteHash;
+				}
+
 				byte[] remoteIdbytes = _internalBuffer.Skip(48).Take(20).ToArray();
 
 				RemotePeerID = Encoding.ASCII.GetString(remoteIdbytes);
@@ -379,6 +398,12 @@ namespace System.Net.Torrent
 				}
 
 				OnHandshake();
+
+				if (!_handshakeSent)
+				{
+					Handshake();
+					SendBitField(PeerBitField);
+				}
 
 				return true;
 			}
