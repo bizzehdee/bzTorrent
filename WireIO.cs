@@ -59,6 +59,28 @@ namespace System.Net.Torrent
 				_socket.NoDelay = true;
 			}
 
+			public Tcp(Socket socket)
+			{
+				_socket = socket;
+
+				if (_socket.AddressFamily != AddressFamily.InterNetwork)
+				{
+					throw new ArgumentException("AddressFamily of socket must be InterNetwork");
+				}
+
+				if (_socket.SocketType != SocketType.Stream)
+				{
+					throw new ArgumentException("SocketType of socket must be Stream");
+				}
+
+				if (_socket.ProtocolType != ProtocolType.Tcp)
+				{
+					throw new ArgumentException("ProtocolType of socket must be Tcp");
+				}
+
+				_socket.NoDelay = true;
+			}
+
 			public void Connect(IPEndPoint endPoint)
 			{
 				_socket.Connect(endPoint);
@@ -90,6 +112,27 @@ namespace System.Net.Torrent
 			public int EndReceive(IAsyncResult asyncResult)
 			{
 				return _socket.EndReceive(asyncResult);
+			}
+
+			public void Listen(EndPoint ep)
+			{
+				_socket.Bind(ep);
+				_socket.Listen(10);
+			}
+
+			public IWireIO Accept()
+			{
+				return new Tcp(_socket.Accept());
+			}
+
+			public IAsyncResult BeginAccept(AsyncCallback callback)
+			{
+				return _socket.BeginAccept(callback, this);
+			}
+
+			public IWireIO EndAccept(IAsyncResult ar)
+			{
+				return new Tcp(_socket.EndAccept(ar));
 			}
 		}
 
@@ -149,6 +192,26 @@ namespace System.Net.Torrent
 			}
 
 			public int EndReceive(IAsyncResult asyncResult)
+			{
+				throw new NotImplementedException();
+			}
+
+			public void Listen(EndPoint ep)
+			{
+				throw new NotImplementedException();
+			}
+
+			public IWireIO Accept()
+			{
+				throw new NotImplementedException();
+			}
+
+			public IAsyncResult BeginAccept(AsyncCallback callback)
+			{
+				throw new NotImplementedException();
+			}
+
+			public IWireIO EndAccept(IAsyncResult ar)
 			{
 				throw new NotImplementedException();
 			}
