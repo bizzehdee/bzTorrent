@@ -55,6 +55,7 @@
     <Compile Include="Pack.cs" />
     <Compile Include="PeerMessageBuilder.cs" />
     <Compile Include="PeerWireClient.cs" />
+    <Compile Include="PeerWireListener.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="UDPTrackerClient.cs" />
     <Compile Include="Unpack.cs" />
