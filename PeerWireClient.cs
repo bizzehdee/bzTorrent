@@ -50,6 +50,7 @@ namespace System.Net.Torrent
 		private readonly Dictionary<byte, String> _extIncoming = new Dictionary<byte, String>();
 		private bool _handshakeSent;
 		private bool _handshakeComplete;
+		private bool _receiving = false;
 		private IAsyncResult _async;
 
 		private const int MinBufferSize = 1024;
@@ -63,6 +64,7 @@ namespace System.Net.Torrent
 		public bool UseExtended { get; set; }
 		public bool UseFast { get; set; }
 		public bool UseDHT { get; set; }
+		public bool UseSimpleBT { get; set; }
 		public bool RemoteUsesExtended { get; private set; }
 		public bool RemoteUsesFast { get; private set; }
 		public bool RemoteUsesDHT { get; private set; }
@@ -96,9 +98,6 @@ namespace System.Net.Torrent
 			_protocolExtensions = new List<IBTExtension>();
 
 			_internalBuffer = new byte[0];
-
-			byte[] recBuffer = new byte[_dynamicBufferSize];
-			_async = Socket.BeginReceive(recBuffer, 0, _dynamicBufferSize, OnReceived, recBuffer);
 		}
 
 		public void Connect(IPEndPoint endPoint)
@@ -143,6 +142,7 @@ namespace System.Net.Torrent
 			if (peerId.Length != 20) throw new ArgumentOutOfRangeException("peerId", "Peer ID must be 20 bytes exactly");
 
 			byte[] reservedBytes = {0, 0, 0, 0, 0, 0, 0, 0};
+			reservedBytes[0] |= (byte)(UseSimpleBT ? 0x01 : 0x00);
 			reservedBytes[5] |= (byte)(UseExtended ? 0x10 : 0x00);
 			reservedBytes[7] |= (byte)(UseFast ? 0x04 : 0x00);
 			reservedBytes[7] |= (byte)(UseDHT ? 0x1 : 0x00);
@@ -352,6 +352,13 @@ namespace System.Net.Torrent
 
 		public bool Process()
 		{
+			if (!_receiving)
+			{
+				byte[] recBuffer = new byte[_dynamicBufferSize];
+				_async = Socket.BeginReceive(recBuffer, 0, _dynamicBufferSize, OnReceived, recBuffer);
+				_receiving = true;
+			}
+
 			if (_internalBuffer.Length < 4)
 			{
 				OnNoData();
@@ -479,7 +486,7 @@ namespace System.Net.Torrent
 					break;
 				case 9:
 					//port
-					ProcessPort();
+					ProcessPort(commandLength);
 					break;
 				case 13:
 					//Suggest Piece
@@ -578,13 +585,17 @@ namespace System.Net.Torrent
 			}
 		}
 
-		private void ProcessPort()
+		private void ProcessPort(int length)
 		{
 			UInt16 port = Unpack.UInt16(_internalBuffer, 0, Unpack.Endianness.Big);
+			if (length > 2)
+			{
+				byte unknown = _internalBuffer[2];
+			}
 
 			lock (_locker)
 			{
-				_internalBuffer = _internalBuffer.Skip(2).ToArray();
+				_internalBuffer = _internalBuffer.Skip(length).ToArray();
 			}
 
 			OnPort(port);
