@@ -53,8 +53,6 @@
     <Compile Include="ITrackerClient.cs" />
     <Compile Include="IWireIO.cs" />
     <Compile Include="Pack.cs" />
-    <Compile Include="PeerBufferManager.cs" />
-    <Compile Include="PeerCommand.cs" />
     <Compile Include="PeerMessageBuilder.cs" />
     <Compile Include="PeerWireClient.cs" />
     <Compile Include="PeerWireListener.cs" />

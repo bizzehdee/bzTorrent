@@ -50,7 +50,7 @@ namespace System.Net.Torrent
 		private readonly Dictionary<byte, String> _extIncoming = new Dictionary<byte, String>();
 		private bool _handshakeSent;
 		private bool _handshakeComplete;
-		private bool _receiving = false;
+		private bool _receiving;
 		private IAsyncResult _async;
 
 		private const int MinBufferSize = 1024;
@@ -340,14 +340,18 @@ namespace System.Net.Torrent
 			{
 				_dynamicBufferSize += 1024;
 			}
+
+			_receiving = false;
+
 			#endregion
 
+			/*
 			byte[] recBuffer = new byte[_dynamicBufferSize];
 
 			if (Socket.Connected)
 			{
 				_async = Socket.BeginReceive(recBuffer, 0, _dynamicBufferSize, OnReceived, recBuffer);
-			}
+			}*/
 		}
 
 		public bool Process()
@@ -355,7 +359,16 @@ namespace System.Net.Torrent
 			if (!_receiving)
 			{
 				byte[] recBuffer = new byte[_dynamicBufferSize];
-				_async = Socket.BeginReceive(recBuffer, 0, _dynamicBufferSize, OnReceived, recBuffer);
+				try
+				{
+					_async = Socket.BeginReceive(recBuffer, 0, _dynamicBufferSize, OnReceived, recBuffer);
+				}
+				catch
+				{
+					return false;
+				}
+				
+
 				_receiving = true;
 			}
 
@@ -406,18 +419,17 @@ namespace System.Net.Torrent
 
 				OnHandshake();
 
-				if (!_handshakeSent)
-				{
-					Handshake();
-					SendBitField(PeerBitField);
-				}
+				if (_handshakeSent) return true;
+
+				Handshake();
+				SendBitField(PeerBitField);
 
 				return true;
 			}
 
 			Int32 commandLength = Unpack.Int32(_internalBuffer, 0, Unpack.Endianness.Big);
 
-			if (commandLength > _internalBuffer.Length)
+			if (commandLength > (_internalBuffer.Length - 4))
 			{
 				//need more data first
 				return true;
@@ -430,11 +442,10 @@ namespace System.Net.Torrent
 
 			if (commandLength == 0)
 			{
-				if (KeepConnectionAlive)
-				{
-					SendKeepAlive();
-					OnKeepAlive();
-				}
+				if (!KeepConnectionAlive) return true;
+
+				SendKeepAlive();
+				OnKeepAlive();
 
 				return true;
 			}
@@ -486,7 +497,7 @@ namespace System.Net.Torrent
 					break;
 				case 9:
 					//port
-					ProcessPort(commandLength);
+					ProcessPort(commandLength - 1);
 					break;
 				case 13:
 					//Suggest Piece
