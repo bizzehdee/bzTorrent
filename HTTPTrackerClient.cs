@@ -43,9 +43,32 @@ namespace System.Net.Torrent
 
         }
 
-        public IEnumerable<IPEndPoint> Announce(string url, string hash)
+        private static IEnumerable<IPEndPoint> GetPeers(byte[] peerData)
+        {
+            for (int i = 0; i < peerData.Length; i += 6)
+            {
+                long addr = Unpack.UInt32(peerData, i, Unpack.Endianness.Big);
+                ushort port = Unpack.UInt16(peerData, i + 4, Unpack.Endianness.Big);
+
+                yield return new IPEndPoint(addr, port);
+            }
+        }
+
+        public Dictionary<string, IEnumerable<IPEndPoint>> Announce(string url, string[] hashes, string peerId)
+        {
+            return hashes.ToDictionary(hash => hash, hash => Announce(url, hash, peerId));
+        }
+
+        public IEnumerable<IPEndPoint> Announce(string url, string hash, string peerId)
+        {
+            return Announce(url, hash, peerId, 0, 0, 0, 2, 0, -1, 12345, 0);
+        }
+
+        public IEnumerable<IPEndPoint> Announce(string url, string hash, string peerId, long bytesDownloaded, long bytesLeft, long bytesUploaded, 
+            int EventTypeFilter, int ipAddress, int numWant, int listenPort, int extensions)
         {
             byte[] hashBytes = Pack.Hex(hash);
+            byte[] peerIdBytes = Pack.Hex(peerId);
 
             String realUrl = url.Replace("scrape", "announce") + "?";
 
@@ -55,12 +78,18 @@ namespace System.Net.Torrent
                 hashEncoded += String.Format("%{0:X2}", b);
             }
 
+            String peerIdEncoded = "";
+            foreach (byte b in peerIdBytes)
+            {
+                peerIdEncoded += String.Format("%{0:X2}", b);
+            }
+
             realUrl += "info_hash=" + hashEncoded;
-            realUrl += "&peer_id=" + hashEncoded;
-            realUrl += "&port=12345";
-            realUrl += "&uploaded=0";
-            realUrl += "&downloaded=0";
-            realUrl += "&left=0";
+            realUrl += "&peer_id=" + peerIdEncoded;
+            realUrl += "&port=" + listenPort;
+            realUrl += "&uploaded=" + bytesUploaded;
+            realUrl += "&downloaded=" + bytesDownloaded;
+            realUrl += "&left=" + bytesLeft;
             realUrl += "&event=started";
             realUrl += "&compact=1";
 
@@ -98,28 +127,12 @@ namespace System.Net.Torrent
 
             if (!(decoded["peers"] is BString)) throw new NotSupportedException("Dictionary based peers not supported");
 
-            BString peerBinary = (BString) decoded["peers"];
+            BString peerBinary = (BString)decoded["peers"];
 
             return GetPeers(peerBinary.ByteValue);
         }
 
-        private static IEnumerable<IPEndPoint> GetPeers(byte[] peerData)
-        {
-            for (int i = 0; i < peerData.Length; i += 6)
-            {
-                long addr = Unpack.UInt32(peerData, i, Unpack.Endianness.Big);
-                ushort port = Unpack.UInt16(peerData, i + 4, Unpack.Endianness.Big);
-
-                yield return new IPEndPoint(addr, port);
-            }
-        }
-
-        public Dictionary<string, IEnumerable<IPEndPoint>> Announce(string url, string[] hashes)
-        {
-            return hashes.ToDictionary(hash => hash, hash => Announce(url, hash));
-        }
-
-		public Dictionary<string, ScrapeInfo> Scrape(string url, string[] hashes)
+        public Dictionary<string, ScrapeInfo> Scrape(string url, string[] hashes)
         {
 			Dictionary<String, ScrapeInfo> returnVal = new Dictionary<string, ScrapeInfo>();
 

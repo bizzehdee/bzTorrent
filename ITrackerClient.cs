@@ -37,8 +37,10 @@ namespace System.Net.Torrent
         String Tracker { get; }
         Int32 Port { get; }
 
-        IEnumerable<IPEndPoint> Announce(String url, String hash);
-        Dictionary<String, IEnumerable<IPEndPoint>> Announce(String url, String[] hashes);
+        IEnumerable<IPEndPoint> Announce(String url, String hash, String peerId);
+        IEnumerable<IPEndPoint> Announce(String url, String hash, String peerId, Int64 bytesDownloaded, Int64 bytesLeft, Int64 bytesUploaded, 
+            Int32 EventTypeFilter, Int32 ipAddress, Int32 numWant, Int32 listenPort, Int32 extensions);
+        Dictionary<String, IEnumerable<IPEndPoint>> Announce(String url, String[] hashes, String peerId);
 		Dictionary<String, BaseScraper.ScrapeInfo> Scrape(String url, String[] hashes);
     }
 }
