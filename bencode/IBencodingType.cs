@@ -30,7 +30,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 using System.IO;
 
-namespace System.Net.Torrent.bencode
+namespace System.Net.Torrent.BEncode
 {
     public interface IBencodingType
     {

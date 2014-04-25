@@ -31,7 +31,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
-using System.Net.Torrent.bencode;
+using System.Net.Torrent.BEncode;
 using System.Security.Cryptography;
 using System.Text;
 

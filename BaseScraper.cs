@@ -28,6 +28,7 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
 */
 
+using System.Collections.Generic;
 using System.Text.RegularExpressions;
 
 namespace System.Net.Torrent
@@ -93,12 +94,29 @@ namespace System.Net.Torrent
 
                 if (!match.Success)
                 {
-                    throw new ArgumentOutOfRangeException("url", url, "URL is not a valid UDP tracker address");
+					throw new ArgumentOutOfRangeException("url", url, "URL is not a valid HTTP tracker address");
                 }
 
                 Tracker = match.Groups[0].Value;
             }
         }
+
+	    public class AnnounceInfo
+	    {
+		    public IEnumerable<EndPoint> Peers { get; set; }
+		    public Int32 WaitTime { get; set; }
+		    public Int32 Seeders { get; set; }
+		    public Int32 Leachers { get; set; }
+
+		    public AnnounceInfo(IEnumerable<EndPoint> peers, Int32 a, Int32 b, Int32 c)
+		    {
+			    Peers = peers;
+
+			    WaitTime = a;
+			    Seeders = b;
+			    Leachers = c;
+		    }
+	    }
 
 	    public class ScrapeInfo
 	    {

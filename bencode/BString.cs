@@ -28,11 +28,10 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
 */
 
-using System;
 using System.Globalization;
 using System.IO;
 
-namespace System.Net.Torrent.bencode
+namespace System.Net.Torrent.BEncode
 {
     /// <summary>
     /// Represents a String object. It cannot contain a null value.

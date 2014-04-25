@@ -32,7 +32,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Net.Sockets;
-using System.Net.Torrent.bencode;
+using System.Net.Torrent.BEncode;
 using System.Text;
 using System.Threading;
 

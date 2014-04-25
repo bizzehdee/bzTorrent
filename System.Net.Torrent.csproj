@@ -40,12 +40,12 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="BaseScraper.cs" />
-    <Compile Include="bencode\BDict.cs" />
-    <Compile Include="bencode\BencodingUtils.cs" />
-    <Compile Include="bencode\BInt.cs" />
-    <Compile Include="bencode\BList.cs" />
-    <Compile Include="bencode\BString.cs" />
-    <Compile Include="bencode\IBencodingType.cs" />
+    <Compile Include="BEncode\BDict.cs" />
+    <Compile Include="BEncode\BencodingUtils.cs" />
+    <Compile Include="BEncode\BInt.cs" />
+    <Compile Include="BEncode\BList.cs" />
+    <Compile Include="BEncode\BString.cs" />
+    <Compile Include="BEncode\IBencodingType.cs" />
     <Compile Include="Extensions\UTMetadata.cs" />
     <Compile Include="Extensions\UTPeerExchange.cs" />
     <Compile Include="HTTPTrackerClient.cs" />

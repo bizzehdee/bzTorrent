@@ -46,7 +46,7 @@ namespace System.Net.Torrent
             _currentConnectionId = BaseCurrentConnectionId;
         }
 
-		public Dictionary<String, ScrapeInfo> Scrape(String url, String[] hashes)
+		public IDictionary<String, ScrapeInfo> Scrape(String url, String[] hashes)
         {
 			Dictionary<String, ScrapeInfo> returnVal = new Dictionary<string, ScrapeInfo>();
 
@@ -124,12 +124,12 @@ namespace System.Net.Torrent
             return returnVal;
         }
 
-        public IEnumerable<IPEndPoint> Announce(String url, String hash, String peerId)
+		public AnnounceInfo Announce(String url, String hash, String peerId)
         {
             return Announce(url, hash, peerId, 0, 0, 0, 2, 0, -1, 12345, 0);
         }
 
-        public IEnumerable<IPEndPoint> Announce(String url, String hash, String peerId, Int64 bytesDownloaded, Int64 bytesLeft, Int64 bytesUploaded, 
+		public AnnounceInfo Announce(String url, String hash, String peerId, Int64 bytesDownloaded, Int64 bytesLeft, Int64 bytesUploaded, 
             Int32 eventTypeFilter, Int32 ipAddress, Int32 numWant, Int32 listenPort, Int32 extensions)
         {
             List<IPEndPoint> returnValue = new List<IPEndPoint>();
@@ -229,14 +229,14 @@ namespace System.Net.Torrent
 
             udpClient.Close();
 
-            return returnValue;
+            return new AnnounceInfo(returnValue, waitTime, seeders, leachers);
         }
 
-        public Dictionary<String, IEnumerable<IPEndPoint>> Announce(String url, String[] hashes, String peerId)
+		public IDictionary<String, AnnounceInfo> Announce(String url, String[] hashes, String peerId)
         {
             ValidateInput(url, hashes, ScraperType.UDP);
 
-            Dictionary<String, IEnumerable<IPEndPoint>> returnVal = hashes.ToDictionary(hash => hash, hash => Announce(url, hash, peerId));
+			Dictionary<String, AnnounceInfo> returnVal = hashes.ToDictionary(hash => hash, hash => Announce(url, hash, peerId));
 
             return returnVal;
         }

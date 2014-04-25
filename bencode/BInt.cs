@@ -28,12 +28,10 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
 */
 
-using System;
 using System.Globalization;
 using System.IO;
-using System.Runtime.CompilerServices;
 
-namespace System.Net.Torrent.bencode
+namespace System.Net.Torrent.BEncode
 {
     public class BInt : IBencodingType, IComparable<long>, IEquatable<long>, IEquatable<BInt>, IComparable<BInt>
     {
@@ -142,14 +140,24 @@ namespace System.Net.Torrent.bencode
             return String.Format("{0}", Value);
         }
 
-        public static implicit operator BInt(long x)
-        {
-            return new BInt(x);
-        }
+		public static implicit operator BInt(long x)
+		{
+			return new BInt(x);
+		}
 
-        public static implicit operator long(BInt x)
-        {
-            return x.Value;
-        }
+		public static implicit operator long(BInt x)
+		{
+			return x.Value;
+		}
+
+		public static implicit operator BInt(int x)
+		{
+			return new BInt(x);
+		}
+
+		public static implicit operator int(BInt x)
+		{
+			return (int)x.Value;
+		}
     }
 }
