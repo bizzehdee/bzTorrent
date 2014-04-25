@@ -32,6 +32,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net.Torrent.bencode;
+using System.Text;
 
 namespace System.Net.Torrent
 {
@@ -68,7 +69,7 @@ namespace System.Net.Torrent
             int EventTypeFilter, int ipAddress, int numWant, int listenPort, int extensions)
         {
             byte[] hashBytes = Pack.Hex(hash);
-            byte[] peerIdBytes = Pack.Hex(peerId);
+            byte[] peerIdBytes = Encoding.ASCII.GetBytes(peerId);
 
             String realUrl = url.Replace("scrape", "announce") + "?";
 

@@ -32,6 +32,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 using System.Net.Sockets;
+using System.Text;
 
 namespace System.Net.Torrent
 {
@@ -148,11 +149,20 @@ namespace System.Net.Torrent
                         }
                 };
 
-            byte[] sendBuf = _currentConnectionId.Concat(Pack.Int32(0)).Concat(Pack.Int32(trasactionId)).ToArray();
+			byte[] sendBuf = _currentConnectionId.Concat(Pack.Int32(0, Pack.Endianness.Big)).Concat(Pack.Int32(trasactionId, Pack.Endianness.Big)).ToArray();
             udpClient.Send(sendBuf, sendBuf.Length);
 
             IPEndPoint endPoint = null;
-            byte[] recBuf = udpClient.Receive(ref endPoint);
+	        byte[] recBuf;
+
+	        try
+	        {
+				recBuf = udpClient.Receive(ref endPoint);
+	        }
+	        catch (Exception)
+	        {
+		        return null;
+	        }
 
             if (recBuf == null) throw new NoNullAllowedException("udpClient failed to receive");
             if (recBuf.Length < 0) throw new InvalidOperationException("udpClient received no response");
@@ -174,21 +184,28 @@ namespace System.Net.Torrent
 
             sendBuf = _currentConnectionId. /*connection id*/
                 Concat(Pack.Int32(1)). /*action*/
-                Concat(Pack.Int32(trasactionId)). /*trasaction Id*/
+                Concat(Pack.Int32(trasactionId, Pack.Endianness.Big)). /*trasaction Id*/
                 Concat(hashBytes). /*hash*/
-                Concat(Pack.Hex(peerId)). /*my peer id*/
-                Concat(Pack.Int64(bytesDownloaded)). /*bytes downloaded*/
-                Concat(Pack.Int64(bytesLeft)). /*bytes left*/
-                Concat(Pack.Int64(bytesUploaded)). /*bytes uploaded*/
-                Concat(Pack.Int32(eventTypeFilter)). /*event, 0 for none, 2 for just started*/
-                Concat(Pack.Int32(ipAddress)). /*ip, 0 for this one*/
-                Concat(Pack.Int32(key)). /*unique key*/
-                Concat(Pack.Int32(numWant)). /*num want, -1 for as many as pos*/
-                Concat(Pack.Int32(listenPort)). /*listen port*/
-                Concat(Pack.Int32(extensions)).ToArray(); /*extensions*/
+				Concat(Encoding.ASCII.GetBytes(peerId)). /*my peer id*/
+				Concat(Pack.Int64(bytesDownloaded, Pack.Endianness.Big)). /*bytes downloaded*/
+				Concat(Pack.Int64(bytesLeft, Pack.Endianness.Big)). /*bytes left*/
+				Concat(Pack.Int64(bytesUploaded, Pack.Endianness.Big)). /*bytes uploaded*/
+				Concat(Pack.Int32(eventTypeFilter, Pack.Endianness.Big)). /*event, 0 for none, 2 for just started*/
+				Concat(Pack.Int32(ipAddress, Pack.Endianness.Big)). /*ip, 0 for this one*/
+				Concat(Pack.Int32(key, Pack.Endianness.Big)). /*unique key*/
+				Concat(Pack.Int32(numWant, Pack.Endianness.Big)). /*num want, -1 for as many as pos*/
+				Concat(Pack.Int32(listenPort, Pack.Endianness.Big)). /*listen port*/
+				Concat(Pack.Int32(extensions, Pack.Endianness.Big)).ToArray(); /*extensions*/
             udpClient.Send(sendBuf, sendBuf.Length);
 
-            recBuf = udpClient.Receive(ref endPoint);
+	        try
+	        {
+				recBuf = udpClient.Receive(ref endPoint);
+	        }
+	        catch (Exception)
+	        {
+		        return null;
+	        }
 
             recAction = Unpack.UInt32(recBuf, 0, Unpack.Endianness.Big);
             recTrasactionId = Unpack.UInt32(recBuf, 4, Unpack.Endianness.Big);
