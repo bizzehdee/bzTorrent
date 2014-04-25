@@ -52,6 +52,7 @@
     <Compile Include="IBTExtension.cs" />
     <Compile Include="ITrackerClient.cs" />
     <Compile Include="IWireIO.cs" />
+    <Compile Include="MagnetLink.cs" />
     <Compile Include="Metadata.cs" />
     <Compile Include="Pack.cs" />
     <Compile Include="PeerMessageBuilder.cs" />
