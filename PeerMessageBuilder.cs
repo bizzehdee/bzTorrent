@@ -34,14 +34,14 @@ namespace System.Net.Torrent
 {
 	public class PeerMessageBuilder : IDisposable
 	{
-		public UInt32 MessageLength { get; private set; }
+		public UInt32 PacketLength { get { return (UInt32)(5 + MessagePayload.Count); } }
+		public UInt32 MessageLength { get { return (UInt32)(1 + MessagePayload.Count); } }
 		public byte MessageID { get; private set; }
 		public List<byte> MessagePayload { get; private set; }
 
 		public PeerMessageBuilder(byte msgId)
 		{
 			MessageID = msgId;
-			MessageLength = 1;
 
 			MessagePayload = new List<byte>();
 		}
@@ -76,11 +76,9 @@ namespace System.Net.Torrent
 
 		public byte[] Message()
 		{
-			UInt32 length = (UInt32)(1 + MessagePayload.Count);
+			byte[] messageBytes = new byte[PacketLength];
+			byte[] lengthBytes = Pack.UInt32(MessageLength, Pack.Endianness.Big);
 
-			byte[] messageBytes = new byte[length+4];
-
-			byte[] lengthBytes = Pack.UInt32(length, Pack.Endianness.Big);
 			lengthBytes.CopyTo(messageBytes, 0);
 
 			messageBytes[4] = MessageID;
@@ -88,11 +86,6 @@ namespace System.Net.Torrent
 			MessagePayload.CopyTo(messageBytes, 5);
 
 			return messageBytes;
-		}
-
-		public UInt32 Length()
-		{
-			return (UInt32)(5 + MessagePayload.Count);
 		}
 
 		public void Dispose()

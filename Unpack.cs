@@ -41,7 +41,7 @@ namespace System.Net.Torrent
 
         public static Int16 Int16(byte[] bytes, Int32 start, Endianness e = Endianness.Machine)
         {
-            byte[] intBytes = Utils.CopyBytes(bytes, start, 2);
+            byte[] intBytes = Utils.GetBytes(bytes, start, 2);
 
             if (NeedsFlipping(e)) Array.Reverse(intBytes);
 
@@ -50,7 +50,7 @@ namespace System.Net.Torrent
 
         public static Int32 Int32(byte[] bytes, Int32 start, Endianness e = Endianness.Machine)
         {
-            byte[] intBytes = Utils.CopyBytes(bytes, start, 4);
+            byte[] intBytes = Utils.GetBytes(bytes, start, 4);
 
             if (NeedsFlipping(e)) Array.Reverse(intBytes);
 
@@ -59,7 +59,7 @@ namespace System.Net.Torrent
 
         public static Int64 Int64(byte[] bytes, Int32 start, Endianness e = Endianness.Machine)
         {
-            byte[] intBytes = Utils.CopyBytes(bytes, start, 8);
+            byte[] intBytes = Utils.GetBytes(bytes, start, 8);
 
             if (NeedsFlipping(e)) Array.Reverse(intBytes);
 
@@ -68,7 +68,7 @@ namespace System.Net.Torrent
 
         public static UInt16 UInt16(byte[] bytes, Int32 start, Endianness e = Endianness.Machine)
         {
-            byte[] intBytes = Utils.CopyBytes(bytes, start, 2);
+            byte[] intBytes = Utils.GetBytes(bytes, start, 2);
 
             if (NeedsFlipping(e)) Array.Reverse(intBytes);
 
@@ -77,7 +77,7 @@ namespace System.Net.Torrent
 
         public static UInt32 UInt32(byte[] bytes, Int32 start, Endianness e = Endianness.Machine)
         {
-            byte[] intBytes = Utils.CopyBytes(bytes, start, 4);
+            byte[] intBytes = Utils.GetBytes(bytes, start, 4);
 
             if (NeedsFlipping(e)) Array.Reverse(intBytes);
 
@@ -86,7 +86,7 @@ namespace System.Net.Torrent
 
         public static UInt64 UInt64(byte[] bytes, Int32 start, Endianness e = Endianness.Machine)
         {
-            byte[] intBytes = Utils.CopyBytes(bytes, start, 8);
+            byte[] intBytes = Utils.GetBytes(bytes, start, 8);
 
             if (NeedsFlipping(e)) Array.Reverse(intBytes);
 

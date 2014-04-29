@@ -218,7 +218,7 @@ namespace System.Net.Torrent
                     BString pieces = (BString)infoDict["pieces"];
                     for (int x = 0; x < pieces.ByteValue.Length; x += 20)
                     {
-                        byte[] hash = Utils.CopyBytes(pieces.ByteValue, x, 20);
+                        byte[] hash = Utils.GetBytes(pieces.ByteValue, x, 20);
                         PieceHashes.Add(hash);
                     }
                 }

@@ -42,11 +42,46 @@ namespace System.Net.Torrent
             return (byte)(t | (1 << n));
         }
 
-        public static byte[] CopyBytes(byte[] bytes, Int32 start, Int32 length)
+        public static byte[] GetBytes(this byte[] bytes, Int32 start, Int32 length = -1)
         {
-            byte[] intBytes = new byte[length];
-            for (int i = 0; i < length; i++) intBytes[i] = bytes[start + i];
+	        int l = length;
+	        if (l == -1) l = bytes.Length - start;
+
+            byte[] intBytes = new byte[l];
+
+            for (int i = 0; i < l; i++) intBytes[i] = bytes[start + i];
+
             return intBytes;
         }
+
+		public static byte[] Cat(this byte[] first, byte[] second)
+		{
+			byte[] returnBytes = new byte[first.Length + second.Length];
+
+			first.CopyTo(returnBytes, 0);
+			second.CopyTo(returnBytes, first.Length);
+
+			return returnBytes;
+		}
+
+		public static bool Contains<T>(this T[] ar, T o)
+		{
+			foreach (T t in ar)
+			{
+				if (Equals(t, o)) return true;
+			}
+
+			return false;
+		}
+
+	    public static bool Contains<T>(this T[] ar, Func<T, bool> expr)
+	    {
+		    foreach (T t in ar)
+		    {
+				if (expr != null && expr(t)) return true;
+		    }
+
+		    return false;
+	    }
     }
 }
