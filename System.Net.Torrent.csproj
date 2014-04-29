@@ -32,11 +32,7 @@
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Core" />
-    <Reference Include="System.Xml.Linq" />
-    <Reference Include="System.Data.DataSetExtensions" />
-    <Reference Include="Microsoft.CSharp" />
     <Reference Include="System.Data" />
-    <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="BaseScraper.cs" />
@@ -50,6 +46,7 @@
     <Compile Include="Extensions\UTPeerExchange.cs" />
     <Compile Include="HTTPTrackerClient.cs" />
     <Compile Include="IBTExtension.cs" />
+    <Compile Include="IPeerCommand.cs" />
     <Compile Include="ITrackerClient.cs" />
     <Compile Include="IWireIO.cs" />
     <Compile Include="MagnetLink.cs" />
