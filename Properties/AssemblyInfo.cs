@@ -36,11 +36,11 @@ using System.Runtime.InteropServices;
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
 [assembly: AssemblyTitle("System.Net.Torrent")]
-[assembly: AssemblyDescription("")]
+[assembly: AssemblyDescription("C# BitTorrent protocol implementation")]
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("")]
+[assembly: AssemblyCompany("Darren Horrocks (www.bizzeh.com)")]
 [assembly: AssemblyProduct("System.Net.Torrent")]
-[assembly: AssemblyCopyright("Copyright ©  2013")]
+[assembly: AssemblyCopyright("Copyright © Darren Horrocks 2013")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 

@@ -40,6 +40,7 @@ namespace System.Net.Torrent
 	public class PeerWireClient
 	{
 		private readonly Object _locker = new Object();
+		private bool _asyncContinue = true;
 		private readonly byte[] _bitTorrentProtocolHeader = { 0x42, 0x69, 0x74, 0x54, 0x6F, 0x72, 0x72, 0x65, 0x6E, 0x74, 0x20, 0x70, 0x72, 0x6F, 0x74, 0x6F, 0x63, 0x6F, 0x6C };
 
 		internal readonly IWireIO Socket;
@@ -71,6 +72,7 @@ namespace System.Net.Torrent
 		public String RemotePeerID { get; private set; }
 		public String Hash { get; set; }
 
+		public event Action<PeerWireClient> DroppedConnection;
 		public event Action<PeerWireClient> NoData;
 		public event Action<PeerWireClient> HandshakeComplete;
 		public event Action<PeerWireClient> KeepAlive;
@@ -188,7 +190,45 @@ namespace System.Net.Torrent
 			return true;
 		}
 
+		public void ProcessAsync()
+		{
+			_asyncContinue = true;
+
+			(new Thread(o =>
+			{
+				PeerWireClient client = (PeerWireClient) o;
+				while (client.Process() && _asyncContinue)
+				{
+					Thread.Sleep(10);
+				}
+			})).Start(this);
+		}
+
+		public void StopProcessAsync()
+		{
+			_asyncContinue = false;
+		}
+
 		public bool Process()
+		{
+			bool returnVal = _process();
+
+			if (returnVal) return true;
+
+			if (Socket.Connected)
+			{
+				Socket.Disconnect();
+			}
+
+			if (DroppedConnection != null)
+			{
+				DroppedConnection(this);
+			}
+
+			return false;
+		}
+
+		private bool _process()
 		{
 			if (!_receiving)
 			{
