@@ -29,11 +29,15 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 using System.Net.Torrent.BEncode;
+using System.Net.Torrent.Misc;
+using System.Net.Torrent.ProtocolExtensions;
 
 namespace System.Net.Torrent.Extensions
 {
     public class UTPeerExchange : IBTExtension
     {
+	    private ExtendedProtocolExtensions _parent;
+
         public string Protocol
         {
             get { return "ut_pex"; }
@@ -42,22 +46,22 @@ namespace System.Net.Torrent.Extensions
         public event Action<PeerWireClient, IBTExtension, IPEndPoint, byte> Added;
         public event Action<PeerWireClient, IBTExtension, IPEndPoint> Dropped;
 
-        public void Init(PeerWireClient peerWireClient)
+		public void Init(ExtendedProtocolExtensions parent)
+		{
+			_parent = parent;
+		}
+
+        public void Deinit()
         {
-            
+
         }
 
-        public void Deinit(PeerWireClient peerWireClient)
-        {
-
-        }
-
-        public void OnHandshake(PeerWireClient peerWireClient, byte[] handshake)
+		public void OnHandshake(PeerWireClient peerWireClient, byte[] handshake)
         {
             BDict d = (BDict)BencodingUtils.Decode(handshake);
         }
 
-        public void OnExtendedMessage(PeerWireClient peerWireClient, byte[] bytes)
+		public void OnExtendedMessage(PeerWireClient peerWireClient, byte[] bytes)
         {
             BDict d = (BDict) BencodingUtils.Decode(bytes);
             if (d.ContainsKey("added") && d.ContainsKey("added.f"))
@@ -130,7 +134,7 @@ namespace System.Net.Torrent.Extensions
 				d.Add("dropped", new BString { ByteValue = dropped });
 			}
 
-			peerWireClient.SendExtended(peerWireClient.GetOutgoingMessageID(this), BencodingUtils.EncodeBytes(d));
+			_parent.SendExtended(peerWireClient, _parent.GetOutgoingMessageID(peerWireClient, this), BencodingUtils.EncodeBytes(d));
 		}
     }
 }

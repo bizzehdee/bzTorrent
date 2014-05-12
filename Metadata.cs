@@ -32,6 +32,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Net.Torrent.BEncode;
+using System.Net.Torrent.Misc;
 using System.Security.Cryptography;
 using System.Text;
 

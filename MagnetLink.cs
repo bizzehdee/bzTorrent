@@ -30,6 +30,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Net.Torrent.Misc;
 
 namespace System.Net.Torrent
 {

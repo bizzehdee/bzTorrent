@@ -44,25 +44,31 @@
     <Compile Include="BEncode\BList.cs" />
     <Compile Include="BEncode\BString.cs" />
     <Compile Include="BEncode\IBencodingType.cs" />
+    <Compile Include="Extensions\LTTrackerExchange.cs" />
     <Compile Include="Extensions\UTMetadata.cs" />
     <Compile Include="Extensions\UTPeerExchange.cs" />
     <Compile Include="HTTPTrackerClient.cs" />
-    <Compile Include="IBTExtension.cs" />
+    <Compile Include="IO\WireIO.Udp.cs" />
+    <Compile Include="ProtocolExtensions\IBTExtension.cs" />
     <Compile Include="IPeerCommand.cs" />
+    <Compile Include="IProtocolExtension.cs" />
     <Compile Include="ITrackerClient.cs" />
-    <Compile Include="IWireIO.cs" />
+    <Compile Include="IO\IWireIO.cs" />
     <Compile Include="MagnetLink.cs" />
     <Compile Include="Metadata.cs" />
-    <Compile Include="Pack.cs" />
+    <Compile Include="Misc\Pack.cs" />
     <Compile Include="PeerMessageBuilder.cs" />
     <Compile Include="PeerWireClient.cs" />
     <Compile Include="PeerWireListener.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="ProtocolExtensions\ExtendedProtocolExtensions.cs" />
+    <Compile Include="ProtocolExtensions\FastExtensions.cs" />
     <Compile Include="UDPTrackerClient.cs" />
-    <Compile Include="Unpack.cs" />
-    <Compile Include="Utils.cs" />
-    <Compile Include="WireIO.cs" />
+    <Compile Include="Misc\Unpack.cs" />
+    <Compile Include="Misc\Utils.cs" />
+    <Compile Include="IO\WireIO.Tcp.cs" />
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

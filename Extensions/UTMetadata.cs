@@ -30,17 +30,19 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 using System.Linq;
 using System.Net.Torrent.BEncode;
+using System.Net.Torrent.Misc;
+using System.Net.Torrent.ProtocolExtensions;
 using System.Text;
 
 namespace System.Net.Torrent.Extensions
 {
     public class UTMetadata : IBTExtension
     {
-        private PeerWireClient _peerWireClient;
         private Int64 _metadataSize;
         private Int64 _pieceCount;
 		private Int64 _piecesReceived;
 	    private byte[] _metadataBuffer;
+	    private ExtendedProtocolExtensions _parent;
 
         public string Protocol
         {
@@ -49,18 +51,18 @@ namespace System.Net.Torrent.Extensions
 
 		public event Action<PeerWireClient, IBTExtension, BDict> MetaDataReceived;
 
-        public void Init(PeerWireClient peerWireClient)
-        {
+		public void Init(ExtendedProtocolExtensions parent)
+		{
+			_parent = parent;
 			_metadataBuffer = new byte[0];
-            _peerWireClient = peerWireClient;
         }
 
-        public void Deinit(PeerWireClient peerWireClient)
+        public void Deinit()
         {
 
         }
 
-        public void OnHandshake(PeerWireClient peerWireClient, byte[] handshake)
+		public void OnHandshake(PeerWireClient peerWireClient, byte[] handshake)
         {
             BDict dict = (BDict)BencodingUtils.Decode(handshake);
             if (dict.ContainsKey("metadata_size"))
@@ -70,10 +72,10 @@ namespace System.Net.Torrent.Extensions
                 _pieceCount = (Int64)Math.Ceiling((double)_metadataSize / 16384);
             }
 
-            RequestMetaData();
+			RequestMetaData(peerWireClient);
         }
 
-        public void OnExtendedMessage(PeerWireClient peerWireClient, byte[] bytes)
+		public void OnExtendedMessage(PeerWireClient peerWireClient, byte[] bytes)
         {
             Int32 startAt = 0;
 			BDict dict = (BDict)BencodingUtils.Decode(bytes, ref startAt);
@@ -95,7 +97,7 @@ namespace System.Net.Torrent.Extensions
 	        }
         }
 
-        public void RequestMetaData()
+		public void RequestMetaData(PeerWireClient peerWireClient)
         {
 			byte[] sendBuffer = new byte[0];
 
@@ -108,13 +110,13 @@ namespace System.Net.Torrent.Extensions
 
                 byte[] buffer = Pack.Int32(2 + encoded.Length, Pack.Endianness.Big);
                 buffer = buffer.Concat(new byte[] {20}).ToArray();
-                buffer = buffer.Concat(new byte[] {(byte) _peerWireClient.GetOutgoingMessageID(this)}).ToArray();
+				buffer = buffer.Concat(new byte[] { (byte)_parent.GetOutgoingMessageID(peerWireClient, this) }).ToArray();
 				buffer = buffer.Concat(Encoding.GetEncoding(1252).GetBytes(encoded)).ToArray();
 
 	            sendBuffer = sendBuffer.Concat(buffer).ToArray();
             }
 
-			_peerWireClient.Socket.Send(sendBuffer);
+			peerWireClient.Socket.Send(sendBuffer);
         }
 
     }

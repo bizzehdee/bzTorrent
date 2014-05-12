@@ -32,6 +32,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 using System.Net.Sockets;
+using System.Net.Torrent.Misc;
 using System.Text;
 
 namespace System.Net.Torrent

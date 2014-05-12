@@ -32,6 +32,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net.Torrent.BEncode;
+using System.Net.Torrent.Misc;
 using System.Text;
 
 namespace System.Net.Torrent

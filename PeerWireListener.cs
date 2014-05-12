@@ -28,12 +28,15 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
 */
 
+using System.Net.Torrent.IO;
+
 namespace System.Net.Torrent
 {
 	public class PeerWireListener
 	{
 		private readonly IWireIO _socket;
 		private readonly int _port;
+		private IAsyncResult _ar = null;
 
 		public event Action<PeerWireClient> NewPeer;
 
@@ -46,7 +49,16 @@ namespace System.Net.Torrent
 		public void StartListening()
 		{
 			_socket.Listen(new IPEndPoint(IPAddress.Any, _port));
-			_socket.BeginAccept(Callback);
+			_ar = _socket.BeginAccept(Callback);
+		}
+
+
+		public void StopListening()
+		{
+			if (_ar != null)
+			{
+				_socket.EndAccept(_ar);
+			}
 		}
 
 		private void Callback(IAsyncResult ar)

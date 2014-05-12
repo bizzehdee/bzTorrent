@@ -31,7 +31,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Net.Sockets;
-using System.Net.Torrent.BEncode;
+using System.Net.Torrent.IO;
+using System.Net.Torrent.Misc;
 using System.Text;
 using System.Threading;
 
@@ -45,9 +46,7 @@ namespace System.Net.Torrent
 
 		internal readonly IWireIO Socket;
 		private byte[] _internalBuffer; //async internal buffer
-		private readonly List<IBTExtension> _protocolExtensions;
-		private readonly Dictionary<String, byte> _extOutgoing = new Dictionary<string, byte>();
-		private readonly Dictionary<byte, String> _extIncoming = new Dictionary<byte, String>();
+		private readonly List<IProtocolExtension> _btProtocolExtensions;
 		private bool _handshakeSent;
 		private bool _handshakeComplete;
 		private bool _receiving;
@@ -61,12 +60,8 @@ namespace System.Net.Torrent
 		public Int32 Timeout { get { return Socket.Timeout; } }
 		public bool[] PeerBitField { get; set; }
 		public bool KeepConnectionAlive { get; set; }
-		public bool UseExtended { get; set; }
-		public bool UseFast { get; set; }
 		public bool UseDHT { get; set; }
 		public bool UseSimpleBT { get; set; }
-		public bool RemoteUsesExtended { get; private set; }
-		public bool RemoteUsesFast { get; private set; }
 		public bool RemoteUsesDHT { get; private set; }
 		public String LocalPeerID { get; set; }
 		public String RemotePeerID { get; private set; }
@@ -86,17 +81,12 @@ namespace System.Net.Torrent
 		public event Action<PeerWireClient, Int32, Int32, byte[]> Piece;
 		public event Action<PeerWireClient, Int32, Int32, Int32> Cancel;
 		public event Action<PeerWireClient, UInt16> Port;
-		public event Action<PeerWireClient, Int32> SuggestPiece;
-		public event Action<PeerWireClient, Int32, Int32, Int32> Reject;
-		public event Action<PeerWireClient> HaveAll;
-		public event Action<PeerWireClient> HaveNone;
-		public event Action<PeerWireClient, Int32> AllowedFast;
 
 		public PeerWireClient(IWireIO io)
 		{
 			Socket = io;
 
-			_protocolExtensions = new List<IBTExtension>();
+			_btProtocolExtensions = new List<IProtocolExtension>();
 
 			_internalBuffer = new byte[0];
 		}
@@ -144,45 +134,31 @@ namespace System.Net.Torrent
 
 			byte[] reservedBytes = {0, 0, 0, 0, 0, 0, 0, 0};
 			reservedBytes[0] |= (byte)(UseSimpleBT ? 0x01 : 0x00);
-			reservedBytes[5] |= (byte)(UseExtended ? 0x10 : 0x00);
-			reservedBytes[7] |= (byte)(UseFast ? 0x04 : 0x00);
 			reservedBytes[7] |= (byte)(UseDHT ? 0x1 : 0x00);
+
+			foreach (IProtocolExtension extension in _btProtocolExtensions)
+			{
+				for (int x = 0; x < 8; x++)
+				{
+					reservedBytes[x] |= extension.ByteMask[x];
+				}
+			}
 
 			byte[] sendBuf = (new[] { (byte)_bitTorrentProtocolHeader.Length }).Cat(_bitTorrentProtocolHeader).Cat(reservedBytes).Cat(hash).Cat(peerId);
 
-			if (UseExtended)
+			try
 			{
-				BDict handshakeDict = new BDict();
-				BDict mDict = new BDict();
-				byte i = 1;
-				foreach (IBTExtension extension in _protocolExtensions)
-				{
-					_extOutgoing.Add(extension.Protocol, i);
-					mDict.Add(extension.Protocol, new BInt(i));
-					i++;
-				}
-
-				handshakeDict.Add("m", mDict);
-
-				String handshakeEncoded = BencodingUtils.EncodeString(handshakeDict);
-				byte[] handshakeBytes = Encoding.ASCII.GetBytes(handshakeEncoded);
-				Int32 length = 2 + handshakeBytes.Length;
-
-				sendBuf = sendBuf.Cat(Pack.Int32(length, Pack.Endianness.Big).Cat(new[] { (byte)20 }).Cat(new[] { (byte)0 }).Cat(handshakeBytes));
-
 				Socket.Send(sendBuf);
 			}
-			else
+			catch (SocketException ex)
 			{
-				try
-				{
-					Socket.Send(sendBuf);
-				}
-				catch (SocketException ex)
-				{
-					Trace.TraceInformation(ex.Message);
-					return false;
-				}
+				Trace.TraceInformation(ex.Message);
+				return false;
+			}
+
+			foreach (IProtocolExtension extension in _btProtocolExtensions)
+			{
+				extension.OnHandshake(this);
 			}
 
 			_handshakeSent = true;
@@ -271,8 +247,6 @@ namespace System.Net.Torrent
 				_handshakeComplete = true;
 
 				byte[] recReserved = _internalBuffer.GetBytes(20, 8);
-				RemoteUsesExtended = (recReserved[5] & 0x10) == 0x10;
-				RemoteUsesFast = (recReserved[7] & 0x04) == 0x04;
 				RemoteUsesDHT = (recReserved[7] & 0x1) == 0x1;
 
 				byte[] remoteHashBytes = _internalBuffer.GetBytes(28, 20);
@@ -373,29 +347,18 @@ namespace System.Net.Torrent
 					//port
 					ProcessPort(commandLength - 1);
 					break;
-				case 13:
-					//Suggest Piece
-					ProcessSuggest();
-					break;
-				case 14:
-					//have all
-					OnHaveAll();
-					break;
-				case 15:
-					//have none
-					OnHaveNone();
-					break;
-				case 16:
-					//Reject Request
-					ProcessReject();
-					break;
-				case 17:
-					//Allowed Fast
-					ProcessAllowFast();
-					break;
-				case 20:
-					//ext protocol
-					ProcessExtended(commandLength - 1);
+				default:
+				{
+					foreach (IProtocolExtension extension in _btProtocolExtensions)
+					{
+						if (extension.CommandIDs.Contains(b => b == commandId)) continue;
+
+						if (extension.OnCommand(this, commandLength, (byte)commandId, _internalBuffer.GetBytes(commandLength - 1)))
+						{
+							break;
+						}
+					}
+				}
 					break;
 			}
 
@@ -550,13 +513,11 @@ namespace System.Net.Torrent
 			return sent == 13;
 		}
 
-		public bool SendExtended(byte extMsgId, byte[] bytes)
+		public bool SendBytes(byte[] bytes)
 		{
-			Int32 length = 2 + bytes.Length;
+			int sent = Socket.Send(bytes);
 
-			int sent = Socket.Send(new PeerMessageBuilder(20).Add(extMsgId).Add(bytes).Message());
-
-			return sent == (4 + length);
+			return sent == bytes.Length;
 		}
 
 		#region Processors
@@ -643,18 +604,6 @@ namespace System.Net.Torrent
 			OnPort(port);
 		}
 
-		private void ProcessSuggest()
-		{
-			Int32 index = Unpack.Int32(_internalBuffer, 0, Unpack.Endianness.Big);
-
-			lock (_locker)
-			{
-				_internalBuffer = _internalBuffer.GetBytes(4);
-			}
-
-			OnSuggest(index);
-		}
-
 		private void ProcessPiece(Int32 length)
 		{
 			Int32 index = Unpack.Int32(_internalBuffer, 0, Unpack.Endianness.Big);
@@ -674,77 +623,6 @@ namespace System.Net.Torrent
 
 			OnPiece(index, begin, buffer);
 		}
-
-		private void ProcessReject()
-		{
-			Int32 index = Unpack.Int32(_internalBuffer, 0, Unpack.Endianness.Big);
-			Int32 begin = Unpack.Int32(_internalBuffer, 4, Unpack.Endianness.Big);
-			Int32 length = Unpack.Int32(_internalBuffer, 8, Unpack.Endianness.Big);
-
-			lock (_locker)
-			{
-				_internalBuffer = _internalBuffer.GetBytes(12);
-			}
-
-			OnReject(index, begin, length);
-		}
-
-		private void ProcessExtended(Int32 length)
-		{
-			Int32 msgId = _internalBuffer[0];
-			lock (_locker)
-			{
-				_internalBuffer = _internalBuffer.GetBytes(1);
-			}
-
-			byte[] buffer = _internalBuffer.GetBytes(0, length - 1);
-			lock (_locker)
-			{
-				_internalBuffer = _internalBuffer.GetBytes(length - 1);
-			}
-
-			if (msgId == 0)
-			{
-				BDict extendedHandshake = (BDict) BencodingUtils.Decode(buffer);
-
-				BDict mDict = (BDict)extendedHandshake["m"];
-				foreach (KeyValuePair<string, IBencodingType> pair in mDict)
-				{
-					BInt i = (BInt)pair.Value;
-					_extIncoming.Add((byte)i, pair.Key);
-
-					IBTExtension ext = FindIBTExtensionByProtocol(pair.Key);
-
-					if (ext != null)
-					{
-						ext.OnHandshake(this, buffer);
-					}
-				}
-			}
-			else
-			{
-				String protocol = FindIBTProtocolByMessageID(msgId);
-				IBTExtension ext = FindIBTExtensionByProtocol(protocol);
-
-				if (ext != null)
-				{
-					ext.OnExtendedMessage(this, buffer);
-				}
-			}
-		}
-
-		private void ProcessAllowFast()
-		{
-			Int32 index = Unpack.Int32(_internalBuffer, 0, Unpack.Endianness.Big);
-
-			lock (_locker)
-			{
-				_internalBuffer = _internalBuffer.GetBytes(4);
-			}
-
-			OnAllowFast(index);
-		}
-
 		#endregion
 
 		#region Event Dispatchers
@@ -853,87 +731,16 @@ namespace System.Net.Torrent
 			}
 		}
 
-		private void OnSuggest(Int32 pieceIndex)
-		{
-			if (SuggestPiece != null)
-			{
-				SuggestPiece(this, pieceIndex);
-			}
-		}
-
-		private void OnHaveAll()
-		{
-			if (HaveAll != null)
-			{
-				HaveAll(this);
-			}
-		}
-
-		private void OnHaveNone()
-		{
-			if (HaveNone != null)
-			{
-				HaveNone(this);
-			}
-		}
-
-		private void OnReject(Int32 index, Int32 begin, Int32 length)
-		{
-			if (Reject != null)
-			{
-				Reject(this, index, begin, length);
-			}
-		}
-
-		private void OnAllowFast(Int32 pieceIndex)
-		{
-			if (AllowedFast != null)
-			{
-				AllowedFast(this, pieceIndex);
-			}
-		}
 		#endregion
 
-		public void RegisterProtocolExtension(IBTExtension extension)
+		public void RegisterBTExtension(IProtocolExtension extension)
 		{
-			_protocolExtensions.Add(extension);
-			extension.Init(this);
+			_btProtocolExtensions.Add(extension);
 		}
 
-		public void UnregisterProtocolExtension(IBTExtension extension)
+		public void UnregisterBTExtension(IProtocolExtension extension)
 		{
-			_protocolExtensions.Remove(extension);
-			extension.Deinit(this);
-		}
-
-		public byte GetOutgoingMessageID(IBTExtension extension)
-		{
-			if (_extOutgoing.ContainsKey(extension.Protocol))
-			{
-				return _extOutgoing[extension.Protocol];
-			}
-
-			return 0;
-		}
-
-		private IBTExtension FindIBTExtensionByProtocol(String protocol)
-		{
-			foreach (IBTExtension protocolExtension in _protocolExtensions)
-			{
-				if (protocolExtension.Protocol == protocol) return protocolExtension;
-			}
-
-			return null;
-		}
-
-		private String FindIBTProtocolByMessageID(int messageId)
-		{
-			foreach (KeyValuePair<byte, string> pair in _extIncoming)
-			{
-				if (pair.Key == messageId) return pair.Value;
-			}
-
-			return null;
+			_btProtocolExtensions.Remove(extension);
 		}
 	}
 }
