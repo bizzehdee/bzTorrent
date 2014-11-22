@@ -19,3 +19,6 @@ Open source bittorrent scraper and peer wire implementation written in C#
 - [x] Local Peer Discovery (Non-existant Multicast BEP-14)
 - [x] Peer Exchange (utPEX)
 - [x] Trackerless Metadata (utMetadata)
+- [x] Magnet Link Parser
+- [x] Bencode Encode/Decode
+- [x] .torrent Metadata Parser
