@@ -49,6 +49,7 @@
     <Compile Include="Extensions\UTPeerExchange.cs" />
     <Compile Include="HTTPTrackerClient.cs" />
     <Compile Include="IO\WireIO.Udp.cs" />
+    <Compile Include="LocalPeerDiscovery.cs" />
     <Compile Include="ProtocolExtensions\IBTExtension.cs" />
     <Compile Include="IPeerCommand.cs" />
     <Compile Include="IProtocolExtension.cs" />
