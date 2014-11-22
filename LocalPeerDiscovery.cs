@@ -5,7 +5,7 @@ using System.Threading;
 
 namespace System.Net.Torrent
 {
-	public class LocalPeerDiscovery
+	public class LocalPeerDiscovery : IDisposable, ILocalPeerDiscovery
 	{
 		private const string lpdMulticastAddress = "239.192.152.143";
 		private const int lpdMulticastPort = 6771;
@@ -180,6 +180,26 @@ namespace System.Net.Torrent
 			byte[] buffer = Encoding.ASCII.GetBytes(message);
 
 			udpSenderSocket.Send(buffer);
+		}
+
+		private bool isDisposed;
+		public void Dispose()
+		{
+			if (!isDisposed)
+			{
+				isDisposed = true;
+
+				try
+				{
+					Close();
+					udpReaderSocket.Dispose();
+					udpSenderSocket.Dispose();
+				}
+				catch (Exception)
+				{
+
+				}
+			}
 		}
 	}
 }

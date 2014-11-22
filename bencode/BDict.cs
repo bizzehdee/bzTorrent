@@ -33,6 +33,7 @@ using System.IO;
 
 namespace System.Net.Torrent.BEncode
 {
+	[Serializable]
     public class BDict : Dictionary<string, IBencodingType>, IEquatable<BDict>, IEquatable<Dictionary<string, IBencodingType>>, IBencodingType
     {
         /// <summary>

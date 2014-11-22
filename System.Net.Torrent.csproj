@@ -31,6 +31,12 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
+  <PropertyGroup>
+    <SignAssembly>true</SignAssembly>
+  </PropertyGroup>
+  <PropertyGroup>
+    <AssemblyOriginatorKeyFile>System.Net.Torrent.pfx</AssemblyOriginatorKeyFile>
+  </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Core" />
@@ -48,6 +54,7 @@
     <Compile Include="Extensions\UTMetadata.cs" />
     <Compile Include="Extensions\UTPeerExchange.cs" />
     <Compile Include="HTTPTrackerClient.cs" />
+    <Compile Include="ILocalPeerDiscovery.cs" />
     <Compile Include="IO\WireIO.Udp.cs" />
     <Compile Include="LocalPeerDiscovery.cs" />
     <Compile Include="ProtocolExtensions\IBTExtension.cs" />
@@ -69,7 +76,9 @@
     <Compile Include="Misc\Utils.cs" />
     <Compile Include="IO\WireIO.Tcp.cs" />
   </ItemGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <None Include="System.Net.Torrent.pfx" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
