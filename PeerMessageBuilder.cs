@@ -33,65 +33,65 @@ using System.Net.Torrent.Misc;
 
 namespace System.Net.Torrent
 {
-	public class PeerMessageBuilder : IDisposable
-	{
-		public UInt32 PacketLength { get { return (UInt32)(5 + MessagePayload.Count); } }
-		public UInt32 MessageLength { get { return (UInt32)(1 + MessagePayload.Count); } }
-		public byte MessageID { get; private set; }
-		public List<byte> MessagePayload { get; private set; }
+    public class PeerMessageBuilder : IDisposable
+    {
+        public UInt32 PacketLength { get { return (UInt32)(5 + MessagePayload.Count); } }
+        public UInt32 MessageLength { get { return (UInt32)(1 + MessagePayload.Count); } }
+        public byte MessageID { get; private set; }
+        public List<byte> MessagePayload { get; private set; }
 
-		public PeerMessageBuilder(byte msgId)
-		{
-			MessageID = msgId;
+        public PeerMessageBuilder(byte msgId)
+        {
+            MessageID = msgId;
 
-			MessagePayload = new List<byte>();
-		}
+            MessagePayload = new List<byte>();
+        }
 
-		public PeerMessageBuilder Add(byte b)
-		{
-			MessagePayload.Add(b);
+        public PeerMessageBuilder Add(byte b)
+        {
+            MessagePayload.Add(b);
 
-			return this;
-		}
+            return this;
+        }
 
-		public PeerMessageBuilder Add(byte[] bytes)
-		{
-			MessagePayload.AddRange(bytes);
+        public PeerMessageBuilder Add(byte[] bytes)
+        {
+            MessagePayload.AddRange(bytes);
 
-			return this;
-		}
+            return this;
+        }
 
-		public PeerMessageBuilder Add(UInt32 n, Pack.Endianness endianness = Pack.Endianness.Big)
-		{
-			MessagePayload.AddRange(Pack.UInt32(n, endianness));
+        public PeerMessageBuilder Add(UInt32 n, Pack.Endianness endianness = Pack.Endianness.Big)
+        {
+            MessagePayload.AddRange(Pack.UInt32(n, endianness));
 
-			return this;
-		}
+            return this;
+        }
 
-		public PeerMessageBuilder Add(String str)
-		{
-			MessagePayload.AddRange(Pack.Hex(str));
+        public PeerMessageBuilder Add(String str)
+        {
+            MessagePayload.AddRange(Pack.Hex(str));
 
-			return this;
-		}
+            return this;
+        }
 
-		public byte[] Message()
-		{
-			byte[] messageBytes = new byte[PacketLength];
-			byte[] lengthBytes = Pack.UInt32(MessageLength, Pack.Endianness.Big);
+        public byte[] Message()
+        {
+            byte[] messageBytes = new byte[PacketLength];
+            byte[] lengthBytes = Pack.UInt32(MessageLength, Pack.Endianness.Big);
 
-			lengthBytes.CopyTo(messageBytes, 0);
+            lengthBytes.CopyTo(messageBytes, 0);
 
-			messageBytes[4] = MessageID;
+            messageBytes[4] = MessageID;
 
-			MessagePayload.CopyTo(messageBytes, 5);
+            MessagePayload.CopyTo(messageBytes, 5);
 
-			return messageBytes;
-		}
+            return messageBytes;
+        }
 
-		public void Dispose()
-		{
-			MessagePayload.Clear();
-		}
-	}
+        public void Dispose()
+        {
+            MessagePayload.Clear();
+        }
+    }
 }

@@ -42,15 +42,15 @@ namespace System.Net.Torrent
     {
         private IBencodingType _root;
 
-	    public byte[] Hash { get; set; }
+        public byte[] Hash { get; set; }
 
-	    public String HashString
-	    {
-		    get { return Unpack.Hex(Hash); }
-		    set { Hash = Pack.Hex(value); }
-	    }
+        public String HashString
+        {
+            get { return Unpack.Hex(Hash); }
+            set { Hash = Pack.Hex(value); }
+        }
 
-	    public String Comment { get; set; }
+        public String Comment { get; set; }
         public String Announce { get; set; }
         public ICollection<String> AnnounceList { get; set; }
         public String CreatedBy { get; set; }
@@ -59,51 +59,51 @@ namespace System.Net.Torrent
         public Int64 PieceSize { get; set; }
         public ICollection<byte[]> PieceHashes { get; set; }
         public bool Private { get; set; }
-		private IDictionary<String, Int64> Files { get; set; }
+        private IDictionary<String, Int64> Files { get; set; }
 
         public Metadata()
         {
-	        Init();
+            Init();
         }
 
         public Metadata(Stream stream)
         {
-	        Init();
+            Init();
 
             Load(stream);
         }
 
-	    public Metadata(MagnetLink magnetLink)
-	    {
-		    Init();
+        public Metadata(MagnetLink magnetLink)
+        {
+            Init();
 
-		    Load(magnetLink);
-	    }
+            Load(magnetLink);
+        }
 
-	    private void Init()
-	    {
-			AnnounceList = new Collection<string>();
-			PieceHashes = new Collection<byte[]>();
-			Files = new Dictionary<string, long>();
-	    }
+        private void Init()
+        {
+            AnnounceList = new Collection<string>();
+            PieceHashes = new Collection<byte[]>();
+            Files = new Dictionary<string, long>();
+        }
 
-	    public bool Load(MagnetLink magnetLink)
-	    {
-		    if (magnetLink == null) return false;
-		    if (magnetLink.Hash == null) return false;
+        public bool Load(MagnetLink magnetLink)
+        {
+            if (magnetLink == null) return false;
+            if (magnetLink.Hash == null) return false;
 
-		    HashString = magnetLink.HashString;
+            HashString = magnetLink.HashString;
 
-		    if (magnetLink.Trackers != null)
-		    {
-			    foreach (string tracker in magnetLink.Trackers)
-			    {
-				    AnnounceList.Add(tracker);
-			    }
-		    }
+            if (magnetLink.Trackers != null)
+            {
+                foreach (string tracker in magnetLink.Trackers)
+                {
+                    AnnounceList.Add(tracker);
+                }
+            }
 
-		    return true;
-	    }
+            return true;
+        }
 
         public bool Load(Stream stream)
         {
@@ -130,14 +130,14 @@ namespace System.Net.Torrent
                     else
                     {
                         BList list = type as BList;
-	                    if (list == null) continue;
+                        if (list == null) continue;
 
-	                    BList listType = list;
-	                    foreach (IBencodingType bencodingType in listType)
-	                    {
-		                    BString s = (BString)bencodingType;
-		                    AnnounceList.Add(s);
-	                    }
+                        BList listType = list;
+                        foreach (IBencodingType bencodingType in listType)
+                        {
+                            BString s = (BString)bencodingType;
+                            AnnounceList.Add(s);
+                        }
                     }
                 }
             }
@@ -162,50 +162,50 @@ namespace System.Net.Torrent
             {
                 BDict infoDict = (BDict)dictRoot["info"];
 
-	            using (SHA1Managed sha1 = new SHA1Managed())
-	            {
-					byte[] str = BencodingUtils.EncodeBytes(infoDict);
-					Hash = sha1.ComputeHash(str);
-	            }				
+                using (SHA1Managed sha1 = new SHA1Managed())
+                {
+                    byte[] str = BencodingUtils.EncodeBytes(infoDict);
+                    Hash = sha1.ComputeHash(str);
+                }                
 
-	            if (infoDict.ContainsKey("files"))
-	            {
-		            //multi file mode
-					BList fileList = (BList)infoDict["files"];
-		            foreach (IBencodingType bencodingType in fileList)
-		            {
-						BDict fileDict = (BDict)bencodingType;
-			            
-						String filename = string.Empty;
-			            Int64 filesize = default(Int64);
+                if (infoDict.ContainsKey("files"))
+                {
+                    //multi file mode
+                    BList fileList = (BList)infoDict["files"];
+                    foreach (IBencodingType bencodingType in fileList)
+                    {
+                        BDict fileDict = (BDict)bencodingType;
+                        
+                        String filename = string.Empty;
+                        Int64 filesize = default(Int64);
 
-						if (fileDict.ContainsKey("path"))
-						{
-							BList filenameList = (BList)fileDict["path"];
-							foreach (IBencodingType type in filenameList)
-							{
-								filename += (BString)type;
-								filename += "\\";
-							}
-							filename = filename.Trim('\\');
-						}
+                        if (fileDict.ContainsKey("path"))
+                        {
+                            BList filenameList = (BList)fileDict["path"];
+                            foreach (IBencodingType type in filenameList)
+                            {
+                                filename += (BString)type;
+                                filename += "\\";
+                            }
+                            filename = filename.Trim('\\');
+                        }
 
-						if (fileDict.ContainsKey("length"))
-						{
-							filesize = (BInt)fileDict["length"];
-						}
+                        if (fileDict.ContainsKey("length"))
+                        {
+                            filesize = (BInt)fileDict["length"];
+                        }
 
-						Files.Add(filename, filesize);
-		            }
-	            }
+                        Files.Add(filename, filesize);
+                    }
+                }
 
                 if (infoDict.ContainsKey("name"))
                 {
                     Name = (BString)infoDict["name"];
-					if (Files.Count == 0 && infoDict.ContainsKey("length"))
-	                {
-						Files.Add(Name, (BInt)infoDict["length"]);
-	                }
+                    if (Files.Count == 0 && infoDict.ContainsKey("length"))
+                    {
+                        Files.Add(Name, (BInt)infoDict["length"]);
+                    }
                 }
 
                 if (infoDict.ContainsKey("private"))

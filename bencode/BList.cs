@@ -35,23 +35,30 @@ namespace System.Net.Torrent.BEncode
 {
     public class BList : List<IBencodingType>, IEquatable<BList>, IEquatable<IList<IBencodingType>>, IBencodingType
     {
-	    public override int GetHashCode()
-	    {
-		    return base.GetHashCode();
-	    }
+        public override int GetHashCode()
+        {
+            int i = 1;
 
-	    /// <summary>
+            foreach (var item in this)
+            {
+                i ^= item.GetHashCode();
+            }
+
+            return i;
+        }
+
+        /// <summary>
         /// Decode the next token as a list.
         /// Assumes the next token is a list.
         /// </summary>
         /// <param name="inputStream"></param>
-		/// <param name="bytesConsumed"></param>
+        /// <param name="bytesConsumed"></param>
         /// <returns>Decoded list</returns>
-		public static BList Decode(BinaryReader inputStream, ref int bytesConsumed)
+        public static BList Decode(BinaryReader inputStream, ref int bytesConsumed)
         {
             // Get past 'l'
             inputStream.Read();
-	        bytesConsumed++;
+            bytesConsumed++;
 
             BList res = new BList();
 
@@ -63,7 +70,7 @@ namespace System.Net.Torrent.BEncode
 
             // Get past 'e'
             inputStream.Read();
-			bytesConsumed++;
+            bytesConsumed++;
 
             return res;
         }
@@ -85,7 +92,7 @@ namespace System.Net.Torrent.BEncode
 
         public bool Equals(BList obj)
         {
-            IList<IBencodingType> other = obj as IList<IBencodingType>;
+            IList<IBencodingType> other = obj;
 
             return Equals(other);
         }

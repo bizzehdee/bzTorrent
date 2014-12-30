@@ -56,17 +56,17 @@ namespace System.Net.Torrent
             }
         }
 
-		public IDictionary<string, AnnounceInfo> Announce(string url, string[] hashes, string peerId)
+        public IDictionary<string, AnnounceInfo> Announce(string url, string[] hashes, string peerId)
         {
             return hashes.ToDictionary(hash => hash, hash => Announce(url, hash, peerId));
         }
 
-		public AnnounceInfo Announce(string url, string hash, string peerId)
+        public AnnounceInfo Announce(string url, string hash, string peerId)
         {
             return Announce(url, hash, peerId, 0, 0, 0, 2, 0, -1, 12345, 0);
         }
 
-		public AnnounceInfo Announce(string url, string hash, string peerId, long bytesDownloaded, long bytesLeft, long bytesUploaded, 
+        public AnnounceInfo Announce(string url, string hash, string peerId, long bytesDownloaded, long bytesLeft, long bytesUploaded, 
             int eventTypeFilter, int ipAddress, int numWant, int listenPort, int extensions)
         {
             byte[] hashBytes = Pack.Hex(hash);
@@ -123,48 +123,48 @@ namespace System.Net.Torrent
             }
 
             BDict decoded = (BDict)BencodingUtils.Decode(bytes);
-			if (decoded.Count == 0)
-			{
-				return null;
-			}
+            if (decoded.Count == 0)
+            {
+                return null;
+            }
 
-			if (!decoded.ContainsKey("peers"))
-			{
-				return null;
-			}
+            if (!decoded.ContainsKey("peers"))
+            {
+                return null;
+            }
 
-			if (!(decoded["peers"] is BString))
-			{
-				throw new NotSupportedException("Dictionary based peers not supported");
-			}
+            if (!(decoded["peers"] is BString))
+            {
+                throw new NotSupportedException("Dictionary based peers not supported");
+            }
 
-			Int32 waitTime = 0;
-			Int32 seeders = 0;
-			Int32 leachers = 0;
+            Int32 waitTime = 0;
+            Int32 seeders = 0;
+            Int32 leachers = 0;
 
-			if (decoded.ContainsKey("interval"))
-			{
-				waitTime = (BInt)decoded["interval"];
-			}
+            if (decoded.ContainsKey("interval"))
+            {
+                waitTime = (BInt)decoded["interval"];
+            }
 
-			if (decoded.ContainsKey("complete"))
-			{
-				seeders = (BInt)decoded["complete"];
-			}
+            if (decoded.ContainsKey("complete"))
+            {
+                seeders = (BInt)decoded["complete"];
+            }
 
-			if (decoded.ContainsKey("incomplete"))
-			{
-				leachers = (BInt)decoded["incomplete"];
-			}
+            if (decoded.ContainsKey("incomplete"))
+            {
+                leachers = (BInt)decoded["incomplete"];
+            }
 
             BString peerBinary = (BString)decoded["peers"];
 
-			return new AnnounceInfo(GetPeers(peerBinary.ByteValue), waitTime, seeders, leachers);
+            return new AnnounceInfo(GetPeers(peerBinary.ByteValue), waitTime, seeders, leachers);
         }
 
         public IDictionary<string, ScrapeInfo> Scrape(string url, string[] hashes)
         {
-			Dictionary<String, ScrapeInfo> returnVal = new Dictionary<string, ScrapeInfo>();
+            Dictionary<String, ScrapeInfo> returnVal = new Dictionary<string, ScrapeInfo>();
 
             String realUrl = url.Replace("announce", "scrape") + "?";
 
@@ -219,7 +219,7 @@ namespace System.Net.Torrent
                 if (d.ContainsKey("complete") && d.ContainsKey("downloaded") && d.ContainsKey("incomplete"))
                 {
                     String rk = Unpack.Hex(BencodingUtils.ExtendedASCIIEncoding.GetBytes(k));
-					returnVal.Add(rk, new ScrapeInfo((uint)((BInt)d["complete"]).Value, (uint)((BInt)d["downloaded"]).Value, (uint)((BInt)d["incomplete"]).Value, ScraperType.HTTP));
+                    returnVal.Add(rk, new ScrapeInfo((uint)((BInt)d["complete"]).Value, (uint)((BInt)d["downloaded"]).Value, (uint)((BInt)d["incomplete"]).Value, ScraperType.HTTP));
                 }
             }
 

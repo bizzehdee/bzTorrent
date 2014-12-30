@@ -65,8 +65,9 @@ namespace System.Net.Torrent.BEncode
         /// Assumes the next token is a string.
         /// </summary>
         /// <param name="inputStream"></param>
+        /// <param name="bytesConsumed"></param>
         /// <returns>Decoded string</returns>
-		public static BString Decode(BinaryReader inputStream, ref int bytesConsumed)
+        public static BString Decode(BinaryReader inputStream, ref int bytesConsumed)
         {
             // Read up to ':'
             string numberLength = "";
@@ -75,16 +76,16 @@ namespace System.Net.Torrent.BEncode
             while ((ch = inputStream.ReadChar()) != ':')
             {
                 numberLength += ch;
-	            bytesConsumed++;
+                bytesConsumed++;
             }
 
-			bytesConsumed++;
+            bytesConsumed++;
 
             // Read chars out
             //char[] stringData = new char[int.Parse(numberLength)];
             //inputStream.Read(stringData, 0, stringData.Length);
             byte[] stringData = inputStream.ReadBytes(int.Parse(numberLength));
-			bytesConsumed += int.Parse(numberLength);
+            bytesConsumed += int.Parse(numberLength);
             // Return
             return new BString { Value = BencodingUtils.ExtendedASCIIEncoding.GetString(stringData), ByteValue = stringData };
         }
@@ -129,15 +130,19 @@ namespace System.Net.Torrent.BEncode
             if (other == null)
                 return false;
 
-            if (other == this)
+            if (Equals(other, this))
+            {
                 return true;
+            }
 
             return Equals(other.Value, Value);
         }
         public bool Equals(string other)
         {
             if (other == null)
+            {
                 return false;
+            }
 
             return Equals(Value, other);
         }

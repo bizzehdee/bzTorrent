@@ -47,9 +47,9 @@ namespace System.Net.Torrent
             _currentConnectionId = BaseCurrentConnectionId;
         }
 
-		public IDictionary<String, ScrapeInfo> Scrape(String url, String[] hashes)
+        public IDictionary<String, ScrapeInfo> Scrape(String url, String[] hashes)
         {
-			Dictionary<String, ScrapeInfo> returnVal = new Dictionary<string, ScrapeInfo>();
+            Dictionary<String, ScrapeInfo> returnVal = new Dictionary<string, ScrapeInfo>();
 
             ValidateInput(url, hashes, ScraperType.UDP);
 
@@ -115,7 +115,7 @@ namespace System.Net.Torrent
                 UInt32 completed = Unpack.UInt32(recBuf, startIndex + 4, Unpack.Endianness.Big);
                 UInt32 leachers = Unpack.UInt32(recBuf, startIndex + 8, Unpack.Endianness.Big);
 
-				returnVal.Add(hash, new ScrapeInfo(seeders, completed, leachers, ScraperType.UDP));
+                returnVal.Add(hash, new ScrapeInfo(seeders, completed, leachers, ScraperType.UDP));
 
                 startIndex += 12;
             }
@@ -125,12 +125,12 @@ namespace System.Net.Torrent
             return returnVal;
         }
 
-		public AnnounceInfo Announce(String url, String hash, String peerId)
+        public AnnounceInfo Announce(String url, String hash, String peerId)
         {
             return Announce(url, hash, peerId, 0, 0, 0, 2, 0, -1, 12345, 0);
         }
 
-		public AnnounceInfo Announce(String url, String hash, String peerId, Int64 bytesDownloaded, Int64 bytesLeft, Int64 bytesUploaded, 
+        public AnnounceInfo Announce(String url, String hash, String peerId, Int64 bytesDownloaded, Int64 bytesLeft, Int64 bytesUploaded, 
             Int32 eventTypeFilter, Int32 ipAddress, Int32 numWant, Int32 listenPort, Int32 extensions)
         {
             List<IPEndPoint> returnValue = new List<IPEndPoint>();
@@ -150,20 +150,20 @@ namespace System.Net.Torrent
                         }
                 };
 
-			byte[] sendBuf = _currentConnectionId.Concat(Pack.Int32(0, Pack.Endianness.Big)).Concat(Pack.Int32(trasactionId, Pack.Endianness.Big)).ToArray();
+            byte[] sendBuf = _currentConnectionId.Concat(Pack.Int32(0, Pack.Endianness.Big)).Concat(Pack.Int32(trasactionId, Pack.Endianness.Big)).ToArray();
             udpClient.Send(sendBuf, sendBuf.Length);
 
             IPEndPoint endPoint = null;
-	        byte[] recBuf;
+            byte[] recBuf;
 
-	        try
-	        {
-				recBuf = udpClient.Receive(ref endPoint);
-	        }
-	        catch (Exception)
-	        {
-		        return null;
-	        }
+            try
+            {
+                recBuf = udpClient.Receive(ref endPoint);
+            }
+            catch (Exception)
+            {
+                return null;
+            }
 
             if (recBuf == null) throw new NoNullAllowedException("udpClient failed to receive");
             if (recBuf.Length < 0) throw new InvalidOperationException("udpClient received no response");
@@ -187,26 +187,26 @@ namespace System.Net.Torrent
                 Concat(Pack.Int32(1)). /*action*/
                 Concat(Pack.Int32(trasactionId, Pack.Endianness.Big)). /*trasaction Id*/
                 Concat(hashBytes). /*hash*/
-				Concat(Encoding.ASCII.GetBytes(peerId)). /*my peer id*/
-				Concat(Pack.Int64(bytesDownloaded, Pack.Endianness.Big)). /*bytes downloaded*/
-				Concat(Pack.Int64(bytesLeft, Pack.Endianness.Big)). /*bytes left*/
-				Concat(Pack.Int64(bytesUploaded, Pack.Endianness.Big)). /*bytes uploaded*/
-				Concat(Pack.Int32(eventTypeFilter, Pack.Endianness.Big)). /*event, 0 for none, 2 for just started*/
-				Concat(Pack.Int32(ipAddress, Pack.Endianness.Big)). /*ip, 0 for this one*/
-				Concat(Pack.Int32(key, Pack.Endianness.Big)). /*unique key*/
-				Concat(Pack.Int32(numWant, Pack.Endianness.Big)). /*num want, -1 for as many as pos*/
-				Concat(Pack.Int32(listenPort, Pack.Endianness.Big)). /*listen port*/
-				Concat(Pack.Int32(extensions, Pack.Endianness.Big)).ToArray(); /*extensions*/
+                Concat(Encoding.ASCII.GetBytes(peerId)). /*my peer id*/
+                Concat(Pack.Int64(bytesDownloaded, Pack.Endianness.Big)). /*bytes downloaded*/
+                Concat(Pack.Int64(bytesLeft, Pack.Endianness.Big)). /*bytes left*/
+                Concat(Pack.Int64(bytesUploaded, Pack.Endianness.Big)). /*bytes uploaded*/
+                Concat(Pack.Int32(eventTypeFilter, Pack.Endianness.Big)). /*event, 0 for none, 2 for just started*/
+                Concat(Pack.Int32(ipAddress, Pack.Endianness.Big)). /*ip, 0 for this one*/
+                Concat(Pack.Int32(key, Pack.Endianness.Big)). /*unique key*/
+                Concat(Pack.Int32(numWant, Pack.Endianness.Big)). /*num want, -1 for as many as pos*/
+                Concat(Pack.Int32(listenPort, Pack.Endianness.Big)). /*listen port*/
+                Concat(Pack.Int32(extensions, Pack.Endianness.Big)).ToArray(); /*extensions*/
             udpClient.Send(sendBuf, sendBuf.Length);
 
-	        try
-	        {
-				recBuf = udpClient.Receive(ref endPoint);
-	        }
-	        catch (Exception)
-	        {
-		        return null;
-	        }
+            try
+            {
+                recBuf = udpClient.Receive(ref endPoint);
+            }
+            catch (Exception)
+            {
+                return null;
+            }
 
             recAction = Unpack.UInt32(recBuf, 0, Unpack.Endianness.Big);
             recTrasactionId = Unpack.UInt32(recBuf, 4, Unpack.Endianness.Big);
@@ -233,11 +233,11 @@ namespace System.Net.Torrent
             return new AnnounceInfo(returnValue, waitTime, seeders, leachers);
         }
 
-		public IDictionary<String, AnnounceInfo> Announce(String url, String[] hashes, String peerId)
+        public IDictionary<String, AnnounceInfo> Announce(String url, String[] hashes, String peerId)
         {
             ValidateInput(url, hashes, ScraperType.UDP);
 
-			Dictionary<String, AnnounceInfo> returnVal = hashes.ToDictionary(hash => hash, hash => Announce(url, hash, peerId));
+            Dictionary<String, AnnounceInfo> returnVal = hashes.ToDictionary(hash => hash, hash => Announce(url, hash, peerId));
 
             return returnVal;
         }

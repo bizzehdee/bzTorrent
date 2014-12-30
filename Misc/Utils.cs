@@ -44,8 +44,8 @@ namespace System.Net.Torrent.Misc
 
         public static byte[] GetBytes(this byte[] bytes, Int32 start, Int32 length = -1)
         {
-	        int l = length;
-	        if (l == -1) l = bytes.Length - start;
+            int l = length;
+            if (l == -1) l = bytes.Length - start;
 
             byte[] intBytes = new byte[l];
 
@@ -54,34 +54,34 @@ namespace System.Net.Torrent.Misc
             return intBytes;
         }
 
-		public static byte[] Cat(this byte[] first, byte[] second)
-		{
-			byte[] returnBytes = new byte[first.Length + second.Length];
+        public static byte[] Cat(this byte[] first, byte[] second)
+        {
+            byte[] returnBytes = new byte[first.Length + second.Length];
 
-			first.CopyTo(returnBytes, 0);
-			second.CopyTo(returnBytes, first.Length);
+            first.CopyTo(returnBytes, 0);
+            second.CopyTo(returnBytes, first.Length);
 
-			return returnBytes;
-		}
+            return returnBytes;
+        }
 
-		public static bool Contains<T>(this T[] ar, T o)
-		{
-			foreach (T t in ar)
-			{
-				if (Equals(t, o)) return true;
-			}
+        public static bool Contains<T>(this T[] ar, T o)
+        {
+            foreach (T t in ar)
+            {
+                if (Equals(t, o)) return true;
+            }
 
-			return false;
-		}
+            return false;
+        }
 
-	    public static bool Contains<T>(this T[] ar, Func<T, bool> expr)
-	    {
-		    foreach (T t in ar)
-		    {
-				if (expr != null && expr(t)) return true;
-		    }
+        public static bool Contains<T>(this T[] ar, Func<T, bool> expr)
+        {
+            foreach (T t in ar)
+            {
+                if (expr != null && expr(t)) return true;
+            }
 
-		    return false;
-	    }
+            return false;
+        }
     }
 }

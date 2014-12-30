@@ -97,10 +97,10 @@ namespace System.Net.Torrent.BEncode
             return Decode(new MemoryStream(byteArray));
         }
 
-		public static IBencodingType Decode(byte[] byteArray, ref int bytesConsumed)
-		{
-			return Decode(new MemoryStream(byteArray), ref bytesConsumed);
-		}
+        public static IBencodingType Decode(byte[] byteArray, ref int bytesConsumed)
+        {
+            return Decode(new MemoryStream(byteArray), ref bytesConsumed);
+        }
 
         /// <summary>
         /// Parse a bencoded stream (for example a file).
@@ -111,20 +111,20 @@ namespace System.Net.Torrent.BEncode
         {
             using (BinaryReader sr = new BinaryReader(inputStream, ExtendedASCIIEncoding))
             {
-	            int bytesConsumed = 0;
-				return Decode(sr, ref bytesConsumed);
+                int bytesConsumed = 0;
+                return Decode(sr, ref bytesConsumed);
             }
         }
 
-		public static IBencodingType Decode(Stream inputStream, ref int bytesConsumed)
-		{
-			using (BinaryReader sr = new BinaryReader(inputStream, ExtendedASCIIEncoding))
-			{
-				return Decode(sr, ref bytesConsumed);
-			}
-		}
+        public static IBencodingType Decode(Stream inputStream, ref int bytesConsumed)
+        {
+            using (BinaryReader sr = new BinaryReader(inputStream, ExtendedASCIIEncoding))
+            {
+                return Decode(sr, ref bytesConsumed);
+            }
+        }
 
-		internal static IBencodingType Decode(BinaryReader inputStream, ref int bytesConsumed)
+        internal static IBencodingType Decode(BinaryReader inputStream, ref int bytesConsumed)
         {
             char next = (char)inputStream.PeekChar();
 
@@ -140,7 +140,7 @@ namespace System.Net.Torrent.BEncode
 
                 case 'd':
                     // List
-					return BDict.Decode(inputStream, ref bytesConsumed);
+                    return BDict.Decode(inputStream, ref bytesConsumed);
 
                 case '0':
                 case '1':
@@ -153,7 +153,7 @@ namespace System.Net.Torrent.BEncode
                 case '8':
                 case '9':
                     // String
-					return BString.Decode(inputStream, ref bytesConsumed);
+                    return BString.Decode(inputStream, ref bytesConsumed);
             }
 
             return null;

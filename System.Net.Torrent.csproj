@@ -56,7 +56,9 @@
     <Compile Include="HTTPTrackerClient.cs" />
     <Compile Include="ILocalPeerDiscovery.cs" />
     <Compile Include="IO\WireIO.Udp.cs" />
+    <Compile Include="IPeerWireClient.cs" />
     <Compile Include="LocalPeerDiscovery.cs" />
+    <Compile Include="ProtocolExtensions\DHTPortExtension.cs" />
     <Compile Include="ProtocolExtensions\IBTExtension.cs" />
     <Compile Include="IPeerCommand.cs" />
     <Compile Include="IProtocolExtension.cs" />

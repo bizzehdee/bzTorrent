@@ -36,32 +36,32 @@ namespace System.Net.Torrent.Extensions
 {
     public class UTPeerExchange : IBTExtension
     {
-	    private ExtendedProtocolExtensions _parent;
+        private ExtendedProtocolExtensions _parent;
 
         public string Protocol
         {
             get { return "ut_pex"; }
         }
 
-        public event Action<PeerWireClient, IBTExtension, IPEndPoint, byte> Added;
-        public event Action<PeerWireClient, IBTExtension, IPEndPoint> Dropped;
+        public event Action<IPeerWireClient, IBTExtension, IPEndPoint, byte> Added;
+        public event Action<IPeerWireClient, IBTExtension, IPEndPoint> Dropped;
 
-		public void Init(ExtendedProtocolExtensions parent)
-		{
-			_parent = parent;
-		}
+        public void Init(ExtendedProtocolExtensions parent)
+        {
+            _parent = parent;
+        }
 
         public void Deinit()
         {
 
         }
 
-		public void OnHandshake(PeerWireClient peerWireClient, byte[] handshake)
+        public void OnHandshake(IPeerWireClient peerWireClient, byte[] handshake)
         {
             BDict d = (BDict)BencodingUtils.Decode(handshake);
         }
 
-		public void OnExtendedMessage(PeerWireClient peerWireClient, byte[] bytes)
+        public void OnExtendedMessage(IPeerWireClient peerWireClient, byte[] bytes)
         {
             BDict d = (BDict) BencodingUtils.Decode(bytes);
             if (d.ContainsKey("added") && d.ContainsKey("added.f"))
@@ -103,38 +103,38 @@ namespace System.Net.Torrent.Extensions
             }
         }
 
-		public void SendMessage(PeerWireClient peerWireClient, IPEndPoint[] addedEndPoints, byte[] flags, IPEndPoint[] droppedEndPoints)
-		{
-			if (addedEndPoints == null && droppedEndPoints == null) return;
+        public void SendMessage(IPeerWireClient peerWireClient, IPEndPoint[] addedEndPoints, byte[] flags, IPEndPoint[] droppedEndPoints)
+        {
+            if (addedEndPoints == null && droppedEndPoints == null) return;
 
-			BDict d = new BDict();
+            BDict d = new BDict();
 
-			if (addedEndPoints != null)
-			{
-				byte[] added = new byte[addedEndPoints.Length * 6];
-				for (int x = 0; x < addedEndPoints.Length; x++)
-				{
-					addedEndPoints[x].Address.GetAddressBytes().CopyTo(added, x * 6);
-					BitConverter.GetBytes((ushort)addedEndPoints[x].Port).CopyTo(added, (x * 6)+4);
-				}
+            if (addedEndPoints != null)
+            {
+                byte[] added = new byte[addedEndPoints.Length * 6];
+                for (int x = 0; x < addedEndPoints.Length; x++)
+                {
+                    addedEndPoints[x].Address.GetAddressBytes().CopyTo(added, x * 6);
+                    BitConverter.GetBytes((ushort)addedEndPoints[x].Port).CopyTo(added, (x * 6)+4);
+                }
 
-				d.Add("added", new BString { ByteValue = added });
-			}
+                d.Add("added", new BString { ByteValue = added });
+            }
 
-			if (droppedEndPoints != null)
-			{
-				byte[] dropped = new byte[droppedEndPoints.Length * 6];
-				for (int x = 0; x < droppedEndPoints.Length; x++)
-				{
-					droppedEndPoints[x].Address.GetAddressBytes().CopyTo(dropped, x * 6);
+            if (droppedEndPoints != null)
+            {
+                byte[] dropped = new byte[droppedEndPoints.Length * 6];
+                for (int x = 0; x < droppedEndPoints.Length; x++)
+                {
+                    droppedEndPoints[x].Address.GetAddressBytes().CopyTo(dropped, x * 6);
 
-					dropped.SetValue((ushort)droppedEndPoints[x].Port, (x * 6) + 2);
-				}
+                    dropped.SetValue((ushort)droppedEndPoints[x].Port, (x * 6) + 2);
+                }
 
-				d.Add("dropped", new BString { ByteValue = dropped });
-			}
+                d.Add("dropped", new BString { ByteValue = dropped });
+            }
 
-			_parent.SendExtended(peerWireClient, _parent.GetOutgoingMessageID(peerWireClient, this), BencodingUtils.EncodeBytes(d));
-		}
+            _parent.SendExtended(peerWireClient, _parent.GetOutgoingMessageID(peerWireClient, this), BencodingUtils.EncodeBytes(d));
+        }
     }
 }

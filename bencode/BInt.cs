@@ -51,13 +51,13 @@ namespace System.Net.Torrent.BEncode
         /// Assumes the next token is a int.
         /// </summary>
         /// <param name="inputStream"></param>
-		/// <param name="bytesConsumed"></param>
+        /// <param name="bytesConsumed"></param>
         /// <returns>Decoded int</returns>
-		public static BInt Decode(BinaryReader inputStream, ref int bytesConsumed)
+        public static BInt Decode(BinaryReader inputStream, ref int bytesConsumed)
         {
             // Get past 'i'
             inputStream.Read();
-	        bytesConsumed++;
+            bytesConsumed++;
 
             // Read numbers till an 'e'
             string number = "";
@@ -67,10 +67,10 @@ namespace System.Net.Torrent.BEncode
             {
                 number += ch;
 
-				bytesConsumed++;
+                bytesConsumed++;
             }
 
-			bytesConsumed++;
+            bytesConsumed++;
 
             BInt res = new BInt { Value = long.Parse(number) };
 
@@ -140,24 +140,24 @@ namespace System.Net.Torrent.BEncode
             return String.Format("{0}", Value);
         }
 
-		public static implicit operator BInt(long x)
-		{
-			return new BInt(x);
-		}
+        public static implicit operator BInt(long x)
+        {
+            return new BInt(x);
+        }
 
-		public static implicit operator long(BInt x)
-		{
-			return x.Value;
-		}
+        public static implicit operator long(BInt x)
+        {
+            return x.Value;
+        }
 
-		public static implicit operator BInt(int x)
-		{
-			return new BInt(x);
-		}
+        public static implicit operator BInt(int x)
+        {
+            return new BInt(x);
+        }
 
-		public static implicit operator int(BInt x)
-		{
-			return (int)x.Value;
-		}
+        public static implicit operator int(BInt x)
+        {
+            return (int)x.Value;
+        }
     }
 }

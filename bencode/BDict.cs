@@ -33,7 +33,7 @@ using System.IO;
 
 namespace System.Net.Torrent.BEncode
 {
-	[Serializable]
+    [Serializable]
     public class BDict : Dictionary<string, IBencodingType>, IEquatable<BDict>, IEquatable<Dictionary<string, IBencodingType>>, IBencodingType
     {
         /// <summary>
@@ -41,13 +41,14 @@ namespace System.Net.Torrent.BEncode
         /// Assumes the next token is a dictionary.
         /// </summary>
         /// <param name="inputStream"></param>
-		/// <param name="bytesConsumed"></param>
+        /// <param name="bytesConsumed"></param>
         /// <returns>Decoded dictionary</returns>
-		public static BDict Decode(BinaryReader inputStream, ref int bytesConsumed)
+        public static BDict Decode(BinaryReader inputStream, ref int bytesConsumed)
         {
             // Get past 'd'
-            char c = (char)inputStream.ReadByte();
-	        bytesConsumed++;
+            inputStream.ReadByte();
+
+            bytesConsumed++;
             BDict res = new BDict();
 
             // Read elements till an 'e'
@@ -64,7 +65,7 @@ namespace System.Net.Torrent.BEncode
 
             // Get past 'e'
             inputStream.Read();
-			bytesConsumed++;
+            bytesConsumed++;
 
             return res;
         }
@@ -78,8 +79,10 @@ namespace System.Net.Torrent.BEncode
             foreach (KeyValuePair<string, IBencodingType> item in this)
             {
                 // Write key
-                BString key = new BString();
-                key.Value = item.Key;
+                BString key = new BString
+                {
+                    Value = item.Key
+                };
 
                 key.Encode(writer);
 
@@ -93,7 +96,7 @@ namespace System.Net.Torrent.BEncode
 
         public bool Equals(BDict obj)
         {
-            Dictionary<string, IBencodingType> other = obj as Dictionary<string, IBencodingType>;
+            Dictionary<string, IBencodingType> other = obj;
 
             return Equals(other);
         }
@@ -164,7 +167,7 @@ namespace System.Net.Torrent.BEncode
 
         public override int GetHashCode()
         {
-            int r = base.GetHashCode();
+            int r = 1;
             foreach (KeyValuePair<String, IBencodingType> pair in this)
             {
                 r ^= pair.GetHashCode();
