@@ -48,12 +48,12 @@ namespace System.Net.Torrent.Extensions
 
         public void Deinit()
         {
-			
+            
         }
 
         public void OnHandshake(IPeerWireClient peerWireClient, byte[] handshake)
         {
-			BDict dict = (BDict)BencodingUtils.Decode(handshake);
+            BDict dict = (BDict)BencodingUtils.Decode(handshake);
         }
 
         public void OnExtendedMessage(IPeerWireClient peerWireClient, byte[] bytes)
@@ -61,9 +61,9 @@ namespace System.Net.Torrent.Extensions
             
         }
 
-	    public IDictionary<string, IBencodingType> GetAdditionalHandshake(IPeerWireClient peerWireClient)
-	    {
-			return new Dictionary<string, IBencodingType> { { "tr", new BString(peerWireClient.Hash) } };
-	    }
+        public IDictionary<string, IBencodingType> GetAdditionalHandshake(IPeerWireClient peerWireClient)
+        {
+            return new Dictionary<string, IBencodingType> { { "tr", new BString(peerWireClient.Hash) } };
+        }
     }
 }

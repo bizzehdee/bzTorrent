@@ -145,11 +145,11 @@ namespace System.Net.Torrent
 
             try
             {
-				int len = Socket.Send(sendBuf);
-	            if (len != sendBuf.Length)
-	            {
-		            throw new Exception("Didnt sent entire handshake");
-	            }
+                int len = Socket.Send(sendBuf);
+                if (len != sendBuf.Length)
+                {
+                    throw new Exception("Didnt sent entire handshake");
+                }
             }
             catch (SocketException ex)
             {
@@ -346,25 +346,25 @@ namespace System.Net.Torrent
                     ProcessRequest(true);
                     break;
                 default:
-	            {
-		            foreach (IProtocolExtension extension in _btProtocolExtensions)
+                {
+                    foreach (IProtocolExtension extension in _btProtocolExtensions)
                     {
-	                    if (!extension.CommandIDs.Contains(b => b == commandId))
-	                    {
-		                    continue;
-	                    }
+                        if (!extension.CommandIDs.Contains(b => b == commandId))
+                        {
+                            continue;
+                        }
 
-						if (extension.OnCommand(this, commandLength, (byte)commandId, _internalBuffer))
+                        if (extension.OnCommand(this, commandLength, (byte)commandId, _internalBuffer))
                         {
                             break;
                         }
                     }
 
-		            lock (_locker)
-		            {
-			            _internalBuffer = _internalBuffer.GetBytes(commandLength - 1);
-		            }
-	            }
+                    lock (_locker)
+                    {
+                        _internalBuffer = _internalBuffer.GetBytes(commandLength - 1);
+                    }
+                }
                     break;
             }
 
