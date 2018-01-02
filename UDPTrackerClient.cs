@@ -64,7 +64,7 @@ namespace System.Net.Torrent
                         }
                 };
 
-            byte[] sendBuf = _currentConnectionId.Concat(Pack.Int32(0)).Concat(Pack.Int32(trasactionId)).ToArray();
+            byte[] sendBuf = _currentConnectionId.Concat(Pack.Int32(0, Pack.Endianness.Big)).Concat(Pack.Int32(trasactionId, Pack.Endianness.Big)).ToArray();
             udpClient.Send(sendBuf, sendBuf.Length);
 
             IPEndPoint endPoint = null;
