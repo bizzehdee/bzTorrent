@@ -32,10 +32,11 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <PropertyGroup>
-    <SignAssembly>true</SignAssembly>
+    <SignAssembly>false</SignAssembly>
   </PropertyGroup>
   <PropertyGroup>
-    <AssemblyOriginatorKeyFile>System.Net.Torrent.pfx</AssemblyOriginatorKeyFile>
+    <AssemblyOriginatorKeyFile>
+    </AssemblyOriginatorKeyFile>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
@@ -77,9 +78,6 @@
     <Compile Include="Misc\Unpack.cs" />
     <Compile Include="Misc\Utils.cs" />
     <Compile Include="IO\WireIO.Tcp.cs" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="System.Net.Torrent.pfx" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
