@@ -1,90 +1,17 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
-  <PropertyGroup>
-    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
-    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{1C7A915C-76C2-41F2-BF9C-6A7B95FA0423}</ProjectGuid>
-    <OutputType>Library</OutputType>
-    <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>System.Net.Torrent</RootNamespace>
-    <AssemblyName>System.Net.Torrent</AssemblyName>
-    <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
-    <FileAlignment>512</FileAlignment>
-    <TargetFrameworkProfile>
-    </TargetFrameworkProfile>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
-    <DebugSymbols>true</DebugSymbols>
-    <DebugType>full</DebugType>
-    <Optimize>false</Optimize>
-    <OutputPath>bin\Debug\</OutputPath>
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-    <DebugType>pdbonly</DebugType>
-    <Optimize>true</Optimize>
-    <OutputPath>bin\Release\</OutputPath>
-    <DefineConstants>TRACE</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-  </PropertyGroup>
-  <PropertyGroup>
-    <SignAssembly>false</SignAssembly>
-  </PropertyGroup>
-  <PropertyGroup>
-    <AssemblyOriginatorKeyFile>
-    </AssemblyOriginatorKeyFile>
-  </PropertyGroup>
-  <ItemGroup>
-    <Reference Include="System" />
-    <Reference Include="System.Core" />
-    <Reference Include="System.Data" />
-  </ItemGroup>
-  <ItemGroup>
-    <Compile Include="BaseScraper.cs" />
-    <Compile Include="BEncode\BDict.cs" />
-    <Compile Include="BEncode\BencodingUtils.cs" />
-    <Compile Include="BEncode\BInt.cs" />
-    <Compile Include="BEncode\BList.cs" />
-    <Compile Include="BEncode\BString.cs" />
-    <Compile Include="BEncode\IBencodingType.cs" />
-    <Compile Include="Extensions\LTTrackerExchange.cs" />
-    <Compile Include="Extensions\UTMetadata.cs" />
-    <Compile Include="Extensions\UTPeerExchange.cs" />
-    <Compile Include="HTTPTrackerClient.cs" />
-    <Compile Include="ILocalPeerDiscovery.cs" />
-    <Compile Include="IO\WireIO.Udp.cs" />
-    <Compile Include="IPeerWireClient.cs" />
-    <Compile Include="LocalPeerDiscovery.cs" />
-    <Compile Include="ProtocolExtensions\DHTPortExtension.cs" />
-    <Compile Include="ProtocolExtensions\IBTExtension.cs" />
-    <Compile Include="IPeerCommand.cs" />
-    <Compile Include="IProtocolExtension.cs" />
-    <Compile Include="ITrackerClient.cs" />
-    <Compile Include="IO\IWireIO.cs" />
-    <Compile Include="MagnetLink.cs" />
-    <Compile Include="Metadata.cs" />
-    <Compile Include="Misc\Pack.cs" />
-    <Compile Include="PeerMessageBuilder.cs" />
-    <Compile Include="PeerWireClient.cs" />
-    <Compile Include="PeerWireListener.cs" />
-    <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="ProtocolExtensions\ExtendedProtocolExtensions.cs" />
-    <Compile Include="ProtocolExtensions\FastExtensions.cs" />
-    <Compile Include="UDPTrackerClient.cs" />
-    <Compile Include="Misc\Unpack.cs" />
-    <Compile Include="Misc\Utils.cs" />
-    <Compile Include="IO\WireIO.Tcp.cs" />
-  </ItemGroup>
-  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
-  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
-       Other similar extension points exist, see Microsoft.Common.targets.
-  <Target Name="BeforeBuild">
-  </Target>
-  <Target Name="AfterBuild">
-  </Target>
-  -->
+﻿<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>netstandard2.0</TargetFramework>
+        <PackageTargetFallback>$(PackageTargetFallback);portable-win+net45+wp8+win81+wpa8</PackageTargetFallback>
+        <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+        <Version>1.0.1</Version>
+        <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+      <LangVersion>default</LangVersion>
+    </PropertyGroup>
+    <ItemGroup>
+      <Compile Remove="Nuget\**" />
+      <EmbeddedResource Remove="Nuget\**" />
+      <None Remove="Nuget\**" />
+    </ItemGroup>
 </Project>
