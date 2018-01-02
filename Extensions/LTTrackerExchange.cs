@@ -36,6 +36,8 @@ namespace System.Net.Torrent.Extensions
 {
     public class LTTrackerExchange : IBTExtension
     {
+        public event Action<IPeerWireClient, IBTExtension, string> TrackerAdded;
+
         public string Protocol
         {
             get { return "lt_tex"; }
@@ -58,7 +60,16 @@ namespace System.Net.Torrent.Extensions
 
         public void OnExtendedMessage(IPeerWireClient peerWireClient, byte[] bytes)
         {
-            
+            BDict dict = (BDict)BencodingUtils.Decode(bytes);
+            if(dict.ContainsKey("added"))
+            {
+                var trackerList = (BList)dict["added"];
+
+                foreach (var tracker in trackerList)
+                {
+                    TrackerAdded?.Invoke(peerWireClient, this, tracker.ToString());
+                }
+            }
         }
 
         public IDictionary<string, IBencodingType> GetAdditionalHandshake(IPeerWireClient peerWireClient)
