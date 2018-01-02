@@ -98,8 +98,8 @@ namespace System.Net.Torrent
         {
             var endPoint = new IPEndPoint(address, port);
 
-            udpReaderSocket.ExclusiveAddressUse = false;
-            udpReaderSocket.SetSocketOption(SocketOptionLevel.Socket,
+            udpSenderSocket.ExclusiveAddressUse = false;
+            udpSenderSocket.SetSocketOption(SocketOptionLevel.Socket,
                 SocketOptionName.ReuseAddress,
                 true);
             udpSenderSocket.SetSocketOption(SocketOptionLevel.IP, 
