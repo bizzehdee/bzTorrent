@@ -1,4 +1,4 @@
-﻿/*
+/*
 Copyright (c) 2013, Darren Horrocks
 All rights reserved.
 
@@ -89,7 +89,7 @@ namespace System.Net.Torrent
 
             int expectedLength = 8 + (12 * hashes.Length);
 
-            sendBuf = _currentConnectionId.Concat(Pack.Int32(2)).Concat(Pack.Int32(trasactionId)).Concat(hashBytes).ToArray();
+            sendBuf = _currentConnectionId.Concat(Pack.Int32(2, Pack.Endianness.Big)).Concat(Pack.Int32(trasactionId, Pack.Endianness.Big)).Concat(hashBytes).ToArray();
             udpClient.Send(sendBuf, sendBuf.Length);
 
             recBuf = udpClient.Receive(ref endPoint);
