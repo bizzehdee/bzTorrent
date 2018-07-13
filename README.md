@@ -22,3 +22,4 @@ Open source bittorrent scraper and peer wire implementation written in C#
 - [x] Magnet Link Parser
 - [x] Bencode Encode/Decode
 - [x] .torrent Metadata Parser
+- [x] Tracker Exchange Protocol
