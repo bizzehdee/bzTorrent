@@ -2,7 +2,8 @@
 # This .gitignore file was automatically created by Microsoft(R) Visual Studio.
 ################################################################################
 
-/System.Net.Torrent.sln
-/obj
-/bin
-/.vs
+obj
+bin
+.vs
+*.nupkg
+*.dll

@@ -1,8 +1,8 @@
 @echo off
 
 mkdir lib
-mkdir lib\net40
+mkdir lib\netstandard2.0
 
-copy ..\bin\Release\*.dll lib\net40\
+copy ..\System.Net.Torrent\bin\Release\netstandard2.0\*.dll lib\netstandard2.0\
 
 nuget pack System.Net.Torrent.nuspec
