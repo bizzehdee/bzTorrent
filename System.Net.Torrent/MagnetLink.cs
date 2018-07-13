@@ -31,6 +31,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Net.Torrent.Misc;
+using System.Threading.Tasks;
 
 namespace System.Net.Torrent
 {
@@ -94,6 +95,11 @@ namespace System.Net.Torrent
         public static Metadata ResolveToMetadata(String magnetLink)
         {
             return new Metadata(Resolve(magnetLink));
+        }
+
+        public static async Task<Metadata> ResolveToMetadataAsync(String magnetLink)
+        {
+            return await Task.Run(() => new Metadata(Resolve(magnetLink)));
         }
 
         public static bool IsMagnetLink(String magnetLink)
