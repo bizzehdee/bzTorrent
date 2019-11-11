@@ -181,6 +181,7 @@ namespace System.Net.Torrent
             HttpWebRequest webRequest = (HttpWebRequest)WebRequest.Create(realUrl);
             webRequest.Accept = "*/*";
             webRequest.UserAgent = "System.Net.Torrent";
+            webRequest.Timeout = this.Timeout*1000;
             HttpWebResponse webResponse = (HttpWebResponse)webRequest.GetResponse();
 
             Stream stream = webResponse.GetResponseStream();
