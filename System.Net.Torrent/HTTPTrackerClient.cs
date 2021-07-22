@@ -140,7 +140,7 @@ namespace System.Net.Torrent
 
             Int32 waitTime = 0;
             Int32 seeders = 0;
-            Int32 leachers = 0;
+            Int32 leechers = 0;
 
             if (decoded.ContainsKey("interval"))
             {
@@ -154,12 +154,12 @@ namespace System.Net.Torrent
 
             if (decoded.ContainsKey("incomplete"))
             {
-                leachers = (BInt)decoded["incomplete"];
+                leechers = (BInt)decoded["incomplete"];
             }
 
             BString peerBinary = (BString)decoded["peers"];
 
-            return new AnnounceInfo(GetPeers(peerBinary.ByteValue), waitTime, seeders, leachers);
+            return new AnnounceInfo(GetPeers(peerBinary.ByteValue), waitTime, seeders, leechers);
         }
 
         public IDictionary<string, ScrapeInfo> Scrape(string url, string[] hashes)

@@ -113,9 +113,9 @@ namespace System.Net.Torrent
             {
                 UInt32 seeders = Unpack.UInt32(recBuf, startIndex, Unpack.Endianness.Big);
                 UInt32 completed = Unpack.UInt32(recBuf, startIndex + 4, Unpack.Endianness.Big);
-                UInt32 leachers = Unpack.UInt32(recBuf, startIndex + 8, Unpack.Endianness.Big);
+                UInt32 Leechers = Unpack.UInt32(recBuf, startIndex + 8, Unpack.Endianness.Big);
 
-                returnVal.Add(hash, new ScrapeInfo(seeders, completed, leachers, ScraperType.UDP));
+                returnVal.Add(hash, new ScrapeInfo(seeders, completed, Leechers, ScraperType.UDP));
 
                 startIndex += 12;
             }
@@ -212,7 +212,7 @@ namespace System.Net.Torrent
             recTrasactionId = Unpack.UInt32(recBuf, 4, Unpack.Endianness.Big);
 
             int waitTime = (int)Unpack.UInt32(recBuf, 8, Unpack.Endianness.Big);
-            int leachers = (int)Unpack.UInt32(recBuf, 12, Unpack.Endianness.Big);
+            int Leechers = (int)Unpack.UInt32(recBuf, 12, Unpack.Endianness.Big);
             int seeders = (int)Unpack.UInt32(recBuf, 16, Unpack.Endianness.Big);
 
             if (recAction != 1 || recTrasactionId != trasactionId)
@@ -230,7 +230,7 @@ namespace System.Net.Torrent
 
             udpClient.Close();
 
-            return new AnnounceInfo(returnValue, waitTime, seeders, leachers);
+            return new AnnounceInfo(returnValue, waitTime, seeders, Leechers);
         }
 
         public IDictionary<String, AnnounceInfo> Announce(String url, String[] hashes, String peerId)

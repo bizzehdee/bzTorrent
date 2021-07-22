@@ -106,7 +106,7 @@ namespace System.Net.Torrent
             public IEnumerable<EndPoint> Peers { get; set; }
             public Int32 WaitTime { get; set; }
             public Int32 Seeders { get; set; }
-            public Int32 Leachers { get; set; }
+            public Int32 Leechers { get; set; }
 
             public AnnounceInfo(IEnumerable<EndPoint> peers, Int32 a, Int32 b, Int32 c)
             {
@@ -114,7 +114,7 @@ namespace System.Net.Torrent
 
                 WaitTime = a;
                 Seeders = b;
-                Leachers = c;
+                Leechers = c;
             }
         }
 
@@ -122,7 +122,7 @@ namespace System.Net.Torrent
         {
             public UInt32 Seeders { get; set; }
             public UInt32 Complete { get; set; }
-            public UInt32 Leachers { get; set; }
+            public UInt32 Leechers { get; set; }
             public UInt32 Downloaded { get; set; }
             public UInt32 Incomplete { get; set; }
 
@@ -138,7 +138,7 @@ namespace System.Net.Torrent
                 {
                     Seeders = a;
                     Complete = b;
-                    Leachers = c;
+                    Leechers = c;
                 }
             }
         }
