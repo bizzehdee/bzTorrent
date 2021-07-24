@@ -28,12 +28,12 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
 */
 
-using System.Net.Torrent.BEncode;
-using System.Net.Torrent.Misc;
-using System.Net.Torrent.ProtocolExtensions;
-
 namespace System.Net.Torrent.Extensions
 {
+    using System.Net.Torrent.BEncode;
+    using System.Net.Torrent.Helpers;
+    using System.Net.Torrent.ProtocolExtensions;
+
     public class UTPeerExchange : IBTExtension
     {
         private ExtendedProtocolExtensions _parent;
@@ -48,7 +48,7 @@ namespace System.Net.Torrent.Extensions
 
         public void Init(ExtendedProtocolExtensions parent)
         {
-            _parent = parent;
+            this._parent = parent;
         }
 
         public void Deinit()
@@ -71,8 +71,8 @@ namespace System.Net.Torrent.Extensions
 
                 for (int i = 0; i < pexList.ByteValue.Length/6; i++)
                 {
-                    UInt32 ip = Unpack.UInt32(pexList.ByteValue, i*6, Unpack.Endianness.Little);
-                    UInt16 port = Unpack.UInt16(pexList.ByteValue, (i * 6) + 4, Unpack.Endianness.Big);
+                    UInt32 ip = UnpackHelper.UInt32(pexList.ByteValue, i*6, UnpackHelper.Endianness.Little);
+                    UInt16 port = UnpackHelper.UInt16(pexList.ByteValue, (i * 6) + 4, UnpackHelper.Endianness.Big);
                     byte flags = pexFlags.ByteValue[i];
 
                     IPEndPoint ipAddr = new IPEndPoint(ip, port);
@@ -90,8 +90,8 @@ namespace System.Net.Torrent.Extensions
 
                 for (int i = 0; i < pexList.ByteValue.Length / 6; i++)
                 {
-                    UInt32 ip = Unpack.UInt32(pexList.ByteValue, i * 6, Unpack.Endianness.Little);
-                    UInt16 port = Unpack.UInt16(pexList.ByteValue, (i * 6) + 4, Unpack.Endianness.Big);
+                    UInt32 ip = UnpackHelper.UInt32(pexList.ByteValue, i * 6, UnpackHelper.Endianness.Little);
+                    UInt16 port = UnpackHelper.UInt16(pexList.ByteValue, (i * 6) + 4, UnpackHelper.Endianness.Big);
 
                     IPEndPoint ipAddr = new IPEndPoint(ip, port);
 
@@ -105,7 +105,10 @@ namespace System.Net.Torrent.Extensions
 
         public void SendMessage(IPeerWireClient peerWireClient, IPEndPoint[] addedEndPoints, byte[] flags, IPEndPoint[] droppedEndPoints)
         {
-            if (addedEndPoints == null && droppedEndPoints == null) return;
+            if (addedEndPoints == null && droppedEndPoints == null)
+            {
+                return;
+            }
 
             BDict d = new BDict();
 
@@ -134,7 +137,7 @@ namespace System.Net.Torrent.Extensions
                 d.Add("dropped", new BString { ByteValue = dropped });
             }
 
-            _parent.SendExtended(peerWireClient, _parent.GetOutgoingMessageID(peerWireClient, this), BencodingUtils.EncodeBytes(d));
+            this._parent.SendExtended(peerWireClient, this._parent.GetOutgoingMessageID(peerWireClient, this), BencodingUtils.EncodeBytes(d));
         }
     }
 }

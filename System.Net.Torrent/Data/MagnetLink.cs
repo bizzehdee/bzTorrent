@@ -28,41 +28,45 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
 */
 
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.Net.Torrent.Misc;
-using System.Threading.Tasks;
-
-namespace System.Net.Torrent
+namespace System.Net.Torrent.Data
 {
-    public class MagnetLink
+    using System.Collections.Generic;
+    using System.Collections.ObjectModel;
+    using System.Net.Torrent.Helpers;
+    using System.Threading.Tasks;
+
+    public class MagnetLink : IMagnetLink
     {
+        public string Name { get; private set; }
+
+        public byte[] Hash { get; private set; }
+
+        public string HashString
+        {
+            get => UnpackHelper.Hex(this.Hash);
+            private set => this.Hash = PackHelper.Hex(value);
+        }
+
+        public ICollection<string> Trackers { get; set; }
+
         public MagnetLink()
         {
-            Trackers = new Collection<string>();
+            this.Trackers = new Collection<string>();
         }
 
-        public String Name { get; set; }
-        public byte[] Hash { get; set; }
-
-        public String HashString
+        public static MagnetLink Resolve(string magnetLink)
         {
-            get { return Unpack.Hex(Hash); }
-            set { Hash = Pack.Hex(value); }
-        }
-
-        public ICollection<String> Trackers { get; set; }
-
-        public static MagnetLink Resolve(String magnetLink)
-        {
-            IEnumerable<KeyValuePair<String, String>> values = null;
+            IEnumerable<KeyValuePair<string, String>> values = null;
 
             if (IsMagnetLink(magnetLink))
             {
                 values = SplitURLIntoParts(magnetLink.Substring(8));
             }
 
-            if (values == null) return null;
+            if (values == null)
+            {
+                return null;
+            }
 
             MagnetLink magnet = new MagnetLink();
 
@@ -92,32 +96,32 @@ namespace System.Net.Torrent
             return magnet;
         }
 
-        public static Metadata ResolveToMetadata(String magnetLink)
+        public static IMetadata ResolveToMetadata(string magnetLink)
         {
             return new Metadata(Resolve(magnetLink));
         }
 
-        public static async Task<Metadata> ResolveToMetadataAsync(String magnetLink)
+        public static async Task<IMetadata> ResolveToMetadataAsync(string magnetLink)
         {
             return await Task.Run(() => new Metadata(Resolve(magnetLink)));
         }
 
-        public static bool IsMagnetLink(String magnetLink)
+        public static bool IsMagnetLink(string magnetLink)
         {
             return magnetLink.StartsWith("magnet:");
         }
 
-        private static bool IsXTValidHash(String xt)
+        private static bool IsXTValidHash(string xt)
         {
             return xt.Length == 49 && xt.StartsWith("urn:btih:");
         }
 
-        private static IEnumerable<KeyValuePair<String, String>> SplitURLIntoParts(String magnetLink)
+        private static IEnumerable<KeyValuePair<string, String>> SplitURLIntoParts(string magnetLink)
         {
             String[] parts = magnetLink.Split('&');
-            ICollection<KeyValuePair<String, String>> values = new Collection<KeyValuePair<string, string>>();
+            ICollection<KeyValuePair<string, String>> values = new Collection<KeyValuePair<string, string>>();
 
-            foreach (String str in parts)
+            foreach (string str in parts)
             {
                 String[] kv = str.Split('=');
                 values.Add(new KeyValuePair<string, string>(kv[0], Uri.UnescapeDataString(kv[1])));

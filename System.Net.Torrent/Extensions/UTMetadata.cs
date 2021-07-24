@@ -28,14 +28,14 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
 */
 
-using System.Linq;
-using System.Net.Torrent.BEncode;
-using System.Net.Torrent.Misc;
-using System.Net.Torrent.ProtocolExtensions;
-using System.Text;
-
 namespace System.Net.Torrent.Extensions
 {
+    using System.Linq;
+    using System.Net.Torrent.BEncode;
+    using System.Net.Torrent.Helpers;
+    using System.Net.Torrent.ProtocolExtensions;
+    using System.Text;
+
     public class UTMetadata : IBTExtension
     {
         private Int64 _metadataSize;
@@ -53,8 +53,8 @@ namespace System.Net.Torrent.Extensions
 
         public void Init(ExtendedProtocolExtensions parent)
         {
-            _parent = parent;
-            _metadataBuffer = new byte[0];
+            this._parent = parent;
+            this._metadataBuffer = new byte[0];
         }
 
         public void Deinit()
@@ -68,27 +68,27 @@ namespace System.Net.Torrent.Extensions
             if (dict.ContainsKey("metadata_size"))
             {
                 BInt size = (BInt)dict["metadata_size"];
-                _metadataSize = size;
-                _pieceCount = (Int64)Math.Ceiling((double)_metadataSize / 16384);
+                this._metadataSize = size;
+                this._pieceCount = (Int64)Math.Ceiling((double)this._metadataSize / 16384);
             }
 
-            RequestMetaData(peerWireClient);
+            this.RequestMetaData(peerWireClient);
         }
 
         public void OnExtendedMessage(IPeerWireClient peerWireClient, byte[] bytes)
         {
             Int32 startAt = 0;
             BencodingUtils.Decode(bytes, ref startAt);
-            _piecesReceived += 1;
+            this._piecesReceived += 1;
 
-            if (_pieceCount >= _piecesReceived)
+            if (this._pieceCount >= this._piecesReceived)
             {
-                _metadataBuffer = _metadataBuffer.Concat(bytes.Skip(startAt)).ToArray();
+                this._metadataBuffer = this._metadataBuffer.Concat(bytes.Skip(startAt)).ToArray();
             }
 
-            if (_pieceCount == _piecesReceived)
+            if (this._pieceCount == this._piecesReceived)
             {
-                BDict metadata = (BDict)BencodingUtils.Decode(_metadataBuffer);
+                BDict metadata = (BDict)BencodingUtils.Decode(this._metadataBuffer);
 
                 if (MetaDataReceived != null)
                 {
@@ -101,7 +101,7 @@ namespace System.Net.Torrent.Extensions
         {
             byte[] sendBuffer = new byte[0];
 
-            for (Int32 i = 0; i < _pieceCount; i++)
+            for (Int32 i = 0; i < this._pieceCount; i++)
             {
                 BDict masterBDict = new BDict
                 {
@@ -109,11 +109,11 @@ namespace System.Net.Torrent.Extensions
                     {"piece", (BInt) i}
                 };
 
-                String encoded = BencodingUtils.EncodeString(masterBDict);
+                string encoded = BencodingUtils.EncodeString(masterBDict);
 
-                byte[] buffer = Pack.Int32(2 + encoded.Length, Pack.Endianness.Big);
+                byte[] buffer = PackHelper.Int32(2 + encoded.Length);
                 buffer = buffer.Concat(new byte[] {20}).ToArray();
-                buffer = buffer.Concat(new[] { _parent.GetOutgoingMessageID(peerWireClient, this) }).ToArray();
+                buffer = buffer.Concat(new[] { this._parent.GetOutgoingMessageID(peerWireClient, this) }).ToArray();
                 buffer = buffer.Concat(Encoding.GetEncoding(1252).GetBytes(encoded)).ToArray();
 
                 sendBuffer = sendBuffer.Concat(buffer).ToArray();

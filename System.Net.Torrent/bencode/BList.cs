@@ -28,11 +28,11 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
 */
 
-using System.Collections.Generic;
-using System.IO;
-
 namespace System.Net.Torrent.BEncode
 {
+    using System.Collections.Generic;
+    using System.IO;
+
     public class BList : List<IBencodingType>, IEquatable<BList>, IEquatable<IList<IBencodingType>>, IBencodingType
     {
         public override int GetHashCode()
@@ -94,17 +94,21 @@ namespace System.Net.Torrent.BEncode
         {
             IList<IBencodingType> other = obj;
 
-            return Equals(other);
+            return this.Equals(other);
         }
         public bool Equals(IList<IBencodingType> other)
         {
             if (other == null)
+            {
                 return false;
+            }
 
-            if (other.Count != Count)
+            if (other.Count != this.Count)
+            {
                 return false;
+            }
 
-            for (int i = 0; i < Count; i++)
+            for (int i = 0; i < this.Count; i++)
             {
                 // Lists cannot have nulls
                 if (!other[i].Equals(this[i]))
@@ -121,7 +125,7 @@ namespace System.Net.Torrent.BEncode
         {
             BList other = obj as BList;
 
-            return Equals(other);
+            return this.Equals(other);
         }
 
         /// <summary>
@@ -133,7 +137,9 @@ namespace System.Net.Torrent.BEncode
         public new void Add(IBencodingType value)
         {
             if (value == null)
+            {
                 throw new ArgumentNullException("value");
+            }
 
             base.Add(value);
         }
@@ -147,12 +153,16 @@ namespace System.Net.Torrent.BEncode
         public new void AddRange(IEnumerable<IBencodingType> values)
         {
             if (values == null)
+            {
                 throw new ArgumentNullException("values");
+            }
 
             foreach (IBencodingType value in values)
             {
                 if (value == null)
+                {
                     throw new ArgumentNullException("values");
+                }
 
                 base.Add(value);
             }
@@ -167,11 +177,13 @@ namespace System.Net.Torrent.BEncode
         /// <exception cref="ArgumentNullException">If the value is null</exception>
         public new IBencodingType this[int index]
         {
-            get { return base[index]; }
+            get => base[index];
             set
             {
                 if (value == null)
+                {
                     throw new ArgumentNullException("value");
+                }
 
                 base[index] = value;
             }

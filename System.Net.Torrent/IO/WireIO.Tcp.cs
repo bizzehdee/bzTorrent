@@ -28,10 +28,10 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
 */
 
-using System.Net.Sockets;
-
 namespace System.Net.Torrent.IO
 {
+    using System.Net.Sockets;
+
     public partial class WireIO
     {
         public class Tcp : IWireIO
@@ -40,99 +40,99 @@ namespace System.Net.Torrent.IO
 
             public int Timeout
             {
-                get { return _socket.ReceiveTimeout / 1000; }
+                get => this._socket.ReceiveTimeout / 1000;
                 set
                 {
-                    _socket.ReceiveTimeout = value * 1000;
-                    _socket.SendTimeout = value * 1000;
+                    this._socket.ReceiveTimeout = value * 1000;
+                    this._socket.SendTimeout = value * 1000;
                 }
             }
 
             public bool Connected
             {
-                get { return _socket.Connected; }
+                get { return this._socket.Connected; }
             }
 
             public Tcp()
             {
-                _socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-                _socket.NoDelay = true;
+                this._socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+                this._socket.NoDelay = true;
             }
 
             public Tcp(Socket socket)
             {
-                _socket = socket;
+                this._socket = socket;
 
-                if (_socket.AddressFamily != AddressFamily.InterNetwork)
+                if (this._socket.AddressFamily != AddressFamily.InterNetwork)
                 {
                     throw new ArgumentException("AddressFamily of socket must be InterNetwork");
                 }
 
-                if (_socket.SocketType != SocketType.Stream)
+                if (this._socket.SocketType != SocketType.Stream)
                 {
                     throw new ArgumentException("SocketType of socket must be Stream");
                 }
 
-                if (_socket.ProtocolType != ProtocolType.Tcp)
+                if (this._socket.ProtocolType != ProtocolType.Tcp)
                 {
                     throw new ArgumentException("ProtocolType of socket must be Tcp");
                 }
 
-                _socket.NoDelay = true;
+                this._socket.NoDelay = true;
             }
 
             public void Connect(IPEndPoint endPoint)
             {
-                _socket.Connect(endPoint);
+                this._socket.Connect(endPoint);
             }
 
             public void Disconnect()
             {
-                if (_socket.Connected)
+                if (this._socket.Connected)
                 {
-                    _socket.Disconnect(true);
+                    this._socket.Disconnect(true);
                 }
             }
 
             public int Send(byte[] bytes)
             {
-                return _socket.Send(bytes);
+                return this._socket.Send(bytes);
             }
 
             public int Receive(ref byte[] bytes)
             {
-                return _socket.Receive(bytes);
+                return this._socket.Receive(bytes);
             }
 
             public IAsyncResult BeginReceive(byte[] buffer, int offset, int size, AsyncCallback callback, object state)
             {
-                return _socket.BeginReceive(buffer, offset, size, SocketFlags.None, callback, state);
+                return this._socket.BeginReceive(buffer, offset, size, SocketFlags.None, callback, state);
             }
 
             public int EndReceive(IAsyncResult asyncResult)
             {
-                return _socket.EndReceive(asyncResult);
+                return this._socket.EndReceive(asyncResult);
             }
 
             public void Listen(EndPoint ep)
             {
-                _socket.Bind(ep);
-                _socket.Listen(10);
+                this._socket.Bind(ep);
+                this._socket.Listen(10);
             }
 
             public IWireIO Accept()
             {
-                return new Tcp(_socket.Accept());
+                return new Tcp(this._socket.Accept());
             }
 
             public IAsyncResult BeginAccept(AsyncCallback callback)
             {
-                return _socket.BeginAccept(callback, this);
+                return this._socket.BeginAccept(callback, this);
             }
 
             public IWireIO EndAccept(IAsyncResult ar)
             {
-                return new Tcp(_socket.EndAccept(ar));
+                return new Tcp(this._socket.EndAccept(ar));
             }
         }
     }

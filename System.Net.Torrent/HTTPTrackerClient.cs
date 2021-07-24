@@ -28,15 +28,15 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
 */
 
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Net.Torrent.BEncode;
-using System.Net.Torrent.Misc;
-using System.Text;
-
 namespace System.Net.Torrent
 {
+    using System.Collections.Generic;
+    using System.IO;
+    using System.Linq;
+    using System.Net.Torrent.BEncode;
+    using System.Net.Torrent.Helpers;
+    using System.Text;
+
     public class HTTPTrackerClient : BaseScraper, ITrackerClient
     {
         public HTTPTrackerClient(int timeout) 
@@ -49,8 +49,8 @@ namespace System.Net.Torrent
         {
             for (int i = 0; i < peerData.Length; i += 6)
             {
-                long addr = Unpack.UInt32(peerData, i, Unpack.Endianness.Big);
-                ushort port = Unpack.UInt16(peerData, i + 4, Unpack.Endianness.Big);
+                long addr = UnpackHelper.UInt32(peerData, i, UnpackHelper.Endianness.Big);
+                ushort port = UnpackHelper.UInt16(peerData, i + 4, UnpackHelper.Endianness.Big);
 
                 yield return new IPEndPoint(addr, port);
             }
@@ -58,29 +58,29 @@ namespace System.Net.Torrent
 
         public IDictionary<string, AnnounceInfo> Announce(string url, string[] hashes, string peerId)
         {
-            return hashes.ToDictionary(hash => hash, hash => Announce(url, hash, peerId));
+            return hashes.ToDictionary(hash => hash, hash => this.Announce(url, hash, peerId));
         }
 
         public AnnounceInfo Announce(string url, string hash, string peerId)
         {
-            return Announce(url, hash, peerId, 0, 0, 0, 2, 0, -1, 12345, 0);
+            return this.Announce(url, hash, peerId, 0, 0, 0, 2, 0, -1, 12345, 0);
         }
 
         public AnnounceInfo Announce(string url, string hash, string peerId, long bytesDownloaded, long bytesLeft, long bytesUploaded, 
             int eventTypeFilter, int ipAddress, int numWant, int listenPort, int extensions)
         {
-            byte[] hashBytes = Pack.Hex(hash);
+            byte[] hashBytes = PackHelper.Hex(hash);
             byte[] peerIdBytes = Encoding.ASCII.GetBytes(peerId);
 
-            String realUrl = url.Replace("scrape", "announce") + "?";
+            string realUrl = url.Replace("scrape", "announce") + "?";
 
-            String hashEncoded = "";
+            string hashEncoded = "";
             foreach (byte b in hashBytes)
             {
                 hashEncoded += String.Format("%{0:X2}", b);
             }
 
-            String peerIdEncoded = "";
+            string peerIdEncoded = "";
             foreach (byte b in peerIdBytes)
             {
                 peerIdEncoded += String.Format("%{0:X2}", b);
@@ -102,7 +102,10 @@ namespace System.Net.Torrent
 
             Stream stream = webResponse.GetResponseStream();
 
-            if (stream == null) return null;
+            if (stream == null)
+            {
+                return null;
+            }
 
             BinaryReader binaryReader = new BinaryReader(stream);
 
@@ -164,14 +167,14 @@ namespace System.Net.Torrent
 
         public IDictionary<string, ScrapeInfo> Scrape(string url, string[] hashes)
         {
-            Dictionary<String, ScrapeInfo> returnVal = new Dictionary<string, ScrapeInfo>();
+            Dictionary<string, ScrapeInfo> returnVal = new Dictionary<string, ScrapeInfo>();
 
-            String realUrl = url.Replace("announce", "scrape") + "?";
+            string realUrl = url.Replace("announce", "scrape") + "?";
 
-            String hashEncoded = "";
-            foreach (String hash in hashes)
+            string hashEncoded = "";
+            foreach (string hash in hashes)
             {
-                byte[] hashBytes = Pack.Hex(hash);
+                byte[] hashBytes = PackHelper.Hex(hash);
 
                 hashEncoded = hashBytes.Aggregate(hashEncoded, (current, b) => current + String.Format("%{0:X2}", b));
 
@@ -186,7 +189,10 @@ namespace System.Net.Torrent
 
             Stream stream = webResponse.GetResponseStream();
 
-            if (stream == null) return null;
+            if (stream == null)
+            {
+                return null;
+            }
 
             BinaryReader binaryReader = new BinaryReader(stream);
 
@@ -207,19 +213,25 @@ namespace System.Net.Torrent
             }
 
             BDict decoded = (BDict)BencodingUtils.Decode(bytes);
-            if (decoded.Count == 0) return null;
+            if (decoded.Count == 0)
+            {
+                return null;
+            }
 
-            if (!decoded.ContainsKey("files")) return null;
+            if (!decoded.ContainsKey("files"))
+            {
+                return null;
+            }
 
             BDict bDecoded = (BDict)decoded["files"];
 
-            foreach (String k in bDecoded.Keys)
+            foreach (string k in bDecoded.Keys)
             {
                 BDict d = (BDict)bDecoded[k];
 
                 if (d.ContainsKey("complete") && d.ContainsKey("downloaded") && d.ContainsKey("incomplete"))
                 {
-                    String rk = Unpack.Hex(BencodingUtils.ExtendedASCIIEncoding.GetBytes(k));
+                    string rk = UnpackHelper.Hex(BencodingUtils.ExtendedASCIIEncoding.GetBytes(k));
                     returnVal.Add(rk, new ScrapeInfo((uint)((BInt)d["complete"]).Value, (uint)((BInt)d["downloaded"]).Value, (uint)((BInt)d["incomplete"]).Value, ScraperType.HTTP));
                 }
             }

@@ -6,6 +6,6 @@ namespace System.Net.Torrent
         int TTL { get; set; }
         void Open();
         void Close();
-        void Announce(int listeningPort, String infoHash);
+        void Announce(int listeningPort, string infoHash);
     }
 }

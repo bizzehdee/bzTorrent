@@ -1,7 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <TargetFramework>netstandard2.1</TargetFramework>
-        <PackageTargetFallback>$(PackageTargetFallback);portable-win+net45+wp8+win81+wpa8</PackageTargetFallback>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
         <Version>1.0.1</Version>
         <GeneratePackageOnBuild>false</GeneratePackageOnBuild>

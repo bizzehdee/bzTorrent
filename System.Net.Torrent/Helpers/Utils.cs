@@ -28,53 +28,72 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
 */
 
-namespace System.Net.Torrent.Extensions
+namespace System.Net.Torrent.Helpers
 {
-    using System.Collections.Generic;
-    using System.Net.Torrent.BEncode;
-    using System.Net.Torrent.ProtocolExtensions;
-
-    public class LTTrackerExchange : IBTExtension
+    public static class Utils
     {
-        public event Action<IPeerWireClient, IBTExtension, string> TrackerAdded;
-
-        public string Protocol
+        public static bool GetBit(this byte t, UInt16 n)
         {
-            get { return "lt_tex"; }
+            return (t & (1 << n)) != 0;
         }
 
-        public void Init(ExtendedProtocolExtensions parent)
+        public static byte SetBit(this byte t, UInt16 n)
         {
-            
+            return (byte)(t | (1 << n));
         }
 
-        public void Deinit()
+        public static byte[] GetBytes(this byte[] bytes, Int32 start, Int32 length = -1)
         {
-            
-        }
-
-        public void OnHandshake(IPeerWireClient peerWireClient, byte[] handshake)
-        {
-            BDict dict = (BDict)BencodingUtils.Decode(handshake);
-        }
-
-        public void OnExtendedMessage(IPeerWireClient peerWireClient, byte[] bytes)
-        {
-            BDict dict = (BDict)BencodingUtils.Decode(bytes);
-            if(dict.ContainsKey("added"))
+            int l = length;
+            if (l == -1)
             {
-                var trackerList = (BList)dict["added"];
+                l = bytes.Length - start;
+            }
 
-                foreach (var tracker in trackerList)
+            byte[] intBytes = new byte[l];
+
+            for (int i = 0; i < l; i++)
+            {
+                intBytes[i] = bytes[start + i];
+            }
+
+            return intBytes;
+        }
+
+        public static byte[] Cat(this byte[] first, byte[] second)
+        {
+            byte[] returnBytes = new byte[first.Length + second.Length];
+
+            first.CopyTo(returnBytes, 0);
+            second.CopyTo(returnBytes, first.Length);
+            
+            return returnBytes;
+        }
+
+        public static bool Contains<T>(this T[] ar, T o)
+        {
+            foreach (T t in ar)
+            {
+                if (Equals(t, o))
                 {
-                    TrackerAdded?.Invoke(peerWireClient, this, tracker.ToString());
+                    return true;
                 }
             }
+
+            return false;
         }
 
-        public IDictionary<string, IBencodingType> GetAdditionalHandshake(IPeerWireClient peerWireClient)
+        public static bool Contains<T>(this T[] ar, Func<T, bool> expr)
         {
-            return new Dictionary<string, IBencodingType> { { "tr", new BString(peerWireClient.Hash) } };
+            foreach (T t in ar)
+            {
+                if (expr != null && expr(t))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
 }

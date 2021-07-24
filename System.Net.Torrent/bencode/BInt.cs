@@ -28,20 +28,20 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
 */
 
-using System.Globalization;
-using System.IO;
-
 namespace System.Net.Torrent.BEncode
 {
+    using System.Globalization;
+    using System.IO;
+
     public class BInt : IBencodingType, IComparable<long>, IEquatable<long>, IEquatable<BInt>, IComparable<BInt>
     {
         private BInt()
         {
-            Value = 0;
+            this.Value = 0;
         }
         public BInt(long value)
         {
-            Value = value;
+            this.Value = value;
         }
 
         public long Value { get; set; }
@@ -83,7 +83,7 @@ namespace System.Net.Torrent.BEncode
             writer.Write('i');
 
             // Write value
-            writer.Write(Value.ToString(CultureInfo.InvariantCulture).ToCharArray());
+            writer.Write(this.Value.ToString(CultureInfo.InvariantCulture).ToCharArray());
 
             // Write footer
             writer.Write('e');
@@ -91,24 +91,34 @@ namespace System.Net.Torrent.BEncode
 
         public int CompareTo(long other)
         {
-            if (Value < other)
+            if (this.Value < other)
+            {
                 return -1;
+            }
 
-            if (Value > other)
+            if (this.Value > other)
+            {
                 return 1;
+            }
 
             return 0;
         }
         public int CompareTo(BInt other)
         {
             if (other == null)
+            {
                 throw new ArgumentNullException("other");
+            }
 
-            if (Value < other.Value)
+            if (this.Value < other.Value)
+            {
                 return -1;
+            }
 
-            if (Value > other.Value)
+            if (this.Value > other.Value)
+            {
                 return 1;
+            }
 
             return 0;
         }
@@ -117,27 +127,29 @@ namespace System.Net.Torrent.BEncode
         {
             BInt other = obj as BInt;
 
-            return Equals(other);
+            return this.Equals(other);
         }
         public bool Equals(BInt other)
         {
             if (other == null)
+            {
                 return false;
+            }
 
-            return Equals(other.Value);
+            return this.Equals(other.Value);
         }
         public bool Equals(long other)
         {
-            return Value == other;
+            return this.Value == other;
         }
         public override int GetHashCode()
         {
-            return Value.GetHashCode();
+            return this.Value.GetHashCode();
         }
 
         public override string ToString()
         {
-            return String.Format("{0}", Value);
+            return String.Format("{0}", this.Value);
         }
 
         public static implicit operator BInt(long x)

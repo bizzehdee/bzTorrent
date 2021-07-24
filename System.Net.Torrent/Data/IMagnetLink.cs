@@ -1,5 +1,6 @@
 ﻿/*
 Copyright (c) 2013, Darren Horrocks
+Copyright (c) 2021, Russell Webster
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -12,7 +13,7 @@ are permitted provided that the following conditions are met:
   list of conditions and the following disclaimer in the documentation and/or
   other materials provided with the distribution.
 
-* Neither the name of Darren Horrocks nor the names of its
+* Neither the name of Darren Horrocks, Russell Webster nor the names of their
   contributors may be used to endorse or promote products derived from
   this software without specific prior written permission.
 
@@ -28,60 +29,12 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
 */
 
-namespace System.Net.Torrent.Misc
+namespace System.Net.Torrent.Data
 {
-    public static class Utils
+    using System.Collections.Generic;
+
+    public interface IMagnetLink : IHashProvider
     {
-        public static bool GetBit(this byte t, UInt16 n)
-        {
-            return (t & (1 << n)) != 0;
-        }
-
-        public static byte SetBit(this byte t, UInt16 n)
-        {
-            return (byte)(t | (1 << n));
-        }
-
-        public static byte[] GetBytes(this byte[] bytes, Int32 start, Int32 length = -1)
-        {
-            int l = length;
-            if (l == -1) l = bytes.Length - start;
-
-            byte[] intBytes = new byte[l];
-
-            for (int i = 0; i < l; i++) intBytes[i] = bytes[start + i];
-
-            return intBytes;
-        }
-
-        public static byte[] Cat(this byte[] first, byte[] second)
-        {
-            byte[] returnBytes = new byte[first.Length + second.Length];
-
-            first.CopyTo(returnBytes, 0);
-            second.CopyTo(returnBytes, first.Length);
-
-            return returnBytes;
-        }
-
-        public static bool Contains<T>(this T[] ar, T o)
-        {
-            foreach (T t in ar)
-            {
-                if (Equals(t, o)) return true;
-            }
-
-            return false;
-        }
-
-        public static bool Contains<T>(this T[] ar, Func<T, bool> expr)
-        {
-            foreach (T t in ar)
-            {
-                if (expr != null && expr(t)) return true;
-            }
-
-            return false;
-        }
+        public ICollection<string> Trackers { get; }
     }
 }

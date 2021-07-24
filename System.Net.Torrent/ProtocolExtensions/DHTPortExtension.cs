@@ -1,7 +1,7 @@
-﻿using System.Net.Torrent.Misc;
-
-namespace System.Net.Torrent.ProtocolExtensions
+﻿namespace System.Net.Torrent.ProtocolExtensions
 {
+    using System.Net.Torrent.Helpers;
+
     public class DHTPortExtension : IProtocolExtension
     {
         public event Action<IPeerWireClient, UInt16> Port;
@@ -26,9 +26,9 @@ namespace System.Net.Torrent.ProtocolExtensions
         {
             if (commandId == 9)
             {
-                UInt16 port = Unpack.UInt16(payload, 0, Unpack.Endianness.Big);
+                UInt16 port = UnpackHelper.UInt16(payload, 0, UnpackHelper.Endianness.Big);
 
-                OnPort(client, port);
+                this.OnPort(client, port);
                 return true;
             }
 

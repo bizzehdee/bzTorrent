@@ -1,10 +1,10 @@
-﻿using System.Diagnostics;
-using System.Net.Sockets;
-using System.Text;
-using System.Threading;
-
-namespace System.Net.Torrent
+﻿namespace System.Net.Torrent
 {
+    using System.Diagnostics;
+    using System.Net.Sockets;
+    using System.Text;
+    using System.Threading;
+
     public class LocalPeerDiscovery : IDisposable, ILocalPeerDiscovery
     {
         private const string lpdMulticastAddress = "239.192.152.143";
@@ -16,41 +16,41 @@ namespace System.Net.Torrent
         private Thread thread;
         private bool _killSwitch;
 
-        public delegate void NewPeerCB(IPAddress address, int port, String infoHash);
+        public delegate void NewPeerCB(IPAddress address, int port, string infoHash);
         public event NewPeerCB NewPeer;
 
         private int ttl = 8;
 
         public int TTL
         {
-            get { return ttl; }
+            get => this.ttl;
             set
             {
-                ttl = value;
+                this.ttl = value;
 
-                udpSenderSocket.SetSocketOption(SocketOptionLevel.IP,
+                this.udpSenderSocket.SetSocketOption(SocketOptionLevel.IP,
                 SocketOptionName.MulticastTimeToLive,
-                ttl);
+                this.ttl);
             }
         }
 
         public LocalPeerDiscovery()
         {
-            udpReaderSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-            udpSenderSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+            this.udpReaderSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+            this.udpSenderSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
         }
 
         public LocalPeerDiscovery(Socket receive, Socket send)
         {
-            ValidateSocket(receive, "receive");
-            ValidateSocket(send, "send");
+            this.ValidateSocket(receive, "receive");
+            this.ValidateSocket(send, "send");
 
-            udpReaderSocket = receive;
-            udpSenderSocket = send;
+            this.udpReaderSocket = receive;
+            this.udpSenderSocket = send;
         }
 
         [DebuggerHidden, DebuggerStepThrough]
-        private void ValidateSocket(Socket socket, String name)
+        private void ValidateSocket(Socket socket, string name)
         {
             if (socket == null)
             {
@@ -71,25 +71,25 @@ namespace System.Net.Torrent
         public void Open()
         {
             IPAddress address = IPAddress.Parse(lpdMulticastAddress);
-            SetupReaderSocket(address, lpdMulticastPort);
-            SetupSenderSocket(address, lpdMulticastPort);
+            this.SetupReaderSocket(address, lpdMulticastPort);
+            this.SetupSenderSocket(address, lpdMulticastPort);
 
-            thread = new Thread(Process);
-            thread.Start();
+            this.thread = new Thread(this.Process);
+            this.thread.Start();
         }
 
         private void SetupReaderSocket(IPAddress address, int port)
         {
             var endPoint = new IPEndPoint(IPAddress.Any, port);
 
-            udpReaderSocket.ExclusiveAddressUse = false;
-            udpReaderSocket.SetSocketOption(SocketOptionLevel.Socket,
+            this.udpReaderSocket.ExclusiveAddressUse = false;
+            this.udpReaderSocket.SetSocketOption(SocketOptionLevel.Socket,
                 SocketOptionName.ReuseAddress,
                 true);
 
-            udpReaderSocket.Bind(endPoint);
+            this.udpReaderSocket.Bind(endPoint);
 
-            udpReaderSocket.SetSocketOption(SocketOptionLevel.IP,
+            this.udpReaderSocket.SetSocketOption(SocketOptionLevel.IP,
                 SocketOptionName.AddMembership,
                 new MulticastOption(address, IPAddress.Any));
         }
@@ -98,42 +98,42 @@ namespace System.Net.Torrent
         {
             var endPoint = new IPEndPoint(address, port);
 
-            udpSenderSocket.ExclusiveAddressUse = false;
-            udpSenderSocket.SetSocketOption(SocketOptionLevel.Socket,
+            this.udpSenderSocket.ExclusiveAddressUse = false;
+            this.udpSenderSocket.SetSocketOption(SocketOptionLevel.Socket,
                 SocketOptionName.ReuseAddress,
                 true);
-            udpSenderSocket.SetSocketOption(SocketOptionLevel.IP, 
+            this.udpSenderSocket.SetSocketOption(SocketOptionLevel.IP, 
                 SocketOptionName.AddMembership, 
                 new MulticastOption(address));
-            udpSenderSocket.SetSocketOption(SocketOptionLevel.IP, 
-                SocketOptionName.MulticastTimeToLive, 
-                TTL);
+            this.udpSenderSocket.SetSocketOption(SocketOptionLevel.IP, 
+                SocketOptionName.MulticastTimeToLive,
+                this.TTL);
 
-            udpSenderSocket.Connect(endPoint);
+            this.udpSenderSocket.Connect(endPoint);
         }
 
         public void Close()
         {
-            _killSwitch = true;
-            thread.Abort();
+            this._killSwitch = true;
+            this.thread.Abort();
 
-            udpReaderSocket.Close();
-            udpSenderSocket.Close();
+            this.udpReaderSocket.Close();
+            this.udpSenderSocket.Close();
         }
 
         private void Process()
         {
             byte[] buffer = new byte[200];
-            while (!_killSwitch)
+            while (!this._killSwitch)
             {
                 EndPoint endPoint = new IPEndPoint(0,0);
-                udpReaderSocket.ReceiveFrom(buffer, ref endPoint);
+                this.udpReaderSocket.ReceiveFrom(buffer, ref endPoint);
 
                 IPAddress remoteAddress = ((IPEndPoint) endPoint).Address;
                 int remotePort = 0;
                 string remoteHash = "";
 
-                String packet = Encoding.ASCII.GetString(buffer).Trim();
+                string packet = Encoding.ASCII.GetString(buffer).Trim();
 
                 if (!packet.StartsWith("BT-SEARCH"))
                 {
@@ -165,9 +165,9 @@ namespace System.Net.Torrent
             }
         }
 
-        public void Announce(int listeningPort, String infoHash)
+        public void Announce(int listeningPort, string infoHash)
         {
-            String message = String.Format("BT-SEARCH * HTTP/1.1\r\n" +
+            string message = String.Format("BT-SEARCH * HTTP/1.1\r\n" +
                                            "Host: {2}:{3}\r\n" +
                                            "Port: {0}\r\n" +
                                            "Infohash: {1}\r\n" +
@@ -179,21 +179,21 @@ namespace System.Net.Torrent
 
             byte[] buffer = Encoding.ASCII.GetBytes(message);
 
-            udpSenderSocket.Send(buffer);
+            this.udpSenderSocket.Send(buffer);
         }
 
         private bool isDisposed;
         public void Dispose()
         {
-            if (!isDisposed)
+            if (!this.isDisposed)
             {
-                isDisposed = true;
+                this.isDisposed = true;
 
                 try
                 {
-                    Close();
-                    udpReaderSocket.Dispose();
-                    udpSenderSocket.Dispose();
+                    this.Close();
+                    this.udpReaderSocket.Dispose();
+                    this.udpSenderSocket.Dispose();
                 }
                 catch (Exception)
                 {
