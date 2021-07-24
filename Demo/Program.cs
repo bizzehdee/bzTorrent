@@ -1,10 +1,11 @@
-﻿using System;
-using System.Net.Torrent;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace Demo
+﻿namespace Demo
 {
+    using System;
+    using System.Net.Torrent;
+    using System.Net.Torrent.Data;
+    using System.Text;
+    using System.Threading.Tasks;
+
     class Program
     {
         static void Main(string[] args)
