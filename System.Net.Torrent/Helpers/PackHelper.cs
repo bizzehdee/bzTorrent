@@ -28,9 +28,9 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
 */
 
-namespace System.Net.Torrent.Misc
+namespace System.Net.Torrent.Helpers
 {
-    public static class Pack
+    public static class PackHelper
     {
         public enum Endianness
         {
@@ -52,73 +52,79 @@ namespace System.Net.Torrent.Misc
             return false;
         }
 
-        public static byte[] Int16(Int16 i, Endianness e = Endianness.Machine)
+        public static byte[] Int16(Int16 i)
         {
-            byte[] bytes = BitConverter.GetBytes(i);
-
-            if (NeedsFlipping(e)) Array.Reverse(bytes);
-
-            return bytes;
+            return BitConverter.GetBytes(IPAddress.HostToNetworkOrder(i));
         }
 
-        public static byte[] Int32(Int32 i, Endianness e = Endianness.Machine)
+        public static byte[] Int32(Int32 i)
         {
-            byte[] bytes = BitConverter.GetBytes(i);
-
-            if (NeedsFlipping(e)) Array.Reverse(bytes);
-
-            return bytes;
+            return BitConverter.GetBytes(IPAddress.HostToNetworkOrder(i));
         }
 
-        public static byte[] Int64(Int64 i, Endianness e = Endianness.Machine)
+        public static byte[] Int64(Int64 i)
         {
-            byte[] bytes = BitConverter.GetBytes(i);
-
-            if (NeedsFlipping(e)) Array.Reverse(bytes);
-
-            return bytes;
+            return BitConverter.GetBytes(IPAddress.HostToNetworkOrder(i));
         }
 
-        public static byte[] UInt16(UInt16 i, Endianness e = Endianness.Machine)
+        public static byte[] UInt16(UInt16 value)
         {
-            byte[] bytes = BitConverter.GetBytes(i);
+            var bytes = BitConverter.GetBytes(value);
 
-            if (NeedsFlipping(e)) Array.Reverse(bytes);
+            var byteMarker = bytes.Length;
+            ushort result = 0;
+            for (int i = 0; i < bytes.Length; i++)
+            {
+                byteMarker--;
+                result = (ushort)(result | bytes[i] << (byteMarker * 8));
+            }
 
-            return bytes;
+            return BitConverter.GetBytes(result);
         }
 
-        public static byte[] UInt32(UInt32 i, Endianness e = Endianness.Machine)
+        public static byte[] UInt32(UInt32 value)
         {
-            byte[] bytes = BitConverter.GetBytes(i);
+            var byte1 = (value >> 0) & 0xff;
+            var byte2 = (value >> 8) & 0xff;
+            var byte3 = (value >> 16) & 0xff;
+            var byte4 = (value >> 24) & 0xff;
 
-            if (NeedsFlipping(e)) Array.Reverse(bytes);
-
-            return bytes;
+            return BitConverter.GetBytes(byte1 << 24 | byte2 << 16 | byte3 << 8 | byte4 << 0);
         }
 
-        public static byte[] UInt64(UInt64 i, Endianness e = Endianness.Machine)
+        public static byte[] UInt64(UInt64 value)
         {
-            byte[] bytes = BitConverter.GetBytes(i);
+            var byte1 = (value >> 0) & 0xff;
+            var byte2 = (value >> 8) & 0xff;
+            var byte3 = (value >> 16) & 0xff;
+            var byte4 = (value >> 24) & 0xff;
+            var byte5 = (value >> 32) & 0xff;
+            var byte6 = (value >> 40) & 0xff;
+            var byte7 = (value >> 48) & 0xff;
+            var byte8 = (value >> 56) & 0xff;
 
-            if (NeedsFlipping(e)) Array.Reverse(bytes);
-
-            return bytes;
+            return BitConverter.GetBytes(byte1 << 56 | byte2 << 48 | byte3 << 40 | byte4 << 32 | byte5 << 24 | byte6 << 16 | byte7 << 8 | byte8 << 0);
         }
 
+        // No refs
         public static byte[] Float(float f, Endianness e = Endianness.Machine)
         {
             return BitConverter.GetBytes(f);
         }
 
+        // No refs
         public static byte[] Double(double f, Endianness e = Endianness.Machine)
         {
             return BitConverter.GetBytes(f);
         }
 
-        public static byte[] Hex(String str, Endianness e = Endianness.Machine)
+        // All refs specify machine
+        public static byte[] Hex(string str, Endianness e = Endianness.Machine)
         {
-            if ((str.Length % 2) == 1) str += '0';
+            if ((str.Length % 2) == 1)
+            {
+                str += '0';
+            }
 
             byte[] bytes = new byte[str.Length / 2];
             for (int i = 0; i < str.Length; i += 2)

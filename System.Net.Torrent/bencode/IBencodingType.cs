@@ -28,10 +28,10 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
 */
 
-using System.IO;
-
 namespace System.Net.Torrent.BEncode
 {
+    using System.IO;
+
     public interface IBencodingType
     {
         /// <summary>

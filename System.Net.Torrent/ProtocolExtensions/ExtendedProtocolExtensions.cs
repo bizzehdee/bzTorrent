@@ -28,26 +28,26 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
 */
 
-using System.Collections.Generic;
-using System.Net.Torrent.BEncode;
-using System.Net.Torrent.Misc;
-using System.Text;
-
 namespace System.Net.Torrent.ProtocolExtensions
 {
+    using System.Collections.Generic;
+    using System.Net.Torrent.BEncode;
+    using System.Net.Torrent.Helpers;
+    using System.Text;
+
     public class ExtendedProtocolExtensions : IProtocolExtension
     {
         public class ClientProtocolIDMap
         {
-            public ClientProtocolIDMap(IPeerWireClient client, String protocol, byte commandId)
+            public ClientProtocolIDMap(IPeerWireClient client, string protocol, byte commandId)
             {
-                Client = client;
-                Protocol = protocol;
-                CommandID = commandId;
+                this.Client = client;
+                this.Protocol = protocol;
+                this.CommandID = commandId;
             }
 
             public IPeerWireClient Client { get; set; }
-            public String Protocol { get; set; }
+            public string Protocol { get; set; }
             public byte CommandID { get; set; }
         }
 
@@ -57,9 +57,9 @@ namespace System.Net.Torrent.ProtocolExtensions
 
         public ExtendedProtocolExtensions()
         {
-            _protocolExtensions = new List<IBTExtension>();
-            _extOutgoing = new List<ClientProtocolIDMap>();
-            _extIncoming = new List<ClientProtocolIDMap>();
+            this._protocolExtensions = new List<IBTExtension>();
+            this._extOutgoing = new List<ClientProtocolIDMap>();
+            this._extIncoming = new List<ClientProtocolIDMap>();
         }
 
         public byte[] ByteMask
@@ -82,20 +82,20 @@ namespace System.Net.Torrent.ProtocolExtensions
             BDict handshakeDict = new BDict();
             BDict mDict = new BDict();
             byte i = 1;
-            foreach (IBTExtension extension in _protocolExtensions)
+            foreach (IBTExtension extension in this._protocolExtensions)
             {
-                _extOutgoing.Add(new ClientProtocolIDMap(client, extension.Protocol, i));
+                this._extOutgoing.Add(new ClientProtocolIDMap(client, extension.Protocol, i));
                 mDict.Add(extension.Protocol, new BInt(i));
                 i++;
             }
 
             handshakeDict.Add("m", mDict);
 
-            String handshakeEncoded = BencodingUtils.EncodeString(handshakeDict);
+            string handshakeEncoded = BencodingUtils.EncodeString(handshakeDict);
             byte[] handshakeBytes = Encoding.ASCII.GetBytes(handshakeEncoded);
             Int32 length = 2 + handshakeBytes.Length;
 
-            client.SendBytes((new byte[0]).Cat(Pack.Int32(length, Pack.Endianness.Big).Cat(new[] { (byte)20 }).Cat(new[] { (byte)0 }).Cat(handshakeBytes)));
+            client.SendBytes((new byte[0]).Cat(PackHelper.Int32(length).Cat(new[] { (byte)20 }).Cat(new[] { (byte)0 }).Cat(handshakeBytes)));
 
             return true;
         }
@@ -104,7 +104,7 @@ namespace System.Net.Torrent.ProtocolExtensions
         {
             if (commandId == 20)
             {
-                ProcessExtended(client, commandLength, payload);
+                this.ProcessExtended(client, commandLength, payload);
                 return true;
             }
 
@@ -113,19 +113,19 @@ namespace System.Net.Torrent.ProtocolExtensions
 
         public void RegisterProtocolExtension(IPeerWireClient client, IBTExtension extension)
         {
-            _protocolExtensions.Add(extension);
+            this._protocolExtensions.Add(extension);
             extension.Init(this);
         }
 
         public void UnregisterProtocolExtension(IPeerWireClient client, IBTExtension extension)
         {
-            _protocolExtensions.Remove(extension);
+            this._protocolExtensions.Remove(extension);
             extension.Deinit();
         }
 
         public byte GetOutgoingMessageID(IPeerWireClient client, IBTExtension extension)
         {
-            ClientProtocolIDMap map = _extOutgoing.Find(f => f.Client == client && f.Protocol == extension.Protocol);
+            ClientProtocolIDMap map = this._extOutgoing.Find(f => f.Client == client && f.Protocol == extension.Protocol);
 
             if (map != null)
             {
@@ -140,9 +140,9 @@ namespace System.Net.Torrent.ProtocolExtensions
             return client.SendBytes(new PeerMessageBuilder(20).Add(extMsgId).Add(bytes).Message());
         }
 
-        private IBTExtension FindIBTExtensionByProtocol(String protocol)
+        private IBTExtension FindIBTExtensionByProtocol(string protocol)
         {
-            foreach (IBTExtension protocolExtension in _protocolExtensions)
+            foreach (IBTExtension protocolExtension in this._protocolExtensions)
             {
                 if (protocolExtension.Protocol == protocol)
                 {
@@ -153,9 +153,9 @@ namespace System.Net.Torrent.ProtocolExtensions
             return null;
         }
 
-        private String FindIBTProtocolByMessageID(int messageId)
+        private string FindIBTProtocolByMessageID(int messageId)
         {
-            foreach (ClientProtocolIDMap map in _extIncoming)
+            foreach (ClientProtocolIDMap map in this._extIncoming)
             {
                 if (map.CommandID == messageId)
                 {
@@ -180,9 +180,9 @@ namespace System.Net.Torrent.ProtocolExtensions
                 foreach (KeyValuePair<string, IBencodingType> pair in mDict)
                 {
                     BInt i = (BInt)pair.Value;
-                    _extIncoming.Add(new ClientProtocolIDMap(client, pair.Key, (byte)i));
+                    this._extIncoming.Add(new ClientProtocolIDMap(client, pair.Key, (byte)i));
 
-                    IBTExtension ext = FindIBTExtensionByProtocol(pair.Key);
+                    IBTExtension ext = this.FindIBTExtensionByProtocol(pair.Key);
 
                     if (ext != null)
                     {
@@ -192,8 +192,8 @@ namespace System.Net.Torrent.ProtocolExtensions
             }
             else
             {
-                String protocol = FindIBTProtocolByMessageID(msgId);
-                IBTExtension ext = FindIBTExtensionByProtocol(protocol);
+                string protocol = this.FindIBTProtocolByMessageID(msgId);
+                IBTExtension ext = this.FindIBTExtensionByProtocol(protocol);
 
                 if (ext != null)
                 {

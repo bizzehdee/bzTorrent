@@ -1,5 +1,6 @@
 ﻿/*
 Copyright (c) 2013, Darren Horrocks
+Copyright (c) 2021, Russell Webster
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -12,7 +13,7 @@ are permitted provided that the following conditions are met:
   list of conditions and the following disclaimer in the documentation and/or
   other materials provided with the distribution.
 
-* Neither the name of Darren Horrocks nor the names of its
+* Neither the name of Darren Horrocks, Russell Webster nor the names of their
   contributors may be used to endorse or promote products derived from
   this software without specific prior written permission.
 
@@ -28,14 +29,33 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
 */
 
-namespace System.Net.Torrent.ProtocolExtensions
+namespace System.Net.Torrent.Data
 {
-    public interface IBTExtension
+    using System.Collections.Generic;
+    using System.IO;
+
+    public interface IMetadata : IHashProvider
     {
-        string Protocol { get; }
-        void Init(ExtendedProtocolExtensions parent);
-        void Deinit();
-        void OnHandshake(IPeerWireClient peerWireClient, byte[] handshake);
-        void OnExtendedMessage(IPeerWireClient peerWireClient, byte[] bytes);
+        public string Announce { get; }
+
+        public ICollection<string> AnnounceList { get; }
+
+        public string Comment { get; }
+
+        public string CreatedBy { get; }
+
+        public DateTime CreationDate { get; }
+
+        public ICollection<byte[]> PieceHashes { get; }
+
+        public long PieceSize { get; }
+
+        public bool Private { get; }
+
+        public IReadOnlyCollection<string> GetFiles();
+
+        public bool Load(MagnetLink magnetLink);
+
+        public bool Load(Stream stream);
     }
 }

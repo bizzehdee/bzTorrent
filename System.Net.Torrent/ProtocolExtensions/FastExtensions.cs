@@ -28,10 +28,10 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
 */
 
-using System.Net.Torrent.Misc;
-
 namespace System.Net.Torrent.ProtocolExtensions
 {
+    using System.Net.Torrent.Helpers;
+
     public class FastExtensions : IProtocolExtension
     {
         public event Action<IPeerWireClient, Int32> SuggestPiece;
@@ -70,19 +70,19 @@ namespace System.Net.Torrent.ProtocolExtensions
             switch (commandId)
             {
                 case 13:
-                    ProcessSuggest(client, payload);
+                    this.ProcessSuggest(client, payload);
                     break;
                 case 14:
-                    OnHaveAll(client);
+                    this.OnHaveAll(client);
                     break;
                 case 15:
-                    OnHaveNone(client);
+                    this.OnHaveNone(client);
                     break;
                 case 16:
-                    ProcessReject(client, payload);
+                    this.ProcessReject(client, payload);
                     break;
                 case 17:
-                    ProcessAllowFast(client, payload);
+                    this.ProcessAllowFast(client, payload);
                     break;
             }
 
@@ -91,25 +91,25 @@ namespace System.Net.Torrent.ProtocolExtensions
 
         private void ProcessSuggest(IPeerWireClient client, byte[] payload)
         {
-            Int32 index = Unpack.Int32(payload, 0, Unpack.Endianness.Big);
+            Int32 index = UnpackHelper.Int32(payload, 0, UnpackHelper.Endianness.Big);
 
-            OnSuggest(client, index);
+            this.OnSuggest(client, index);
         }
 
         private void ProcessAllowFast(IPeerWireClient client, byte[] payload)
         {
-            Int32 index = Unpack.Int32(payload, 0, Unpack.Endianness.Big);
+            Int32 index = UnpackHelper.Int32(payload, 0, UnpackHelper.Endianness.Big);
 
-            OnAllowFast(client, index);
+            this.OnAllowFast(client, index);
         }
 
         private void ProcessReject(IPeerWireClient client, byte[] payload)
         {
-            Int32 index = Unpack.Int32(payload, 0, Unpack.Endianness.Big);
-            Int32 begin = Unpack.Int32(payload, 4, Unpack.Endianness.Big);
-            Int32 length = Unpack.Int32(payload, 8, Unpack.Endianness.Big);
+            Int32 index = UnpackHelper.Int32(payload, 0, UnpackHelper.Endianness.Big);
+            Int32 begin = UnpackHelper.Int32(payload, 4, UnpackHelper.Endianness.Big);
+            Int32 length = UnpackHelper.Int32(payload, 8, UnpackHelper.Endianness.Big);
 
-            OnReject(client, index, begin, length);
+            this.OnReject(client, index, begin, length);
         }
 
         private void OnSuggest(IPeerWireClient client, Int32 pieceIndex)

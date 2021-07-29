@@ -28,13 +28,13 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
 */
 
-using System.Globalization;
-using System.IO;
-
 namespace System.Net.Torrent.BEncode
 {
+    using System.Globalization;
+    using System.IO;
+
     /// <summary>
-    /// Represents a String object. It cannot contain a null value.
+    /// Represents a string object. It cannot contain a null value.
     /// </summary>
     public class BString : IEquatable<string>, IEquatable<BString>, IComparable<string>, IComparable<BString>, IBencodingType
     {
@@ -45,17 +45,19 @@ namespace System.Net.Torrent.BEncode
 
         public BString(string value)
         {
-            Value = value;
+            this.Value = value;
         }
 
         private string _value = string.Empty;
         public string Value
         {
-            get { return _value; }
+            get => this._value;
             set
             {
                 if (value != null)
-                    _value = value;
+                {
+                    this._value = value;
+                }
             }
         }
         public byte[] ByteValue { get; set; }
@@ -92,7 +94,7 @@ namespace System.Net.Torrent.BEncode
 
         public void Encode(BinaryWriter writer)
         {
-            byte[] ascii = ByteValue ?? BencodingUtils.ExtendedASCIIEncoding.GetBytes(Value);
+            byte[] ascii = this.ByteValue ?? BencodingUtils.ExtendedASCIIEncoding.GetBytes(this.Value);
 
             // Write length
             writer.Write(BencodingUtils.ExtendedASCIIEncoding.GetBytes(ascii.Length.ToString(CultureInfo.InvariantCulture)));
@@ -106,14 +108,16 @@ namespace System.Net.Torrent.BEncode
 
         public int CompareTo(string other)
         {
-            return StringComparer.InvariantCulture.Compare(Value, other);
+            return StringComparer.InvariantCulture.Compare(this.Value, other);
         }
         public int CompareTo(BString other)
         {
             if (other == null)
+            {
                 throw new ArgumentNullException("other");
+            }
 
-            return CompareTo(other.Value);
+            return this.CompareTo(other.Value);
         }
 
         public override bool Equals(object obj)
@@ -121,21 +125,25 @@ namespace System.Net.Torrent.BEncode
             BString other = obj as BString;
 
             if (other == null)
+            {
                 return false;
+            }
 
-            return Equals(other);
+            return this.Equals(other);
         }
         public bool Equals(BString other)
         {
             if (other == null)
+            {
                 return false;
+            }
 
             if (Equals(other, this))
             {
                 return true;
             }
 
-            return Equals(other.Value, Value);
+            return Equals(other.Value, this.Value);
         }
         public bool Equals(string other)
         {
@@ -144,20 +152,20 @@ namespace System.Net.Torrent.BEncode
                 return false;
             }
 
-            return Equals(Value, other);
+            return Equals(this.Value, other);
         }
         public override int GetHashCode()
         {
             // Value should never be null
-            return Value.GetHashCode();
+            return this.Value.GetHashCode();
         }
 
         public override string ToString()
         {
-            return Value;
+            return this.Value;
         }
 
-        public static implicit operator BString(String x)
+        public static implicit operator BString(string x)
         {
             return new BString(x);
         }

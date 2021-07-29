@@ -28,19 +28,19 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
 */
 
-using System.Collections.Generic;
-
 namespace System.Net.Torrent
 {
+    using System.Collections.Generic;
+
     public interface ITrackerClient
     {
-        String Tracker { get; }
+        string Tracker { get; }
         Int32 Port { get; }
 
-        BaseScraper.AnnounceInfo Announce(String url, String hash, String peerId);
-        BaseScraper.AnnounceInfo Announce(String url, String hash, String peerId, Int64 bytesDownloaded, Int64 bytesLeft, Int64 bytesUploaded, 
+        BaseScraper.AnnounceInfo Announce(string url, string hash, string peerId);
+        BaseScraper.AnnounceInfo Announce(string url, string hash, string peerId, Int64 bytesDownloaded, Int64 bytesLeft, Int64 bytesUploaded, 
             Int32 eventTypeFilter, Int32 ipAddress, Int32 numWant, Int32 listenPort, Int32 extensions);
-        IDictionary<String, BaseScraper.AnnounceInfo> Announce(String url, String[] hashes, String peerId);
-        IDictionary<String, BaseScraper.ScrapeInfo> Scrape(String url, String[] hashes);
+        IDictionary<string, BaseScraper.AnnounceInfo> Announce(string url, String[] hashes, string peerId);
+        IDictionary<string, BaseScraper.ScrapeInfo> Scrape(string url, String[] hashes);
     }
 }

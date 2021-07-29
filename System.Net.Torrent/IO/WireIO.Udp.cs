@@ -28,10 +28,10 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
 */
 
-using System.Net.Sockets;
-
 namespace System.Net.Torrent.IO
 {
+    using System.Net.Sockets;
+
     public partial class WireIO
     {
         public class Udp : IWireIO
@@ -41,57 +41,54 @@ namespace System.Net.Torrent.IO
 
             public int Timeout
             {
-                get
-                {
-                    return _socket.ReceiveTimeout / 1000;
-                }
+                get => this._socket.ReceiveTimeout / 1000;
                 set
                 {
-                    _socket.ReceiveTimeout = value * 1000;
-                    _socket.SendTimeout = value * 1000;
+                    this._socket.ReceiveTimeout = value * 1000;
+                    this._socket.SendTimeout = value * 1000;
                 }
             }
 
             public bool Connected
             {
-                get { return _socket.Connected; }
+                get { return this._socket.Connected; }
             }
 
             public Udp()
             {
-                _socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+                this._socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
             }
 
             public void Connect(IPEndPoint endPoint)
             {
-                _endPoint = endPoint;
+                this._endPoint = endPoint;
             }
 
             public void Disconnect()
             {
-                _socket.Disconnect(true);
+                this._socket.Disconnect(true);
             }
 
             public int Send(byte[] bytes)
             {
-                return _socket.SendTo(bytes, _endPoint);
+                return this._socket.SendTo(bytes, this._endPoint);
             }
 
             public int Receive(ref byte[] bytes)
             {
-                EndPoint recFrom = new IPEndPoint(IPAddress.Any, _endPoint.Port);
+                EndPoint recFrom = new IPEndPoint(IPAddress.Any, this._endPoint.Port);
 
-                return _socket.ReceiveFrom(bytes, ref recFrom);
+                return this._socket.ReceiveFrom(bytes, ref recFrom);
             }
 
             public IAsyncResult BeginReceive(byte[] buffer, int offset, int size, AsyncCallback callback, object state)
             {
-                return _socket.BeginReceive(buffer, offset, size, SocketFlags.None, callback, state);
+                return this._socket.BeginReceive(buffer, offset, size, SocketFlags.None, callback, state);
             }
 
             public int EndReceive(IAsyncResult asyncResult)
             {
-                return _socket.EndReceive(asyncResult);
+                return this._socket.EndReceive(asyncResult);
             }
 
             public void Listen(EndPoint ep)

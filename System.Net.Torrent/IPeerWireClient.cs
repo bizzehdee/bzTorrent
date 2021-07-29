@@ -7,9 +7,9 @@ namespace System.Net.Torrent
         bool KeepConnectionAlive { get; set; }
         
         bool RemoteUsesDHT { get; }
-        String LocalPeerID { get; set; }
-        String RemotePeerID { get; }
-        String Hash { get; set; }
+        string LocalPeerID { get; set; }
+        string RemotePeerID { get; }
+        string Hash { get; set; }
 
         event Action<IPeerWireClient> DroppedConnection;
         event Action<IPeerWireClient> NoData;
@@ -26,11 +26,11 @@ namespace System.Net.Torrent
         event Action<IPeerWireClient, Int32, Int32, Int32> Cancel;
 
         void Connect(IPEndPoint endPoint);
-        void Connect(String ipHost, Int32 port);
+        void Connect(string ipHost, Int32 port);
         void Disconnect();
 
         bool Handshake();
-        bool Handshake(String hash, String peerId);
+        bool Handshake(string hash, string peerId);
         bool Handshake(byte[] hash, byte[] peerId);
 
         void ProcessAsync();

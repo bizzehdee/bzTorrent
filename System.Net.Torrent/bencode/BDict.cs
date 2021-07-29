@@ -28,11 +28,11 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
 */
 
-using System.Collections.Generic;
-using System.IO;
-
 namespace System.Net.Torrent.BEncode
 {
+    using System.Collections.Generic;
+    using System.IO;
+
     [Serializable]
     public class BDict : Dictionary<string, IBencodingType>, IEquatable<BDict>, IEquatable<Dictionary<string, IBencodingType>>, IBencodingType
     {
@@ -98,21 +98,27 @@ namespace System.Net.Torrent.BEncode
         {
             Dictionary<string, IBencodingType> other = obj;
 
-            return Equals(other);
+            return this.Equals(other);
         }
 
         public bool Equals(Dictionary<string, IBencodingType> other)
         {
             if (other == null)
+            {
                 return false;
+            }
 
-            if (other.Count != Count)
+            if (other.Count != this.Count)
+            {
                 return false;
+            }
 
-            foreach (string key in Keys)
+            foreach (string key in this.Keys)
             {
                 if (!other.ContainsKey(key))
+                {
                     return false;
+                }
 
                 // Dictionaries cannot have nulls
                 if (!other[key].Equals(this[key]))
@@ -128,7 +134,7 @@ namespace System.Net.Torrent.BEncode
         {
             BDict other = obj as BDict;
 
-            return Equals(other);
+            return this.Equals(other);
         }
 
         /// <summary>
@@ -141,7 +147,9 @@ namespace System.Net.Torrent.BEncode
         public new void Add(string key, IBencodingType value)
         {
             if (value == null)
+            {
                 throw new ArgumentNullException("value");
+            }
 
             base.Add(key, value);
         }
@@ -155,11 +163,13 @@ namespace System.Net.Torrent.BEncode
         /// <exception cref="ArgumentNullException">If the value is null</exception>
         public new IBencodingType this[string index]
         {
-            get { return base[index]; }
+            get => base[index];
             set
             {
                 if (value == null)
+                {
                     throw new ArgumentNullException("value");
+                }
 
                 base[index] = value;
             }
@@ -168,7 +178,7 @@ namespace System.Net.Torrent.BEncode
         public override int GetHashCode()
         {
             int r = 1;
-            foreach (KeyValuePair<String, IBencodingType> pair in this)
+            foreach (KeyValuePair<string, IBencodingType> pair in this)
             {
                 r ^= pair.GetHashCode();
             }
