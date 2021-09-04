@@ -41,9 +41,9 @@ namespace System.Net.Torrent.ProtocolExtensions
         {
             public ClientProtocolIDMap(IPeerWireClient client, string protocol, byte commandId)
             {
-                this.Client = client;
-                this.Protocol = protocol;
-                this.CommandID = commandId;
+                Client = client;
+                Protocol = protocol;
+                CommandID = commandId;
             }
 
             public IPeerWireClient Client { get; set; }
@@ -57,9 +57,9 @@ namespace System.Net.Torrent.ProtocolExtensions
 
         public ExtendedProtocolExtensions()
         {
-            this._protocolExtensions = new List<IBTExtension>();
-            this._extOutgoing = new List<ClientProtocolIDMap>();
-            this._extIncoming = new List<ClientProtocolIDMap>();
+            _protocolExtensions = new List<IBTExtension>();
+            _extOutgoing = new List<ClientProtocolIDMap>();
+            _extIncoming = new List<ClientProtocolIDMap>();
         }
 
         public byte[] ByteMask
@@ -79,21 +79,21 @@ namespace System.Net.Torrent.ProtocolExtensions
 
         public bool OnHandshake(IPeerWireClient client)
         {
-            BDict handshakeDict = new BDict();
-            BDict mDict = new BDict();
+            var handshakeDict = new BDict();
+            var mDict = new BDict();
             byte i = 1;
-            foreach (IBTExtension extension in this._protocolExtensions)
+            foreach (IBTExtension extension in _protocolExtensions)
             {
-                this._extOutgoing.Add(new ClientProtocolIDMap(client, extension.Protocol, i));
+                _extOutgoing.Add(new ClientProtocolIDMap(client, extension.Protocol, i));
                 mDict.Add(extension.Protocol, new BInt(i));
                 i++;
             }
 
             handshakeDict.Add("m", mDict);
 
-            string handshakeEncoded = BencodingUtils.EncodeString(handshakeDict);
-            byte[] handshakeBytes = Encoding.ASCII.GetBytes(handshakeEncoded);
-            Int32 length = 2 + handshakeBytes.Length;
+            var handshakeEncoded = BencodingUtils.EncodeString(handshakeDict);
+            var handshakeBytes = Encoding.ASCII.GetBytes(handshakeEncoded);
+            var length = 2 + handshakeBytes.Length;
 
             client.SendBytes((new byte[0]).Cat(PackHelper.Int32(length).Cat(new[] { (byte)20 }).Cat(new[] { (byte)0 }).Cat(handshakeBytes)));
 
@@ -104,7 +104,7 @@ namespace System.Net.Torrent.ProtocolExtensions
         {
             if (commandId == 20)
             {
-                this.ProcessExtended(client, commandLength, payload);
+                ProcessExtended(client, commandLength, payload);
                 return true;
             }
 
@@ -113,19 +113,19 @@ namespace System.Net.Torrent.ProtocolExtensions
 
         public void RegisterProtocolExtension(IPeerWireClient client, IBTExtension extension)
         {
-            this._protocolExtensions.Add(extension);
+            _protocolExtensions.Add(extension);
             extension.Init(this);
         }
 
         public void UnregisterProtocolExtension(IPeerWireClient client, IBTExtension extension)
         {
-            this._protocolExtensions.Remove(extension);
+            _protocolExtensions.Remove(extension);
             extension.Deinit();
         }
 
         public byte GetOutgoingMessageID(IPeerWireClient client, IBTExtension extension)
         {
-            ClientProtocolIDMap map = this._extOutgoing.Find(f => f.Client == client && f.Protocol == extension.Protocol);
+            var map = _extOutgoing.Find(f => f.Client == client && f.Protocol == extension.Protocol);
 
             if (map != null)
             {
@@ -142,7 +142,7 @@ namespace System.Net.Torrent.ProtocolExtensions
 
         private IBTExtension FindIBTExtensionByProtocol(string protocol)
         {
-            foreach (IBTExtension protocolExtension in this._protocolExtensions)
+            foreach (var protocolExtension in _protocolExtensions)
             {
                 if (protocolExtension.Protocol == protocol)
                 {
@@ -155,7 +155,7 @@ namespace System.Net.Torrent.ProtocolExtensions
 
         private string FindIBTProtocolByMessageID(int messageId)
         {
-            foreach (ClientProtocolIDMap map in this._extIncoming)
+            foreach (var map in _extIncoming)
             {
                 if (map.CommandID == messageId)
                 {
@@ -168,21 +168,21 @@ namespace System.Net.Torrent.ProtocolExtensions
 
         private void ProcessExtended(IPeerWireClient client, int commandLength, byte[] payload)
         {
-            Int32 msgId = payload[0];
+            var msgId = payload[0];
 
-            byte[] buffer = payload.GetBytes(1, commandLength - 1);
+            var buffer = payload.GetBytes(1, commandLength - 1);
 
             if (msgId == 0)
             {
-                BDict extendedHandshake = (BDict)BencodingUtils.Decode(buffer);
+                var extendedHandshake = (BDict)BencodingUtils.Decode(buffer);
 
-                BDict mDict = (BDict)extendedHandshake["m"];
+                var mDict = (BDict)extendedHandshake["m"];
                 foreach (KeyValuePair<string, IBencodingType> pair in mDict)
                 {
-                    BInt i = (BInt)pair.Value;
-                    this._extIncoming.Add(new ClientProtocolIDMap(client, pair.Key, (byte)i));
+                    var i = (BInt)pair.Value;
+                    _extIncoming.Add(new ClientProtocolIDMap(client, pair.Key, (byte)i));
 
-                    IBTExtension ext = this.FindIBTExtensionByProtocol(pair.Key);
+                    var ext = FindIBTExtensionByProtocol(pair.Key);
 
                     if (ext != null)
                     {
@@ -192,8 +192,8 @@ namespace System.Net.Torrent.ProtocolExtensions
             }
             else
             {
-                string protocol = this.FindIBTProtocolByMessageID(msgId);
-                IBTExtension ext = this.FindIBTExtensionByProtocol(protocol);
+                var protocol = FindIBTProtocolByMessageID(msgId);
+                var ext = FindIBTExtensionByProtocol(protocol);
 
                 if (ext != null)
                 {

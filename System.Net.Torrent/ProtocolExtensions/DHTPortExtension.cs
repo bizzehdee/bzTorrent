@@ -34,7 +34,7 @@ namespace System.Net.Torrent.ProtocolExtensions
 
     public class DHTPortExtension : IProtocolExtension
     {
-        public event Action<IPeerWireClient, UInt16> Port;
+        public event Action<IPeerWireClient, ushort> Port;
         public bool RemoteUsesDHT { get; private set; }
 
         public byte[] ByteMask
@@ -56,21 +56,18 @@ namespace System.Net.Torrent.ProtocolExtensions
         {
             if (commandId == 9)
             {
-                UInt16 port = UnpackHelper.UInt16(payload, 0, UnpackHelper.Endianness.Big);
+                ushort port = UnpackHelper.UInt16(payload, 0, UnpackHelper.Endianness.Big);
 
-                this.OnPort(client, port);
+                OnPort(client, port);
                 return true;
             }
 
             return false;
         }
 
-        private void OnPort(IPeerWireClient client, UInt16 port)
+        private void OnPort(IPeerWireClient client, ushort port)
         {
-            if (Port != null)
-            {
-                Port(client, port);
-            }
+            Port?.Invoke(client, port);
         }
     }
 }
