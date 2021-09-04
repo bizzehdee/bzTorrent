@@ -37,11 +37,11 @@ namespace System.Net.Torrent.BEncode
     {
         private BInt()
         {
-            this.Value = 0;
+            Value = 0;
         }
         public BInt(long value)
         {
-            this.Value = value;
+            Value = value;
         }
 
         public long Value { get; set; }
@@ -60,7 +60,7 @@ namespace System.Net.Torrent.BEncode
             bytesConsumed++;
 
             // Read numbers till an 'e'
-            string number = "";
+            var number = "";
             char ch;
 
             while ((ch = inputStream.ReadChar()) != 'e')
@@ -72,7 +72,7 @@ namespace System.Net.Torrent.BEncode
 
             bytesConsumed++;
 
-            BInt res = new BInt { Value = long.Parse(number) };
+            var res = new BInt { Value = long.Parse(number) };
 
             return res;
         }
@@ -83,7 +83,7 @@ namespace System.Net.Torrent.BEncode
             writer.Write('i');
 
             // Write value
-            writer.Write(this.Value.ToString(CultureInfo.InvariantCulture).ToCharArray());
+            writer.Write(Value.ToString(CultureInfo.InvariantCulture).ToCharArray());
 
             // Write footer
             writer.Write('e');
@@ -91,12 +91,12 @@ namespace System.Net.Torrent.BEncode
 
         public int CompareTo(long other)
         {
-            if (this.Value < other)
+            if (Value < other)
             {
                 return -1;
             }
 
-            if (this.Value > other)
+            if (Value > other)
             {
                 return 1;
             }
@@ -110,12 +110,12 @@ namespace System.Net.Torrent.BEncode
                 throw new ArgumentNullException("other");
             }
 
-            if (this.Value < other.Value)
+            if (Value < other.Value)
             {
                 return -1;
             }
 
-            if (this.Value > other.Value)
+            if (Value > other.Value)
             {
                 return 1;
             }
@@ -125,9 +125,9 @@ namespace System.Net.Torrent.BEncode
 
         public override bool Equals(object obj)
         {
-            BInt other = obj as BInt;
+            var other = obj as BInt;
 
-            return this.Equals(other);
+            return Equals(other);
         }
         public bool Equals(BInt other)
         {
@@ -136,20 +136,20 @@ namespace System.Net.Torrent.BEncode
                 return false;
             }
 
-            return this.Equals(other.Value);
+            return Equals(other.Value);
         }
         public bool Equals(long other)
         {
-            return this.Value == other;
+            return Value == other;
         }
         public override int GetHashCode()
         {
-            return this.Value.GetHashCode();
+            return Value.GetHashCode();
         }
 
         public override string ToString()
         {
-            return String.Format("{0}", this.Value);
+            return string.Format("{0}", Value);
         }
 
         public static implicit operator BInt(long x)

@@ -49,16 +49,16 @@ namespace System.Net.Torrent.BEncode
             inputStream.ReadByte();
 
             bytesConsumed++;
-            BDict res = new BDict();
+            var res = new BDict();
 
             // Read elements till an 'e'
             while (inputStream.PeekChar() != 'e')
             {
                 // Key
-                BString key = BString.Decode(inputStream, ref bytesConsumed);
+                var key = BString.Decode(inputStream, ref bytesConsumed);
 
                 // Value
-                IBencodingType value = BencodingUtils.Decode(inputStream, ref bytesConsumed);
+                var value = BencodingUtils.Decode(inputStream, ref bytesConsumed);
 
                 res[key.Value] = value;
             }
@@ -79,7 +79,7 @@ namespace System.Net.Torrent.BEncode
             foreach (KeyValuePair<string, IBencodingType> item in this)
             {
                 // Write key
-                BString key = new BString
+                var key = new BString
                 {
                     Value = item.Key
                 };
@@ -98,7 +98,7 @@ namespace System.Net.Torrent.BEncode
         {
             Dictionary<string, IBencodingType> other = obj;
 
-            return this.Equals(other);
+            return Equals(other);
         }
 
         public bool Equals(Dictionary<string, IBencodingType> other)
@@ -108,12 +108,12 @@ namespace System.Net.Torrent.BEncode
                 return false;
             }
 
-            if (other.Count != this.Count)
+            if (other.Count != Count)
             {
                 return false;
             }
 
-            foreach (string key in this.Keys)
+            foreach (var key in Keys)
             {
                 if (!other.ContainsKey(key))
                 {
@@ -130,11 +130,12 @@ namespace System.Net.Torrent.BEncode
 
             return true;
         }
+
         public override bool Equals(object obj)
         {
-            BDict other = obj as BDict;
+            var other = obj as BDict;
 
-            return this.Equals(other);
+            return Equals(other);
         }
 
         /// <summary>
@@ -178,7 +179,8 @@ namespace System.Net.Torrent.BEncode
         public override int GetHashCode()
         {
             int r = 1;
-            foreach (KeyValuePair<string, IBencodingType> pair in this)
+
+            foreach (var pair in this)
             {
                 r ^= pair.GetHashCode();
             }

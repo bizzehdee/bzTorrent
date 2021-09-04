@@ -60,7 +60,7 @@ namespace System.Net.Torrent.BEncode
             inputStream.Read();
             bytesConsumed++;
 
-            BList res = new BList();
+            var res = new BList();
 
             // Read elements till an 'e'
             while (inputStream.PeekChar() != 'e')
@@ -94,7 +94,7 @@ namespace System.Net.Torrent.BEncode
         {
             IList<IBencodingType> other = obj;
 
-            return this.Equals(other);
+            return Equals(other);
         }
         public bool Equals(IList<IBencodingType> other)
         {
@@ -103,12 +103,12 @@ namespace System.Net.Torrent.BEncode
                 return false;
             }
 
-            if (other.Count != this.Count)
+            if (other.Count != Count)
             {
                 return false;
             }
 
-            for (int i = 0; i < this.Count; i++)
+            for (var i = 0; i < Count; i++)
             {
                 // Lists cannot have nulls
                 if (!other[i].Equals(this[i]))
@@ -125,7 +125,7 @@ namespace System.Net.Torrent.BEncode
         {
             BList other = obj as BList;
 
-            return this.Equals(other);
+            return Equals(other);
         }
 
         /// <summary>

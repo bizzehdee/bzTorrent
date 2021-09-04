@@ -72,7 +72,7 @@ namespace System.Net.Torrent.BEncode
         /// <returns>A bencoded object.</returns>
         public static IBencodingType DecodeFile(string fileName)
         {
-            using (FileStream fileStream = File.OpenRead(fileName))
+            using (var fileStream = File.OpenRead(fileName))
             {
                 return Decode(fileStream);
             }
@@ -87,7 +87,7 @@ namespace System.Net.Torrent.BEncode
         /// <returns>A bencoded object.</returns>
         public static IBencodingType Decode(string inputString)
         {
-            byte[] byteArray = ExtendedASCIIEncoding.GetBytes(inputString);
+            var byteArray = ExtendedASCIIEncoding.GetBytes(inputString);
 
             return Decode(new MemoryStream(byteArray));
         }
@@ -109,16 +109,16 @@ namespace System.Net.Torrent.BEncode
         /// <returns>A bencoded object.</returns>
         public static IBencodingType Decode(Stream inputStream)
         {
-            using (BinaryReader sr = new BinaryReader(inputStream, ExtendedASCIIEncoding))
+            using (var sr = new BinaryReader(inputStream, ExtendedASCIIEncoding))
             {
-                int bytesConsumed = 0;
+                var bytesConsumed = 0;
                 return Decode(sr, ref bytesConsumed);
             }
         }
 
         public static IBencodingType Decode(Stream inputStream, ref int bytesConsumed)
         {
-            using (BinaryReader sr = new BinaryReader(inputStream, ExtendedASCIIEncoding))
+            using (var sr = new BinaryReader(inputStream, ExtendedASCIIEncoding))
             {
                 return Decode(sr, ref bytesConsumed);
             }
@@ -126,7 +126,7 @@ namespace System.Net.Torrent.BEncode
 
         internal static IBencodingType Decode(BinaryReader inputStream, ref int bytesConsumed)
         {
-            char next = (char)inputStream.PeekChar();
+            var next = (char)inputStream.PeekChar();
 
             switch (next)
             {
@@ -182,7 +182,7 @@ namespace System.Net.Torrent.BEncode
         /// <returns>A bencoded string with the object.</returns>
         public static string EncodeString(IBencodingType bencode)
         {
-            MemoryStream ms = new MemoryStream();
+            var ms = new MemoryStream();
             Encode(bencode, ms);
             ms.Position = 0;
 
@@ -196,7 +196,7 @@ namespace System.Net.Torrent.BEncode
         /// <returns>A bencoded string of the object in Extended ASCII Encoding.</returns>
         public static byte[] EncodeBytes(IBencodingType bencode)
         {
-            MemoryStream ms = new MemoryStream();
+            var ms = new MemoryStream();
             Encode(bencode, ms);
             ms.Position = 0;
 
@@ -220,7 +220,7 @@ namespace System.Net.Torrent.BEncode
         public static byte[] CalculateTorrentInfoHash(BDict torrentInfoDict)
         {
             // Take the "info" dictionary provided, and encode it
-            byte[] infoBytes = EncodeBytes(torrentInfoDict);
+            var infoBytes = EncodeBytes(torrentInfoDict);
 
             // Hash the encoded dictionary
             return new SHA1CryptoServiceProvider().ComputeHash(infoBytes);

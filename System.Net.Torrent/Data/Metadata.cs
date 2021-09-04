@@ -44,14 +44,14 @@ namespace System.Net.Torrent.Data
     public class Metadata : IMetadata
     {
         private IBencodingType _root;
-        private IDictionary<string, Int64> files;
+        private IDictionary<string, long> files;
 
         public byte[] Hash { get; private set; }
 
         public string HashString
         {
-            get => UnpackHelper.Hex(this.Hash);
-            private set => this.Hash = PackHelper.Hex(value);
+            get => UnpackHelper.Hex(Hash);
+            private set => Hash = PackHelper.Hex(value);
         }
 
         public string Comment { get; private set; }
@@ -66,7 +66,7 @@ namespace System.Net.Torrent.Data
 
         public string Name { get; private set; }
 
-        public Int64 PieceSize { get; private set; }
+        public long PieceSize { get; private set; }
 
         public ICollection<byte[]> PieceHashes { get; private set; }
 
@@ -74,28 +74,28 @@ namespace System.Net.Torrent.Data
 
         public Metadata()
         {
-            this.Init();
+            Init();
         }
 
         public Metadata(Stream stream)
         {
-            this.Init();
+            Init();
 
-            this.Load(stream);
+            Load(stream);
         }
 
         public Metadata(MagnetLink magnetLink)
         {
-            this.Init();
+            Init();
 
-            this.Load(magnetLink);
+            Load(magnetLink);
         }
 
         private void Init()
         {
-            this.AnnounceList = new Collection<string>();
-            this.PieceHashes = new Collection<byte[]>();
-            this.files = new Dictionary<string, long>();
+            AnnounceList = new Collection<string>();
+            PieceHashes = new Collection<byte[]>();
+            files = new Dictionary<string, long>();
         }
 
         public bool Load(MagnetLink magnetLink)
@@ -105,13 +105,13 @@ namespace System.Net.Torrent.Data
                 return false;
             }
 
-            this.HashString = magnetLink.HashString;
+            HashString = magnetLink.HashString;
 
             if (magnetLink.Trackers != null)
             {
                 foreach (string tracker in magnetLink.Trackers)
                 {
-                    this.AnnounceList.Add(tracker);
+                    AnnounceList.Add(tracker);
                 }
             }
 
@@ -120,13 +120,13 @@ namespace System.Net.Torrent.Data
 
         public bool Load(Stream stream)
         {
-            this._root = BencodingUtils.Decode(stream);
-            if (this._root == null)
+            _root = BencodingUtils.Decode(stream);
+            if (_root == null)
             {
                 return false;
             }
 
-            BDict dictRoot = (this._root as BDict);
+            var dictRoot = (_root as BDict);
             if (dictRoot == null)
             {
                 return false;
@@ -134,31 +134,31 @@ namespace System.Net.Torrent.Data
 
             if (dictRoot.ContainsKey("announce"))
             {
-                this.Announce = (BString)dictRoot["announce"];
+                Announce = (BString)dictRoot["announce"];
             }
 
             if (dictRoot.ContainsKey("announce-list"))
             {
-                BList announceList = (BList)dictRoot["announce-list"];
+                var announceList = (BList)dictRoot["announce-list"];
                 foreach (IBencodingType type in announceList)
                 {
                     if (type is BString)
                     {
-                        this.AnnounceList.Add(type as BString);
+                        AnnounceList.Add(type as BString);
                     }
                     else
                     {
-                        BList list = type as BList;
+                        var list = type as BList;
                         if (list == null)
                         {
                             continue;
                         }
 
-                        BList listType = list;
+                        var listType = list;
                         foreach (IBencodingType bencodingType in listType)
                         {
                             BString s = (BString)bencodingType;
-                            this.AnnounceList.Add(s);
+                            AnnounceList.Add(s);
                         }
                     }
                 }
@@ -166,44 +166,44 @@ namespace System.Net.Torrent.Data
 
             if (dictRoot.ContainsKey("comment"))
             {
-                this.Comment = (BString)dictRoot["comment"];
+                Comment = (BString)dictRoot["comment"];
             }
 
             if (dictRoot.ContainsKey("created by"))
             {
-                this.CreatedBy = (BString)dictRoot["created by"];
+                CreatedBy = (BString)dictRoot["created by"];
             }
 
             if (dictRoot.ContainsKey("creation date"))
             {
                 long ts = (BInt)dictRoot["creation date"];
-                this.CreationDate = new DateTime(1970, 1, 1).AddSeconds(ts);
+                CreationDate = new DateTime(1970, 1, 1).AddSeconds(ts);
             }
 
             if (dictRoot.ContainsKey("info"))
             {
-                BDict infoDict = (BDict)dictRoot["info"];
+                var infoDict = (BDict)dictRoot["info"];
 
                 using (SHA1Managed sha1 = new SHA1Managed())
                 {
-                    byte[] str = BencodingUtils.EncodeBytes(infoDict);
-                    this.Hash = sha1.ComputeHash(str);
+                    var str = BencodingUtils.EncodeBytes(infoDict);
+                    Hash = sha1.ComputeHash(str);
                 }
 
                 if (infoDict.ContainsKey("files"))
                 {
                     //multi file mode
                     BList fileList = (BList)infoDict["files"];
-                    foreach (IBencodingType bencodingType in fileList)
+                    foreach (var bencodingType in fileList)
                     {
-                        BDict fileDict = (BDict)bencodingType;
+                        var fileDict = (BDict)bencodingType;
 
-                        string filename = string.Empty;
-                        Int64 filesize = default(Int64);
+                        var filename = string.Empty;
+                        long filesize = default;
 
                         if (fileDict.ContainsKey("path"))
                         {
-                            BList filenameList = (BList)fileDict["path"];
+                            var filenameList = (BList)fileDict["path"];
                             foreach (IBencodingType type in filenameList)
                             {
                                 filename += (BString)type;
@@ -217,38 +217,38 @@ namespace System.Net.Torrent.Data
                             filesize = (BInt)fileDict["length"];
                         }
 
-                        this.files.Add(filename, filesize);
+                        files.Add(filename, filesize);
                     }
                 }
 
                 if (infoDict.ContainsKey("name"))
                 {
-                    this.Name = (BString)infoDict["name"];
-                    if (this.files.Count == 0 && infoDict.ContainsKey("length"))
+                    Name = (BString)infoDict["name"];
+                    if (files.Count == 0 && infoDict.ContainsKey("length"))
                     {
-                        this.files.Add(this.Name, (BInt)infoDict["length"]);
+                        files.Add(Name, (BInt)infoDict["length"]);
                     }
                 }
 
                 if (infoDict.ContainsKey("private"))
                 {
-                    BInt isPrivate = (BInt)infoDict["private"];
-                    this.Private = isPrivate != 0;
+                    var isPrivate = (BInt)infoDict["private"];
+                    Private = isPrivate != 0;
                 }
 
                 if (infoDict.ContainsKey("pieces"))
                 {
-                    BString pieces = (BString)infoDict["pieces"];
-                    for (int x = 0; x < pieces.ByteValue.Length; x += 20)
+                    var pieces = (BString)infoDict["pieces"];
+                    for (var x = 0; x < pieces.ByteValue.Length; x += 20)
                     {
-                        byte[] hash = pieces.ByteValue.GetBytes(x, 20);
-                        this.PieceHashes.Add(hash);
+                        var hash = pieces.ByteValue.GetBytes(x, 20);
+                        PieceHashes.Add(hash);
                     }
                 }
 
                 if (infoDict.ContainsKey("piece length"))
                 {
-                    this.PieceSize = (BInt)infoDict["piece length"];
+                    PieceSize = (BInt)infoDict["piece length"];
                 }
             }
 
@@ -257,12 +257,12 @@ namespace System.Net.Torrent.Data
 
         public IReadOnlyCollection<string> GetFiles()
         {
-            if (this.files.IsNullOrEmpty())
+            if (files.IsNullOrEmpty())
             {
                 return new Collection<string>();
             }
 
-            return this.files?.Select(x => x.Key)?.ToList()?.AsReadOnly();
+            return files?.Select(x => x.Key)?.ToList()?.AsReadOnly();
         }
 
         #region Static Helpers
@@ -273,7 +273,7 @@ namespace System.Net.Torrent.Data
 
         public static IMetadata FromBuffer(byte[] metadata)
         {
-            using (MemoryStream ms = new MemoryStream(metadata))
+            using (var ms = new MemoryStream(metadata))
             {
                 return new Metadata(ms);
             }
@@ -281,7 +281,7 @@ namespace System.Net.Torrent.Data
 
         public static IMetadata FromFile(string filename)
         {
-            using (FileStream fs = File.OpenRead(filename))
+            using (var fs = File.OpenRead(filename))
             {
                 return new Metadata(fs);
             }

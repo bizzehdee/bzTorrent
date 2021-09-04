@@ -51,12 +51,12 @@ namespace System.Net.Torrent.Data
 
         public MagnetLink()
         {
-            this.Trackers = new Collection<string>();
+            Trackers = new Collection<string>();
         }
 
         public static MagnetLink Resolve(string magnetLink)
         {
-            IEnumerable<KeyValuePair<string, String>> values = null;
+            IEnumerable<KeyValuePair<string, string>> values = null;
 
             if (IsMagnetLink(magnetLink))
             {
@@ -68,7 +68,7 @@ namespace System.Net.Torrent.Data
                 return null;
             }
 
-            MagnetLink magnet = new MagnetLink();
+            var magnet = new MagnetLink();
 
             foreach (KeyValuePair<string, string> pair in values)
             {
@@ -118,12 +118,12 @@ namespace System.Net.Torrent.Data
 
         private static IEnumerable<KeyValuePair<string, String>> SplitURLIntoParts(string magnetLink)
         {
-            String[] parts = magnetLink.Split('&');
-            ICollection<KeyValuePair<string, String>> values = new Collection<KeyValuePair<string, string>>();
+            var parts = magnetLink.Split('&');
+            var values = new Collection<KeyValuePair<string, string>>();
 
-            foreach (string str in parts)
+            foreach (var str in parts)
             {
-                String[] kv = str.Split('=');
+                var kv = str.Split('=');
                 values.Add(new KeyValuePair<string, string>(kv[0], Uri.UnescapeDataString(kv[1])));
             }
 

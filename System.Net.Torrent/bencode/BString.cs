@@ -45,18 +45,18 @@ namespace System.Net.Torrent.BEncode
 
         public BString(string value)
         {
-            this.Value = value;
+            Value = value;
         }
 
         private string _value = string.Empty;
         public string Value
         {
-            get => this._value;
+            get => _value;
             set
             {
                 if (value != null)
                 {
-                    this._value = value;
+                    _value = value;
                 }
             }
         }
@@ -72,7 +72,7 @@ namespace System.Net.Torrent.BEncode
         public static BString Decode(BinaryReader inputStream, ref int bytesConsumed)
         {
             // Read up to ':'
-            string numberLength = "";
+            var numberLength = "";
             char ch;
 
             while ((ch = inputStream.ReadChar()) != ':')
@@ -86,7 +86,7 @@ namespace System.Net.Torrent.BEncode
             // Read chars out
             //char[] stringData = new char[int.Parse(numberLength)];
             //inputStream.Read(stringData, 0, stringData.Length);
-            byte[] stringData = inputStream.ReadBytes(int.Parse(numberLength));
+            var stringData = inputStream.ReadBytes(int.Parse(numberLength));
             bytesConsumed += int.Parse(numberLength);
             // Return
             return new BString { Value = BencodingUtils.ExtendedASCIIEncoding.GetString(stringData), ByteValue = stringData };
@@ -94,7 +94,7 @@ namespace System.Net.Torrent.BEncode
 
         public void Encode(BinaryWriter writer)
         {
-            byte[] ascii = this.ByteValue ?? BencodingUtils.ExtendedASCIIEncoding.GetBytes(this.Value);
+            var ascii = ByteValue ?? BencodingUtils.ExtendedASCIIEncoding.GetBytes(Value);
 
             // Write length
             writer.Write(BencodingUtils.ExtendedASCIIEncoding.GetBytes(ascii.Length.ToString(CultureInfo.InvariantCulture)));
@@ -108,7 +108,7 @@ namespace System.Net.Torrent.BEncode
 
         public int CompareTo(string other)
         {
-            return StringComparer.InvariantCulture.Compare(this.Value, other);
+            return StringComparer.InvariantCulture.Compare(Value, other);
         }
         public int CompareTo(BString other)
         {
@@ -117,19 +117,19 @@ namespace System.Net.Torrent.BEncode
                 throw new ArgumentNullException("other");
             }
 
-            return this.CompareTo(other.Value);
+            return CompareTo(other.Value);
         }
 
         public override bool Equals(object obj)
         {
-            BString other = obj as BString;
+            var other = obj as BString;
 
             if (other == null)
             {
                 return false;
             }
 
-            return this.Equals(other);
+            return Equals(other);
         }
         public bool Equals(BString other)
         {
@@ -143,7 +143,7 @@ namespace System.Net.Torrent.BEncode
                 return true;
             }
 
-            return Equals(other.Value, this.Value);
+            return Equals(other.Value, Value);
         }
         public bool Equals(string other)
         {
@@ -152,17 +152,17 @@ namespace System.Net.Torrent.BEncode
                 return false;
             }
 
-            return Equals(this.Value, other);
+            return Equals(Value, other);
         }
         public override int GetHashCode()
         {
             // Value should never be null
-            return this.Value.GetHashCode();
+            return Value.GetHashCode();
         }
 
         public override string ToString()
         {
-            return this.Value;
+            return Value;
         }
 
         public static implicit operator BString(string x)
