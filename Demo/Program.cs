@@ -16,7 +16,14 @@
 
             TestMagnetLink();
 
+            TestMagnetLinkUDP();
+
+            TestAsyncMagnetLinkUDP();
+
             TestAsyncMagnetLink();
+
+            AnnounceTorrentUDP();
+            AnnounceTorrentUDP();
 
             AnnounceTorrent();
 
@@ -34,6 +41,24 @@
 
             var magnetLink = MagnetLink.Resolve(ubuntuMagnetLink);
         }
+        static void TestMagnetLinkUDP()
+        {
+            var ubuntuMagnetLink = "magnet:?xt=urn:btih:e4be9e4db876e3e3179778b03e906297be5c8dbe&dn=ubuntu-18.04-desktop-amd64.iso&tr=udp://tracker.opentrackr.org:1337/announce";
+
+            var magnetLink = MagnetLink.Resolve(ubuntuMagnetLink);
+        }
+
+        static void TestAsyncMagnetLinkUDP()
+        {
+            var ubuntuMagnetLink = "magnet:?xt=urn:btih:e4be9e4db876e3e3179778b03e906297be5c8dbe&dn=ubuntu-18.04-desktop-amd64.iso&tr=udp://tracker.opentrackr.org:1337/announce";
+
+            var magnetMetadata = MagnetLink.ResolveToMetadata(ubuntuMagnetLink);
+
+            foreach (var item in magnetMetadata.AnnounceList)
+            {
+                Console.WriteLine(item);
+            }
+        }
 
         static void TestAsyncMagnetLink()
         {
@@ -45,6 +70,12 @@
             {
                 Console.WriteLine(item);
             }
+        }
+
+        static void AnnounceTorrentUDP()
+        {
+            var scraper = new UDPTrackerClient(15);
+            var peers = scraper.Announce("udp://tracker.opentrackr.org:1337/announce", "e4be9e4db876e3e3179778b03e906297be5c8dbe", "-LW2222-011345223110");
         }
 
         static void AnnounceTorrent()
