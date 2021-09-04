@@ -40,99 +40,99 @@ namespace System.Net.Torrent.IO
 
             public int Timeout
             {
-                get => this._socket.ReceiveTimeout / 1000;
+                get => _socket.ReceiveTimeout / 1000;
                 set
                 {
-                    this._socket.ReceiveTimeout = value * 1000;
-                    this._socket.SendTimeout = value * 1000;
+                    _socket.ReceiveTimeout = value * 1000;
+                    _socket.SendTimeout = value * 1000;
                 }
             }
 
             public bool Connected
             {
-                get { return this._socket.Connected; }
+                get { return _socket.Connected; }
             }
 
             public Tcp()
             {
-                this._socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-                this._socket.NoDelay = true;
+                _socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+                _socket.NoDelay = true;
             }
 
             public Tcp(Socket socket)
             {
-                this._socket = socket;
+                _socket = socket;
 
-                if (this._socket.AddressFamily != AddressFamily.InterNetwork)
+                if (_socket.AddressFamily != AddressFamily.InterNetwork)
                 {
                     throw new ArgumentException("AddressFamily of socket must be InterNetwork");
                 }
 
-                if (this._socket.SocketType != SocketType.Stream)
+                if (_socket.SocketType != SocketType.Stream)
                 {
                     throw new ArgumentException("SocketType of socket must be Stream");
                 }
 
-                if (this._socket.ProtocolType != ProtocolType.Tcp)
+                if (_socket.ProtocolType != ProtocolType.Tcp)
                 {
                     throw new ArgumentException("ProtocolType of socket must be Tcp");
                 }
 
-                this._socket.NoDelay = true;
+                _socket.NoDelay = true;
             }
 
             public void Connect(IPEndPoint endPoint)
             {
-                this._socket.Connect(endPoint);
+                _socket.Connect(endPoint);
             }
 
             public void Disconnect()
             {
-                if (this._socket.Connected)
+                if (_socket.Connected)
                 {
-                    this._socket.Disconnect(true);
+                    _socket.Disconnect(true);
                 }
             }
 
             public int Send(byte[] bytes)
             {
-                return this._socket.Send(bytes);
+                return _socket.Send(bytes);
             }
 
             public int Receive(ref byte[] bytes)
             {
-                return this._socket.Receive(bytes);
+                return _socket.Receive(bytes);
             }
 
             public IAsyncResult BeginReceive(byte[] buffer, int offset, int size, AsyncCallback callback, object state)
             {
-                return this._socket.BeginReceive(buffer, offset, size, SocketFlags.None, callback, state);
+                return _socket.BeginReceive(buffer, offset, size, SocketFlags.None, callback, state);
             }
 
             public int EndReceive(IAsyncResult asyncResult)
             {
-                return this._socket.EndReceive(asyncResult);
+                return _socket.EndReceive(asyncResult);
             }
 
             public void Listen(EndPoint ep)
             {
-                this._socket.Bind(ep);
-                this._socket.Listen(10);
+                _socket.Bind(ep);
+                _socket.Listen(10);
             }
 
             public IWireIO Accept()
             {
-                return new Tcp(this._socket.Accept());
+                return new Tcp(_socket.Accept());
             }
 
             public IAsyncResult BeginAccept(AsyncCallback callback)
             {
-                return this._socket.BeginAccept(callback, this);
+                return _socket.BeginAccept(callback, this);
             }
 
             public IWireIO EndAccept(IAsyncResult ar)
             {
-                return new Tcp(this._socket.EndAccept(ar));
+                return new Tcp(_socket.EndAccept(ar));
             }
         }
     }

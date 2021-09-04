@@ -41,54 +41,54 @@ namespace System.Net.Torrent.IO
 
             public int Timeout
             {
-                get => this._socket.ReceiveTimeout / 1000;
+                get => _socket.ReceiveTimeout / 1000;
                 set
                 {
-                    this._socket.ReceiveTimeout = value * 1000;
-                    this._socket.SendTimeout = value * 1000;
+                    _socket.ReceiveTimeout = value * 1000;
+                    _socket.SendTimeout = value * 1000;
                 }
             }
 
             public bool Connected
             {
-                get { return this._socket.Connected; }
+                get { return _socket.Connected; }
             }
 
             public Udp()
             {
-                this._socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+                _socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
             }
 
             public void Connect(IPEndPoint endPoint)
             {
-                this._endPoint = endPoint;
+                _endPoint = endPoint;
             }
 
             public void Disconnect()
             {
-                this._socket.Disconnect(true);
+                _socket.Disconnect(true);
             }
 
             public int Send(byte[] bytes)
             {
-                return this._socket.SendTo(bytes, this._endPoint);
+                return _socket.SendTo(bytes, _endPoint);
             }
 
             public int Receive(ref byte[] bytes)
             {
-                EndPoint recFrom = new IPEndPoint(IPAddress.Any, this._endPoint.Port);
+                EndPoint recFrom = new IPEndPoint(IPAddress.Any, _endPoint.Port);
 
-                return this._socket.ReceiveFrom(bytes, ref recFrom);
+                return _socket.ReceiveFrom(bytes, ref recFrom);
             }
 
             public IAsyncResult BeginReceive(byte[] buffer, int offset, int size, AsyncCallback callback, object state)
             {
-                return this._socket.BeginReceive(buffer, offset, size, SocketFlags.None, callback, state);
+                return _socket.BeginReceive(buffer, offset, size, SocketFlags.None, callback, state);
             }
 
             public int EndReceive(IAsyncResult asyncResult)
             {
-                return this._socket.EndReceive(asyncResult);
+                return _socket.EndReceive(asyncResult);
             }
 
             public void Listen(EndPoint ep)

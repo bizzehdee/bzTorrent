@@ -28,12 +28,10 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
 */
 
+using System.Collections.Generic;
+
 namespace System.Net.Torrent.Extensions
 {
-    using System;
-    using System.Collections.Generic;
-    using System.Linq;
-
     public static class ArgumentExtensions
     {
         public static void ThrowIfNull<T>(this T source, string paramName)

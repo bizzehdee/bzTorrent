@@ -52,22 +52,22 @@ namespace System.Net.Torrent.Helpers
             return false;
         }
 
-        public static byte[] Int16(Int16 i)
+        public static byte[] Int16(short i)
         {
             return BitConverter.GetBytes(IPAddress.HostToNetworkOrder(i));
         }
 
-        public static byte[] Int32(Int32 i)
+        public static byte[] Int32(int i)
         {
             return BitConverter.GetBytes(IPAddress.HostToNetworkOrder(i));
         }
 
-        public static byte[] Int64(Int64 i)
+        public static byte[] Int64(long i)
         {
             return BitConverter.GetBytes(IPAddress.HostToNetworkOrder(i));
         }
 
-        public static byte[] UInt16(UInt16 value)
+        public static byte[] UInt16(ushort value)
         {
             var bytes = BitConverter.GetBytes(value);
 
@@ -82,7 +82,7 @@ namespace System.Net.Torrent.Helpers
             return BitConverter.GetBytes(result);
         }
 
-        public static byte[] UInt32(UInt32 value)
+        public static byte[] UInt32(uint value)
         {
             var byte1 = (value >> 0) & 0xff;
             var byte2 = (value >> 8) & 0xff;
@@ -92,7 +92,7 @@ namespace System.Net.Torrent.Helpers
             return BitConverter.GetBytes(byte1 << 24 | byte2 << 16 | byte3 << 8 | byte4 << 0);
         }
 
-        public static byte[] UInt64(UInt64 value)
+        public static byte[] UInt64(ulong value)
         {
             var byte1 = (value >> 0) & 0xff;
             var byte2 = (value >> 8) & 0xff;
@@ -126,7 +126,7 @@ namespace System.Net.Torrent.Helpers
                 str += '0';
             }
 
-            byte[] bytes = new byte[str.Length / 2];
+            var bytes = new byte[str.Length / 2];
             for (int i = 0; i < str.Length; i += 2)
             {
                 bytes[i / 2] = Convert.ToByte(str.Substring(NeedsFlipping(e) ? ((str.Length - (i*2)) - 2) : i, 2), 16);

@@ -28,13 +28,11 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
 */
 
+using System.Collections.Generic;
+using System.Linq;
+
 namespace System.Net.Torrent.Extensions
 {
-    using System;
-    using System.Collections.Generic;
-    using System.Linq;
-    using System.Text;
-
     public static class EnumerableExtensions
     {
         public static bool IsNullOrEmpty<T>(this IEnumerable<T> source)

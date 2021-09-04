@@ -28,12 +28,12 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
 */
 
+using System.Net.Torrent.BEncode;
+using System.Net.Torrent.Helpers;
+using System.Net.Torrent.ProtocolExtensions;
+
 namespace System.Net.Torrent.Extensions
 {
-    using System.Net.Torrent.BEncode;
-    using System.Net.Torrent.Helpers;
-    using System.Net.Torrent.ProtocolExtensions;
-
     public class UTPeerExchange : IBTExtension
     {
         private ExtendedProtocolExtensions _parent;
@@ -48,7 +48,7 @@ namespace System.Net.Torrent.Extensions
 
         public void Init(ExtendedProtocolExtensions parent)
         {
-            this._parent = parent;
+            _parent = parent;
         }
 
         public void Deinit()
@@ -58,47 +58,41 @@ namespace System.Net.Torrent.Extensions
 
         public void OnHandshake(IPeerWireClient peerWireClient, byte[] handshake)
         {
-            BDict d = (BDict)BencodingUtils.Decode(handshake);
+            var d = (BDict)BencodingUtils.Decode(handshake);
         }
 
         public void OnExtendedMessage(IPeerWireClient peerWireClient, byte[] bytes)
         {
-            BDict d = (BDict) BencodingUtils.Decode(bytes);
+            var d = (BDict) BencodingUtils.Decode(bytes);
             if (d.ContainsKey("added") && d.ContainsKey("added.f"))
             {
-                BString pexList = (BString)d["added"];
-                BString pexFlags = (BString)d["added.f"];
+                var pexList = (BString)d["added"];
+                var pexFlags = (BString)d["added.f"];
 
                 for (int i = 0; i < pexList.ByteValue.Length/6; i++)
                 {
-                    UInt32 ip = UnpackHelper.UInt32(pexList.ByteValue, i*6, UnpackHelper.Endianness.Little);
-                    UInt16 port = UnpackHelper.UInt16(pexList.ByteValue, (i * 6) + 4, UnpackHelper.Endianness.Big);
+                    var ip = UnpackHelper.UInt32(pexList.ByteValue, i * 6, UnpackHelper.Endianness.Little);
+                    var port = UnpackHelper.UInt16(pexList.ByteValue, (i * 6) + 4, UnpackHelper.Endianness.Big);
                     byte flags = pexFlags.ByteValue[i];
 
-                    IPEndPoint ipAddr = new IPEndPoint(ip, port);
+                    var ipAddr = new IPEndPoint(ip, port);
 
-                    if (Added != null)
-                    {
-                        Added(peerWireClient, this, ipAddr, flags);
-                    }
+                    Added?.Invoke(peerWireClient, this, ipAddr, flags);
                 }
             }
 
             if (d.ContainsKey("dropped"))
             {
-                BString pexList = (BString)d["dropped"];
+                var pexList = (BString)d["dropped"];
 
                 for (int i = 0; i < pexList.ByteValue.Length / 6; i++)
                 {
-                    UInt32 ip = UnpackHelper.UInt32(pexList.ByteValue, i * 6, UnpackHelper.Endianness.Little);
-                    UInt16 port = UnpackHelper.UInt16(pexList.ByteValue, (i * 6) + 4, UnpackHelper.Endianness.Big);
+                    var ip = UnpackHelper.UInt32(pexList.ByteValue, i * 6, UnpackHelper.Endianness.Little);
+                    var port = UnpackHelper.UInt16(pexList.ByteValue, (i * 6) + 4, UnpackHelper.Endianness.Big);
 
                     IPEndPoint ipAddr = new IPEndPoint(ip, port);
 
-                    if (Dropped != null)
-                    {
-                        Dropped(peerWireClient, this, ipAddr);
-                    }
+                    Dropped?.Invoke(peerWireClient, this, ipAddr);
                 }
             }
         }
@@ -110,12 +104,12 @@ namespace System.Net.Torrent.Extensions
                 return;
             }
 
-            BDict d = new BDict();
+            var d = new BDict();
 
             if (addedEndPoints != null)
             {
-                byte[] added = new byte[addedEndPoints.Length * 6];
-                for (int x = 0; x < addedEndPoints.Length; x++)
+                var added = new byte[addedEndPoints.Length * 6];
+                for (var x = 0; x < addedEndPoints.Length; x++)
                 {
                     addedEndPoints[x].Address.GetAddressBytes().CopyTo(added, x * 6);
                     BitConverter.GetBytes((ushort)addedEndPoints[x].Port).CopyTo(added, (x * 6)+4);
@@ -126,7 +120,7 @@ namespace System.Net.Torrent.Extensions
 
             if (droppedEndPoints != null)
             {
-                byte[] dropped = new byte[droppedEndPoints.Length * 6];
+                var dropped = new byte[droppedEndPoints.Length * 6];
                 for (int x = 0; x < droppedEndPoints.Length; x++)
                 {
                     droppedEndPoints[x].Address.GetAddressBytes().CopyTo(dropped, x * 6);
@@ -137,7 +131,7 @@ namespace System.Net.Torrent.Extensions
                 d.Add("dropped", new BString { ByteValue = dropped });
             }
 
-            this._parent.SendExtended(peerWireClient, this._parent.GetOutgoingMessageID(peerWireClient, this), BencodingUtils.EncodeBytes(d));
+            _parent.SendExtended(peerWireClient, _parent.GetOutgoingMessageID(peerWireClient, this), BencodingUtils.EncodeBytes(d));
         }
     }
 }

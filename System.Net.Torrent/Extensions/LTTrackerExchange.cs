@@ -28,12 +28,12 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
 */
 
+using System.Collections.Generic;
+using System.Net.Torrent.BEncode;
+using System.Net.Torrent.ProtocolExtensions;
+
 namespace System.Net.Torrent.Extensions
 {
-    using System.Collections.Generic;
-    using System.Net.Torrent.BEncode;
-    using System.Net.Torrent.ProtocolExtensions;
-
     public class LTTrackerExchange : IBTExtension
     {
         public event Action<IPeerWireClient, IBTExtension, string> TrackerAdded;
@@ -55,12 +55,12 @@ namespace System.Net.Torrent.Extensions
 
         public void OnHandshake(IPeerWireClient peerWireClient, byte[] handshake)
         {
-            BDict dict = (BDict)BencodingUtils.Decode(handshake);
+            var dict = (BDict)BencodingUtils.Decode(handshake);
         }
 
         public void OnExtendedMessage(IPeerWireClient peerWireClient, byte[] bytes)
         {
-            BDict dict = (BDict)BencodingUtils.Decode(bytes);
+            var dict = (BDict)BencodingUtils.Decode(bytes);
             if(dict.ContainsKey("added"))
             {
                 var trackerList = (BList)dict["added"];
