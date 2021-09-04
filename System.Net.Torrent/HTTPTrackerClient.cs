@@ -58,32 +58,32 @@ namespace System.Net.Torrent
 
         public IDictionary<string, AnnounceInfo> Announce(string url, string[] hashes, string peerId)
         {
-            return hashes.ToDictionary(hash => hash, hash => this.Announce(url, hash, peerId));
+            return hashes.ToDictionary(hash => hash, hash => Announce(url, hash, peerId));
         }
 
         public AnnounceInfo Announce(string url, string hash, string peerId)
         {
-            return this.Announce(url, hash, peerId, 0, 0, 0, 2, 0, -1, 12345, 0);
+            return Announce(url, hash, peerId, 0, 0, 0, 2, 0, -1, 12345, 0);
         }
 
         public AnnounceInfo Announce(string url, string hash, string peerId, long bytesDownloaded, long bytesLeft, long bytesUploaded, 
             int eventTypeFilter, int ipAddress, int numWant, int listenPort, int extensions)
         {
-            byte[] hashBytes = PackHelper.Hex(hash);
-            byte[] peerIdBytes = Encoding.ASCII.GetBytes(peerId);
+            var hashBytes = PackHelper.Hex(hash);
+            var peerIdBytes = Encoding.ASCII.GetBytes(peerId);
 
-            string realUrl = url.Replace("scrape", "announce") + "?";
+            var realUrl = url.Replace("scrape", "announce") + "?";
 
-            string hashEncoded = "";
+            var hashEncoded = "";
             foreach (byte b in hashBytes)
             {
-                hashEncoded += String.Format("%{0:X2}", b);
+                hashEncoded += string.Format("%{0:X2}", b);
             }
 
             string peerIdEncoded = "";
             foreach (byte b in peerIdBytes)
             {
-                peerIdEncoded += String.Format("%{0:X2}", b);
+                peerIdEncoded += string.Format("%{0:X2}", b);
             }
 
             realUrl += "info_hash=" + hashEncoded;
@@ -95,21 +95,21 @@ namespace System.Net.Torrent
             realUrl += "&event=started";
             realUrl += "&compact=1";
 
-            HttpWebRequest webRequest = (HttpWebRequest)WebRequest.Create(realUrl);
+            var webRequest = (HttpWebRequest)WebRequest.Create(realUrl);
             webRequest.Accept = "*/*";
             webRequest.UserAgent = "System.Net.Torrent";
-            HttpWebResponse webResponse = (HttpWebResponse)webRequest.GetResponse();
+            var webResponse = (HttpWebResponse)webRequest.GetResponse();
 
-            Stream stream = webResponse.GetResponseStream();
+            var stream = webResponse.GetResponseStream();
 
             if (stream == null)
             {
                 return null;
             }
 
-            BinaryReader binaryReader = new BinaryReader(stream);
+            var binaryReader = new BinaryReader(stream);
 
-            byte[] bytes = new byte[0];
+            var bytes = new byte[0];
 
             while (true)
             {
@@ -125,7 +125,7 @@ namespace System.Net.Torrent
                 }
             }
 
-            BDict decoded = (BDict)BencodingUtils.Decode(bytes);
+            var decoded = (BDict)BencodingUtils.Decode(bytes);
             if (decoded.Count == 0)
             {
                 return null;
@@ -141,9 +141,9 @@ namespace System.Net.Torrent
                 throw new NotSupportedException("Dictionary based peers not supported");
             }
 
-            Int32 waitTime = 0;
-            Int32 seeders = 0;
-            Int32 leechers = 0;
+            int waitTime = 0;
+            int seeders = 0;
+            int leechers = 0;
 
             if (decoded.ContainsKey("interval"))
             {
@@ -160,43 +160,43 @@ namespace System.Net.Torrent
                 leechers = (BInt)decoded["incomplete"];
             }
 
-            BString peerBinary = (BString)decoded["peers"];
+            var peerBinary = (BString)decoded["peers"];
 
             return new AnnounceInfo(GetPeers(peerBinary.ByteValue), waitTime, seeders, leechers);
         }
 
         public IDictionary<string, ScrapeInfo> Scrape(string url, string[] hashes)
         {
-            Dictionary<string, ScrapeInfo> returnVal = new Dictionary<string, ScrapeInfo>();
+            var returnVal = new Dictionary<string, ScrapeInfo>();
 
-            string realUrl = url.Replace("announce", "scrape") + "?";
+            var realUrl = url.Replace("announce", "scrape") + "?";
 
-            string hashEncoded = "";
-            foreach (string hash in hashes)
+            var hashEncoded = "";
+            foreach (var hash in hashes)
             {
-                byte[] hashBytes = PackHelper.Hex(hash);
+                var hashBytes = PackHelper.Hex(hash);
 
-                hashEncoded = hashBytes.Aggregate(hashEncoded, (current, b) => current + String.Format("%{0:X2}", b));
+                hashEncoded = hashBytes.Aggregate(hashEncoded, (current, b) => current + string.Format("%{0:X2}", b));
 
                 realUrl += "info_hash=" + hashEncoded + "&";
             }
 
-            HttpWebRequest webRequest = (HttpWebRequest)WebRequest.Create(realUrl);
+            var webRequest = (HttpWebRequest)WebRequest.Create(realUrl);
             webRequest.Accept = "*/*";
             webRequest.UserAgent = "System.Net.Torrent";
             webRequest.Timeout = this.Timeout*1000;
-            HttpWebResponse webResponse = (HttpWebResponse)webRequest.GetResponse();
+            var webResponse = (HttpWebResponse)webRequest.GetResponse();
 
-            Stream stream = webResponse.GetResponseStream();
+            var stream = webResponse.GetResponseStream();
 
             if (stream == null)
             {
                 return null;
             }
 
-            BinaryReader binaryReader = new BinaryReader(stream);
+            var binaryReader = new BinaryReader(stream);
 
-            byte[] bytes = new byte[0];
+            var bytes = new byte[0];
             
             while (true)
             {
@@ -212,7 +212,7 @@ namespace System.Net.Torrent
                 }
             }
 
-            BDict decoded = (BDict)BencodingUtils.Decode(bytes);
+            var decoded = (BDict)BencodingUtils.Decode(bytes);
             if (decoded.Count == 0)
             {
                 return null;
@@ -223,15 +223,15 @@ namespace System.Net.Torrent
                 return null;
             }
 
-            BDict bDecoded = (BDict)decoded["files"];
+            var bDecoded = (BDict)decoded["files"];
 
             foreach (string k in bDecoded.Keys)
             {
-                BDict d = (BDict)bDecoded[k];
+                var d = (BDict)bDecoded[k];
 
                 if (d.ContainsKey("complete") && d.ContainsKey("downloaded") && d.ContainsKey("incomplete"))
                 {
-                    string rk = UnpackHelper.Hex(BencodingUtils.ExtendedASCIIEncoding.GetBytes(k));
+                    var rk = UnpackHelper.Hex(BencodingUtils.ExtendedASCIIEncoding.GetBytes(k));
                     returnVal.Add(rk, new ScrapeInfo((uint)((BInt)d["complete"]).Value, (uint)((BInt)d["downloaded"]).Value, (uint)((BInt)d["incomplete"]).Value, ScraperType.HTTP));
                 }
             }

@@ -32,7 +32,7 @@ namespace System.Net.Torrent
 {
     public interface IPeerWireClient
     {
-        Int32 Timeout { get; }
+        int Timeout { get; }
         bool[] PeerBitField { get; set; }
         bool KeepConnectionAlive { get; set; }
         
@@ -49,14 +49,14 @@ namespace System.Net.Torrent
         event Action<IPeerWireClient> UnChoke;
         event Action<IPeerWireClient> Interested;
         event Action<IPeerWireClient> NotInterested;
-        event Action<IPeerWireClient, Int32> Have;
-        event Action<IPeerWireClient, Int32, bool[]> BitField;
-        event Action<IPeerWireClient, Int32, Int32, Int32> Request;
-        event Action<IPeerWireClient, Int32, Int32, byte[]> Piece;
-        event Action<IPeerWireClient, Int32, Int32, Int32> Cancel;
+        event Action<IPeerWireClient, int> Have;
+        event Action<IPeerWireClient, int, bool[]> BitField;
+        event Action<IPeerWireClient, int, int, int> Request;
+        event Action<IPeerWireClient, int, int, byte[]> Piece;
+        event Action<IPeerWireClient, int, int, int> Cancel;
 
         void Connect(IPEndPoint endPoint);
-        void Connect(string ipHost, Int32 port);
+        void Connect(string ipHost, int port);
         void Disconnect();
 
         bool Handshake();
@@ -72,12 +72,12 @@ namespace System.Net.Torrent
         bool SendUnChoke();
         bool SendInterested();
         bool SendNotInterested();
-        bool SendHave(UInt32 index);
+        bool SendHave(uint index);
         void SendBitField(bool[] bitField);
         bool SendBitField(bool[] bitField, bool obsf);
-        bool SendRequest(UInt32 index, UInt32 start, UInt32 length);
-        bool SendPiece(UInt32 index, UInt32 start, byte[] data);
-        bool SendCancel(UInt32 index, UInt32 start, UInt32 length);
+        bool SendRequest(uint index, uint start, uint length);
+        bool SendPiece(uint index, uint start, byte[] data);
+        bool SendCancel(uint index, uint start, uint length);
 
         bool SendBytes(byte[] bytes);
 

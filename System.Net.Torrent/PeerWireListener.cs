@@ -42,35 +42,32 @@ namespace System.Net.Torrent
 
         public PeerWireListener(int port)
         {
-            this._port = port;
-            this._socket = new WireIO.Tcp();
+            _port = port;
+            _socket = new WireIO.Tcp();
         }
 
         public void StartListening()
         {
-            this._socket.Listen(new IPEndPoint(IPAddress.Any, this._port));
-            this._ar = this._socket.BeginAccept(this.Callback);
+            _socket.Listen(new IPEndPoint(IPAddress.Any, _port));
+            _ar = _socket.BeginAccept(Callback);
         }
 
 
         public void StopListening()
         {
-            if (this._ar != null)
+            if (_ar != null)
             {
-                this._socket.EndAccept(this._ar);
+                _socket.EndAccept(_ar);
             }
         }
 
         private void Callback(IAsyncResult ar)
         {
-            IWireIO s = this._socket.EndAccept(ar);
+            var socket = _socket.EndAccept(ar);
 
-            if (NewPeer != null)
-            {
-                NewPeer(new PeerWireClient(s));
-            }
+            NewPeer?.Invoke(new PeerWireClient(socket));
 
-            this._socket.BeginAccept(this.Callback);
+            _socket.BeginAccept(Callback);
         }
     }
 }

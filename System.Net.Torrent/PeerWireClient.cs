@@ -40,7 +40,7 @@ namespace System.Net.Torrent
 
     public class PeerWireClient : IPeerWireClient
     {
-        private readonly Object _locker = new Object();
+        private readonly object _locker = new();
         private bool _asyncContinue = true;
         private readonly byte[] _bitTorrentProtocolHeader = { 0x42, 0x69, 0x74, 0x54, 0x6F, 0x72, 0x72, 0x65, 0x6E, 0x74, 0x20, 0x70, 0x72, 0x6F, 0x74, 0x6F, 0x63, 0x6F, 0x6C };
 
@@ -57,7 +57,7 @@ namespace System.Net.Torrent
         private int _dynamicBufferSize = 1024*16;
         
 
-        public Int32 Timeout { get { return this.Socket.Timeout; } }
+        public int Timeout { get { return Socket.Timeout; } }
         public bool[] PeerBitField { get; set; }
         public bool KeepConnectionAlive { get; set; }
         
@@ -74,53 +74,53 @@ namespace System.Net.Torrent
         public event Action<IPeerWireClient> UnChoke;
         public event Action<IPeerWireClient> Interested;
         public event Action<IPeerWireClient> NotInterested;
-        public event Action<IPeerWireClient, Int32> Have;
-        public event Action<IPeerWireClient, Int32, bool[]> BitField;
-        public event Action<IPeerWireClient, Int32, Int32, Int32> Request;
-        public event Action<IPeerWireClient, Int32, Int32, byte[]> Piece;
-        public event Action<IPeerWireClient, Int32, Int32, Int32> Cancel;
+        public event Action<IPeerWireClient, int> Have;
+        public event Action<IPeerWireClient, int, bool[]> BitField;
+        public event Action<IPeerWireClient, int, int, int> Request;
+        public event Action<IPeerWireClient, int, int, byte[]> Piece;
+        public event Action<IPeerWireClient, int, int, int> Cancel;
         
 
         public PeerWireClient(IWireIO io)
         {
-            this.Socket = io;
+            Socket = io;
 
-            this._btProtocolExtensions = new List<IProtocolExtension>();
+            _btProtocolExtensions = new List<IProtocolExtension>();
 
-            this._internalBuffer = new byte[0];
+            _internalBuffer = new byte[0];
         }
 
         public void Connect(IPEndPoint endPoint)
         {
-            this.Socket.Connect(endPoint);
+            Socket.Connect(endPoint);
         }
 
-        public void Connect(string ipHost, Int32 port)
+        public void Connect(string ipHost, int port)
         {
-            this.Socket.Connect(new IPEndPoint(IPAddress.Parse(ipHost), port));
+            Socket.Connect(new IPEndPoint(IPAddress.Parse(ipHost), port));
         }
 
         public void Disconnect()
         {
-            if(this._async != null)
+            if(_async != null)
             {
-                this.Socket.EndReceive(this._async);
+                Socket.EndReceive(_async);
             }
 
-            this.Socket.Disconnect();
+            Socket.Disconnect();
         }
 
         public bool Handshake()
         {
-            return this.Handshake(PackHelper.Hex(this.Hash), Encoding.ASCII.GetBytes(this.LocalPeerID));
+            return Handshake(PackHelper.Hex(Hash), Encoding.ASCII.GetBytes(LocalPeerID));
         }
 
         public bool Handshake(string hash, string peerId)
         {
-            this.LocalPeerID = peerId;
-            this.Hash = hash;
+            LocalPeerID = peerId;
+            Hash = hash;
 
-            return this.Handshake();
+            return Handshake();
         }
 
         public bool Handshake(byte[] hash, byte[] peerId)
@@ -147,7 +147,7 @@ namespace System.Net.Torrent
 
             byte[] reservedBytes = {0, 0, 0, 0, 0, 0, 0, 0};
 
-            foreach (IProtocolExtension extension in this._btProtocolExtensions)
+            foreach (IProtocolExtension extension in _btProtocolExtensions)
             {
                 for (int x = 0; x < 8; x++)
                 {
@@ -155,11 +155,11 @@ namespace System.Net.Torrent
                 }
             }
 
-            byte[] sendBuf = (new[] { (byte)this._bitTorrentProtocolHeader.Length }).Cat(this._bitTorrentProtocolHeader).Cat(reservedBytes).Cat(hash).Cat(peerId);
+            var sendBuf = (new[] { (byte)_bitTorrentProtocolHeader.Length }).Cat(_bitTorrentProtocolHeader).Cat(reservedBytes).Cat(hash).Cat(peerId);
 
             try
             {
-                int len = this.Socket.Send(sendBuf);
+                int len = Socket.Send(sendBuf);
                 if (len != sendBuf.Length)
                 {
                     throw new Exception("Didnt sent entire handshake");
@@ -171,24 +171,24 @@ namespace System.Net.Torrent
                 return false;
             }
 
-            foreach (IProtocolExtension extension in this._btProtocolExtensions)
+            foreach (IProtocolExtension extension in _btProtocolExtensions)
             {
                 extension.OnHandshake(this);
             }
 
-            this._handshakeSent = true;
+            _handshakeSent = true;
 
             return true;
         }
 
         public void ProcessAsync()
         {
-            this._asyncContinue = true;
+            _asyncContinue = true;
 
             (new Thread(o =>
             {
                 PeerWireClient client = (PeerWireClient) o;
-                while (client.Process() && this._asyncContinue)
+                while (client.Process() && _asyncContinue)
                 {
                     Thread.Sleep(10);
                 }
@@ -197,39 +197,36 @@ namespace System.Net.Torrent
 
         public void StopProcessAsync()
         {
-            this._asyncContinue = false;
+            _asyncContinue = false;
         }
 
         public bool Process()
         {
-            bool returnVal = this._process();
+            bool returnVal = _process();
 
             if (returnVal)
             {
                 return true;
             }
 
-            if (this.Socket.Connected)
+            if (Socket.Connected)
             {
-                this.Socket.Disconnect();
+                Socket.Disconnect();
             }
 
-            if (DroppedConnection != null)
-            {
-                DroppedConnection(this);
-            }
+            DroppedConnection?.Invoke(this);
 
             return false;
         }
 
         private bool _process()
         {
-            if (!this._receiving)
+            if (!_receiving)
             {
-                byte[] recBuffer = new byte[this._dynamicBufferSize];
+                var recBuffer = new byte[_dynamicBufferSize];
                 try
                 {
-                    this._async = this.Socket.BeginReceive(recBuffer, 0, this._dynamicBufferSize, this.OnReceived, recBuffer);
+                    _async = Socket.BeginReceive(recBuffer, 0, _dynamicBufferSize, OnReceived, recBuffer);
                 }
                 catch(Exception ex)
                 {
@@ -238,19 +235,19 @@ namespace System.Net.Torrent
                 }
 
 
-                this._receiving = true;
+                _receiving = true;
             }
 
-            if (this._internalBuffer.Length < 4)
+            if (_internalBuffer.Length < 4)
             {
-                this.OnNoData();
+                OnNoData();
 
-                return this.Socket.Connected;
+                return Socket.Connected;
             }
 
-            if (!this._handshakeComplete)
+            if (!_handshakeComplete)
             {
-                Int32 resLen = this._internalBuffer[0];
+                int resLen = _internalBuffer[0];
                 if (resLen != 19)
                 {
                     if (resLen == 0)
@@ -258,134 +255,134 @@ namespace System.Net.Torrent
                         // keep alive?
                         Thread.Sleep(100);
 
-                        this.Disconnect();
+                        Disconnect();
                         return false;
                     }
                 }
 
-                this._handshakeComplete = true;
+                _handshakeComplete = true;
 
-                byte[] recReserved = this._internalBuffer.GetBytes(20, 8);
-                this.RemoteUsesDHT = (recReserved[7] & 0x1) == 0x1;
+                var recReserved = _internalBuffer.GetBytes(20, 8);
+                RemoteUsesDHT = (recReserved[7] & 0x1) == 0x1;
 
-                byte[] remoteHashBytes = this._internalBuffer.GetBytes(28, 20);
-                if (String.IsNullOrEmpty(this.Hash))
+                var remoteHashBytes = _internalBuffer.GetBytes(28, 20);
+                if (string.IsNullOrEmpty(Hash))
                 {
                     string remoteHash = UnpackHelper.Hex(remoteHashBytes);
-                    this.Hash = remoteHash;
+                    Hash = remoteHash;
                 }
 
-                byte[] remoteIdbytes = this._internalBuffer.GetBytes(48, 20);
+                var remoteIdbytes = _internalBuffer.GetBytes(48, 20);
 
-                this.RemotePeerID = Encoding.ASCII.GetString(remoteIdbytes);
+                RemotePeerID = Encoding.ASCII.GetString(remoteIdbytes);
 
-                lock (this._locker)
+                lock (_locker)
                 {
-                    this._internalBuffer = this._internalBuffer.GetBytes(68);
+                    _internalBuffer = _internalBuffer.GetBytes(68);
                 }
 
-                this.OnHandshake();
+                OnHandshake();
 
-                if (this._handshakeSent)
+                if (_handshakeSent)
                 {
                     return true;
                 }
 
-                this.Handshake();
-                this.SendBitField(this.PeerBitField);
+                Handshake();
+                SendBitField(PeerBitField);
 
                 return true;
             }
 
-            Int32 commandLength = UnpackHelper.Int32(this._internalBuffer, 0, UnpackHelper.Endianness.Big);
+            int commandLength = UnpackHelper.Int32(_internalBuffer, 0, UnpackHelper.Endianness.Big);
 
-            if (commandLength > (this._internalBuffer.Length - 4))
+            if (commandLength > (_internalBuffer.Length - 4))
             {
                 //need more data first
                 return true;
             }
 
-            lock (this._locker)
+            lock (_locker)
             {
-                this._internalBuffer = this._internalBuffer.GetBytes(4);
+                _internalBuffer = _internalBuffer.GetBytes(4);
             }
 
             if (commandLength == 0)
             {
-                if (!this.KeepConnectionAlive)
+                if (!KeepConnectionAlive)
                 {
                     return true;
                 }
 
-                this.SendKeepAlive();
-                this.OnKeepAlive();
+                SendKeepAlive();
+                OnKeepAlive();
 
                 return true;
             }
 
-            Int32 commandId = this._internalBuffer[0];
+            int commandId = _internalBuffer[0];
 
-            lock (this._locker)
+            lock (_locker)
             {
-                this._internalBuffer = this._internalBuffer.GetBytes(1);
+                _internalBuffer = _internalBuffer.GetBytes(1);
             }
 
             switch (commandId)
             {
                 case 0:
                     //choke
-                    this.OnChoke();
+                    OnChoke();
                     break;
                 case 1:
                     //unchoke
-                    this.OnUnChoke();
+                    OnUnChoke();
                     break;
                 case 2:
                     //interested
-                    this.OnInterested();
+                    OnInterested();
                     break;
                 case 3:
                     //not interested
-                    this.OnNotInterested();
+                    OnNotInterested();
                     break;
                 case 4:
                     //have
-                    this.ProcessHave();
+                    ProcessHave();
                     break;
                 case 5:
                     //bitfield
-                    this.ProcessBitfield(commandLength - 1);
+                    ProcessBitfield(commandLength - 1);
                     break;
                 case 6:
                     //request
-                    this.ProcessRequest(false);
+                    ProcessRequest(false);
                     break;
                 case 7:
                     //piece
-                    this.ProcessPiece(commandLength - 1);
+                    ProcessPiece(commandLength - 1);
                     break;
                 case 8:
                     //cancel
-                    this.ProcessRequest(true);
+                    ProcessRequest(true);
                     break;
                 default:
                 {
-                    foreach (IProtocolExtension extension in this._btProtocolExtensions)
+                    foreach (var extension in _btProtocolExtensions)
                     {
                         if (!extension.CommandIDs.Contains(b => b == commandId))
                         {
                             continue;
                         }
 
-                        if (extension.OnCommand(this, commandLength, (byte)commandId, this._internalBuffer))
+                        if (extension.OnCommand(this, commandLength, (byte)commandId, _internalBuffer))
                         {
                             break;
                         }
                     }
 
-                    lock (this._locker)
+                    lock (_locker)
                     {
-                            this._internalBuffer = this._internalBuffer.GetBytes(commandLength - 1);
+                            _internalBuffer = _internalBuffer.GetBytes(commandLength - 1);
                     }
                 }
                     break;
@@ -396,99 +393,99 @@ namespace System.Net.Torrent
 
         private void OnReceived(IAsyncResult ar)
         {
-            if (this.Socket == null)
+            if (Socket == null)
             {
                 return;
             }
 
-            byte[] data = (byte[])ar.AsyncState;
+            var data = (byte[])ar.AsyncState;
 
-            Int32 len = this.Socket.EndReceive(ar);
+            var len = Socket.EndReceive(ar);
 
-            this._async = null;
+            _async = null;
 
-            lock (this._locker)
+            lock (_locker)
             {
-                this._internalBuffer = this._internalBuffer == null ? data : this._internalBuffer.Cat(data.GetBytes(0, len));
+                _internalBuffer = _internalBuffer == null ? data : _internalBuffer.Cat(data.GetBytes(0, len));
             }
 
             #region Automatically alter the buffer size
-            if (this._internalBuffer.Length > this._dynamicBufferSize && (this._dynamicBufferSize - 1024) >= MinBufferSize)
+            if (_internalBuffer.Length > _dynamicBufferSize && (_dynamicBufferSize - 1024) >= MinBufferSize)
             {
-                this._dynamicBufferSize -= 1024;
+                _dynamicBufferSize -= 1024;
             }
 
-            if (this._internalBuffer.Length < this._dynamicBufferSize && (this._dynamicBufferSize + 1024) <= MaxBufferSize)
+            if (_internalBuffer.Length < _dynamicBufferSize && (_dynamicBufferSize + 1024) <= MaxBufferSize)
             {
-                this._dynamicBufferSize += 1024;
+                _dynamicBufferSize += 1024;
             }
 
-            this._receiving = false;
+            _receiving = false;
 
             #endregion
         }
 
         public bool SendKeepAlive()
         {
-            int sent = this.Socket.Send(PackHelper.Int32(0));
+            var sent = Socket.Send(PackHelper.Int32(0));
 
             return sent == 4;
         }
 
         public bool SendChoke()
         {
-            int sent = this.Socket.Send(new PeerMessageBuilder(0).Message());
+            var sent = Socket.Send(new PeerMessageBuilder(0).Message());
 
             return sent == 5;
         }
 
         public bool SendUnChoke()
         {
-            int sent = this.Socket.Send(new PeerMessageBuilder(1).Message());
+            var sent = Socket.Send(new PeerMessageBuilder(1).Message());
 
             return sent == 5;
         }
 
         public bool SendInterested()
         {
-            int sent = this.Socket.Send(new PeerMessageBuilder(2).Message());
+            var sent = Socket.Send(new PeerMessageBuilder(2).Message());
 
             return sent == 5;
         }
 
         public bool SendNotInterested()
         {
-            int sent = this.Socket.Send(new PeerMessageBuilder(3).Message());
+            var sent = Socket.Send(new PeerMessageBuilder(3).Message());
 
             return sent == 5;
         }
 
-        public bool SendHave(UInt32 index)
+        public bool SendHave(uint index)
         {
-            int sent = this.Socket.Send(new PeerMessageBuilder(4).Add(index).Message());
+            var sent = Socket.Send(new PeerMessageBuilder(4).Add(index).Message());
 
             return sent == 9;
         }
 
         public void SendBitField(bool[] bitField)
         {
-            this.SendBitField(bitField, false);
+            SendBitField(bitField, false);
         }
 
         public bool SendBitField(bool[] bitField, bool obsf)
         {
-            UInt32[] obsfIDs = new UInt32[0];
+            var obsfIDs = new uint[0];
 
             if (obsf && bitField.Length > 32)
             {
-                Random rand = new Random();
-                UInt32 obsfCount = (UInt32)Math.Min(16, bitField.Length / 16);
-                UInt32 distObsf = 0;
-                obsfIDs = new UInt32[obsfCount];
+                var rand = new Random();
+                var obsfCount = (uint)Math.Min(16, bitField.Length / 16);
+                var distObsf = 0;
+                obsfIDs = new uint[obsfCount];
 
                 while (distObsf < obsfCount)
                 {
-                    UInt32 piece = (UInt32)rand.Next(0, bitField.Length);
+                    var piece = (uint)rand.Next(0, bitField.Length);
                     if (obsfIDs.Contains(piece))
                     {
                         continue;
@@ -499,17 +496,17 @@ namespace System.Net.Torrent
                 }
             }
 
-            byte[] bytes = new byte[bitField.Length / 8];
+            var bytes = new byte[bitField.Length / 8];
 
-            for (UInt32 i = 0; i < bitField.Length; i++)
+            for (uint i = 0; i < bitField.Length; i++)
             {
                 if (obsfIDs.Contains(i))
                 {
                     continue;
                 }
 
-                int x = (int)Math.Floor((double)i/8);
-                ushort p = (ushort) (i%8);
+                var x = (int)Math.Floor((double)i / 8);
+                var p = (ushort)(i % 8);
 
                 if (bitField[i])
                 {
@@ -517,43 +514,43 @@ namespace System.Net.Torrent
                 }
             }
 
-            int sent = this.Socket.Send(new PeerMessageBuilder(5).Add(bytes).Message());
+            var sent = Socket.Send(new PeerMessageBuilder(5).Add(bytes).Message());
 
             if (obsfIDs.Length > 0)
             {
-                foreach (UInt32 obsfID in obsfIDs)
+                foreach (var obsfID in obsfIDs)
                 {
-                    this.SendHave(obsfID);
+                    SendHave(obsfID);
                 }
             }
 
             return sent == (5 + bitField.Length);
         }
 
-        public bool SendRequest(UInt32 index, UInt32 start, UInt32 length)
+        public bool SendRequest(uint index, uint start, uint length)
         {
-            int sent = this.Socket.Send(new PeerMessageBuilder(6).Add(index).Add(start).Add(length).Message());
+            var sent = Socket.Send(new PeerMessageBuilder(6).Add(index).Add(start).Add(length).Message());
 
             return sent == 17;
         }
 
-        public bool SendPiece(UInt32 index, UInt32 start, byte[] data)
+        public bool SendPiece(uint index, uint start, byte[] data)
         {
-            int sent = this.Socket.Send(new PeerMessageBuilder(7).Add(index).Add(start).Add(data).Message());
+            var sent = Socket.Send(new PeerMessageBuilder(7).Add(index).Add(start).Add(data).Message());
 
             return (sent == 13 + data.Length);
         }
 
-        public bool SendCancel(UInt32 index, UInt32 start, UInt32 length)
+        public bool SendCancel(uint index, uint start, uint length)
         {
-            int sent = this.Socket.Send(new PeerMessageBuilder(8).Add(index).Add(start).Add(length).Message());
+            var sent = Socket.Send(new PeerMessageBuilder(8).Add(index).Add(start).Add(length).Message());
 
             return sent == 13;
         }
 
         public bool SendBytes(byte[] bytes)
         {
-            int sent = this.Socket.Send(bytes);
+            var sent = Socket.Send(bytes);
 
             return sent == bytes.Length;
         }
@@ -561,89 +558,89 @@ namespace System.Net.Torrent
         #region Processors
         private void ProcessHave()
         {
-            Int32 pieceIndex = UnpackHelper.Int32(this._internalBuffer, 0, UnpackHelper.Endianness.Big);
+            var pieceIndex = UnpackHelper.Int32(_internalBuffer, 0, UnpackHelper.Endianness.Big);
 
-            lock (this._locker)
+            lock (_locker)
             {
-                this._internalBuffer = this._internalBuffer.GetBytes(4);
+                _internalBuffer = _internalBuffer.GetBytes(4);
             }
 
-            this.PeerBitField[pieceIndex] = true;
-            this.OnHave(pieceIndex);
+            PeerBitField[pieceIndex] = true;
+            OnHave(pieceIndex);
         }
 
-        private void ProcessBitfield(Int32 length)
+        private void ProcessBitfield(int length)
         {
-            if (this._internalBuffer.Length < length)
+            if (_internalBuffer.Length < length)
             {
                 //not sent entire bitfield, kill the connection
-                this.Disconnect();
+                Disconnect();
                 return;
             }
 
-            this.PeerBitField = new bool[length * 8];
+            PeerBitField = new bool[length * 8];
             for (int i = 0; i < length; i++)
             {
-                byte b = this._internalBuffer[0];
+                var b = _internalBuffer[0];
 
-                this.PeerBitField[(i * 8) + 0] = b.GetBit(0);
-                this.PeerBitField[(i * 8) + 1] = b.GetBit(1);
-                this.PeerBitField[(i * 8) + 2] = b.GetBit(2);
-                this.PeerBitField[(i * 8) + 3] = b.GetBit(3);
-                this.PeerBitField[(i * 8) + 4] = b.GetBit(4);
-                this.PeerBitField[(i * 8) + 5] = b.GetBit(5);
-                this.PeerBitField[(i * 8) + 6] = b.GetBit(6);
-                this.PeerBitField[(i * 8) + 7] = b.GetBit(7);
+                PeerBitField[(i * 8) + 0] = b.GetBit(0);
+                PeerBitField[(i * 8) + 1] = b.GetBit(1);
+                PeerBitField[(i * 8) + 2] = b.GetBit(2);
+                PeerBitField[(i * 8) + 3] = b.GetBit(3);
+                PeerBitField[(i * 8) + 4] = b.GetBit(4);
+                PeerBitField[(i * 8) + 5] = b.GetBit(5);
+                PeerBitField[(i * 8) + 6] = b.GetBit(6);
+                PeerBitField[(i * 8) + 7] = b.GetBit(7);
 
-                lock (this._locker)
+                lock (_locker)
                 {
-                    this._internalBuffer = this._internalBuffer.GetBytes(1);
+                    _internalBuffer = _internalBuffer.GetBytes(1);
                 }
             }
 
-            this.OnBitField(length*8, this.PeerBitField);
+            OnBitField(length*8, PeerBitField);
         }
 
 
         private void ProcessRequest(bool cancel)
         {
-            Int32 index = UnpackHelper.Int32(this._internalBuffer, 0, UnpackHelper.Endianness.Big);
-            Int32 begin = UnpackHelper.Int32(this._internalBuffer, 4, UnpackHelper.Endianness.Big);
-            Int32 length = UnpackHelper.Int32(this._internalBuffer, 8, UnpackHelper.Endianness.Big);
+            var index = UnpackHelper.Int32(_internalBuffer, 0, UnpackHelper.Endianness.Big);
+            var begin = UnpackHelper.Int32(_internalBuffer, 4, UnpackHelper.Endianness.Big);
+            var length = UnpackHelper.Int32(_internalBuffer, 8, UnpackHelper.Endianness.Big);
 
-            lock (this._locker)
+            lock (_locker)
             {
-                this._internalBuffer = this._internalBuffer.GetBytes(12);
+                _internalBuffer = _internalBuffer.GetBytes(12);
             }
 
             if (!cancel)
             {
-                this.OnRequest(index, begin, length);
+                OnRequest(index, begin, length);
             }
             else
             {
-                this.OnCancel(index, begin, length);
+                OnCancel(index, begin, length);
             }
         }
 
-        private void ProcessPiece(Int32 length)
+        private void ProcessPiece(int length)
         {
-            Int32 index = UnpackHelper.Int32(this._internalBuffer, 0, UnpackHelper.Endianness.Big);
-            Int32 begin = UnpackHelper.Int32(this._internalBuffer, 4, UnpackHelper.Endianness.Big);
+            var index = UnpackHelper.Int32(_internalBuffer, 0, UnpackHelper.Endianness.Big);
+            var begin = UnpackHelper.Int32(_internalBuffer, 4, UnpackHelper.Endianness.Big);
 
-            lock (this._locker)
+            lock (_locker)
             {
-                this._internalBuffer = this._internalBuffer.GetBytes(8);
+                _internalBuffer = _internalBuffer.GetBytes(8);
             }
 
-            byte[] buffer = this._internalBuffer.GetBytes(0, length - 8);
+            var buffer = _internalBuffer.GetBytes(0, length - 8);
 
-            lock (this._locker)
+            lock (_locker)
             {
-                this._internalBuffer = this._internalBuffer.GetBytes(length - 8);
+                _internalBuffer = _internalBuffer.GetBytes(length - 8);
             }
 
-            this.OnPiece(index, begin, buffer);
+            OnPiece(index, begin, buffer);
         }
         #endregion
 
@@ -651,110 +648,74 @@ namespace System.Net.Torrent
 
         private void OnNoData()
         {
-            if (NoData != null)
-            {
-                NoData(this);
-            }
+            NoData?.Invoke(this);
         }
 
         private void OnHandshake()
         {
-            if (HandshakeComplete != null)
-            {
-                HandshakeComplete(this);
-            }
+            HandshakeComplete?.Invoke(this);
         }
 
         private void OnKeepAlive()
         {
-            if (KeepAlive != null)
-            {
-                KeepAlive(this);
-            }
+            KeepAlive?.Invoke(this);
         }
 
         private void OnChoke()
         {
-            if (Choke != null)
-            {
-                Choke(this);
-            }
+            Choke?.Invoke(this);
         }
 
         private void OnUnChoke()
         {
-            if (UnChoke != null)
-            {
-                UnChoke(this);
-            }
+            UnChoke?.Invoke(this);
         }
 
         private void OnInterested()
         {
-            if (Interested != null)
-            {
-                Interested(this);
-            }
+            Interested?.Invoke(this);
         }
 
         private void OnNotInterested()
         {
-            if (NotInterested != null)
-            {
-                NotInterested(this);
-            }
+            NotInterested?.Invoke(this);
         }
 
-        private void OnHave(Int32 pieceIndex)
+        private void OnHave(int pieceIndex)
         {
-            if (Have != null)
-            {
-                Have(this, pieceIndex);
-            }
+            Have?.Invoke(this, pieceIndex);
         }
 
-        private void OnBitField(Int32 size, bool[] bitField)
+        private void OnBitField(int size, bool[] bitField)
         {
-            if (BitField != null)
-            {
-                BitField(this, size, bitField);
-            }
+            BitField?.Invoke(this, size, bitField);
         }
 
-        private void OnRequest(Int32 index, Int32 begin, Int32 length)
+        private void OnRequest(int index, int begin, int length)
         {
-            if (Request != null)
-            {
-                Request(this, index, begin, length);
-            }
+            Request?.Invoke(this, index, begin, length);
         }
 
-        private void OnPiece(Int32 index, Int32 begin, byte[] bytes)
+        private void OnPiece(int index, int begin, byte[] bytes)
         {
-            if (Piece != null)
-            {
-                Piece(this, index, begin, bytes);
-            }
+            Piece?.Invoke(this, index, begin, bytes);
         }
 
-        private void OnCancel(Int32 index, Int32 begin, Int32 length)
+        private void OnCancel(int index, int begin, int length)
         {
-            if (Cancel != null)
-            {
-                Cancel(this, index, begin, length);
-            }
+            Cancel?.Invoke(this, index, begin, length);
         }
 
         #endregion
 
         public void RegisterBTExtension(IProtocolExtension extension)
         {
-            this._btProtocolExtensions.Add(extension);
+            _btProtocolExtensions.Add(extension);
         }
 
         public void UnregisterBTExtension(IProtocolExtension extension)
         {
-            this._btProtocolExtensions.Remove(extension);
+            _btProtocolExtensions.Remove(extension);
         }
     }
 }

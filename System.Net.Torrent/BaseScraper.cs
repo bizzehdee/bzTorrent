@@ -41,13 +41,13 @@ namespace System.Net.Torrent
         protected readonly byte[] BaseCurrentConnectionId = { 0x00, 0x00, 0x04, 0x17, 0x27, 0x10, 0x19, 0x80 };
         protected readonly Random Random = new Random(DateTime.Now.Second);
 
-        public Int32 Timeout { get; private set; }
+        public int Timeout { get; private set; }
         public string Tracker { get; private set; }
-        public Int32 Port { get; private set; }
+        public int Port { get; private set; }
 
-        protected BaseScraper(Int32 timeout)
+        protected BaseScraper(int timeout)
         {
-            this.Timeout = timeout;
+            Timeout = timeout;
         }
 
         public enum ScraperType
@@ -56,7 +56,7 @@ namespace System.Net.Torrent
             HTTP
         }
 
-        protected void ValidateInput(string url, String[] hashes, ScraperType type)
+        protected void ValidateInput(string url, string[] hashes, ScraperType type)
         {
             if (hashes.Length < 1)
             {
@@ -68,9 +68,9 @@ namespace System.Net.Torrent
                 throw new ArgumentOutOfRangeException("hashes", hashes, "Must have a maximum of 74 hashes when calling scrape");
             }
 
-            foreach (string hash in hashes)
+            foreach (var hash in hashes)
             {
-                if (!this.HashRegex.IsMatch(hash))
+                if (!HashRegex.IsMatch(hash))
                 {
                     throw new ArgumentOutOfRangeException("hashes", hash, "Hash is not valid");
                 }
@@ -78,67 +78,67 @@ namespace System.Net.Torrent
 
             if (type == ScraperType.UDP)
             {
-                Match match = this.UDPRegex.Match(url);
+                var match = UDPRegex.Match(url);
 
                 if (!match.Success)
                 {
                     throw new ArgumentOutOfRangeException("url", url, "URL is not a valid UDP tracker address");
                 }
 
-                this.Tracker = match.Groups[1].Value;
-                this.Port = match.Groups.Count == 3 ? Convert.ToInt32(match.Groups[2].Value) : 80;
+                Tracker = match.Groups[1].Value;
+                Port = match.Groups.Count == 3 ? Convert.ToInt32(match.Groups[2].Value) : 80;
             }
             else if (type == ScraperType.HTTP)
             {
-                Match match = this.HTTPRegex.Match(url);
+                var match = HTTPRegex.Match(url);
 
                 if (!match.Success)
                 {
                     throw new ArgumentOutOfRangeException("url", url, "URL is not a valid HTTP tracker address");
                 }
 
-                this.Tracker = match.Groups[0].Value;
+                Tracker = match.Groups[0].Value;
             }
         }
 
         public class AnnounceInfo
         {
             public IEnumerable<EndPoint> Peers { get; set; }
-            public Int32 WaitTime { get; set; }
-            public Int32 Seeders { get; set; }
-            public Int32 Leechers { get; set; }
+            public int WaitTime { get; set; }
+            public int Seeders { get; set; }
+            public int Leechers { get; set; }
 
-            public AnnounceInfo(IEnumerable<EndPoint> peers, Int32 a, Int32 b, Int32 c)
+            public AnnounceInfo(IEnumerable<EndPoint> peers, int a, int b, int c)
             {
-                this.Peers = peers;
+                Peers = peers;
 
-                this.WaitTime = a;
-                this.Seeders = b;
-                this.Leechers = c;
+                WaitTime = a;
+                Seeders = b;
+                Leechers = c;
             }
         }
 
         public class ScrapeInfo
         {
-            public UInt32 Seeders { get; set; }
-            public UInt32 Complete { get; set; }
-            public UInt32 Leechers { get; set; }
-            public UInt32 Downloaded { get; set; }
-            public UInt32 Incomplete { get; set; }
+            public uint Seeders { get; set; }
+            public uint Complete { get; set; }
+            public uint Leechers { get; set; }
+            public uint Downloaded { get; set; }
+            public uint Incomplete { get; set; }
 
-            public ScrapeInfo(UInt32 a, UInt32 b, UInt32 c, ScraperType type)
+            public ScrapeInfo(uint a, uint b, uint c, ScraperType type)
             {
                 if (type == ScraperType.HTTP)
                 {
-                    this.Complete = a;
-                    this.Downloaded = b;
-                    this.Incomplete = c;
+                    Complete = a;
+                    Downloaded = b;
+                    Incomplete = c;
                 }
                 else if (type == ScraperType.UDP)
                 {
-                    this.Seeders = a;
-                    this.Complete = b;
-                    this.Leechers = c;
+                    Seeders = a;
+                    Complete = b;
+                    Leechers = c;
                 }
             }
         }

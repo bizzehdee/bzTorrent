@@ -35,63 +35,63 @@ namespace System.Net.Torrent
 
     public class PeerMessageBuilder : IDisposable
     {
-        public UInt32 PacketLength { get { return (UInt32)(5 + this.MessagePayload.Count); } }
-        public UInt32 MessageLength { get { return (UInt32)(1 + this.MessagePayload.Count); } }
+        public uint PacketLength { get { return (uint)(5 + MessagePayload.Count); } }
+        public uint MessageLength { get { return (uint)(1 + MessagePayload.Count); } }
         public byte MessageID { get; private set; }
         public List<byte> MessagePayload { get; private set; }
 
         public PeerMessageBuilder(byte msgId)
         {
-            this.MessageID = msgId;
+            MessageID = msgId;
 
-            this.MessagePayload = new List<byte>();
+            MessagePayload = new List<byte>();
         }
 
         public PeerMessageBuilder Add(byte b)
         {
-            this.MessagePayload.Add(b);
+            MessagePayload.Add(b);
 
             return this;
         }
 
         public PeerMessageBuilder Add(byte[] bytes)
         {
-            this.MessagePayload.AddRange(bytes);
+            MessagePayload.AddRange(bytes);
 
             return this;
         }
 
-        public PeerMessageBuilder Add(UInt32 n, PackHelper.Endianness endianness = PackHelper.Endianness.Big)
+        public PeerMessageBuilder Add(uint n, PackHelper.Endianness endianness = PackHelper.Endianness.Big)
         {
-            this.MessagePayload.AddRange(PackHelper.UInt32(n));
+            MessagePayload.AddRange(PackHelper.UInt32(n));
 
             return this;
         }
 
         public PeerMessageBuilder Add(string str)
         {
-            this.MessagePayload.AddRange(PackHelper.Hex(str));
+            MessagePayload.AddRange(PackHelper.Hex(str));
 
             return this;
         }
 
         public byte[] Message()
         {
-            byte[] messageBytes = new byte[this.PacketLength];
-            byte[] lengthBytes = PackHelper.UInt32(this.MessageLength);
+            var messageBytes = new byte[PacketLength];
+            var lengthBytes = PackHelper.UInt32(MessageLength);
 
             lengthBytes.CopyTo(messageBytes, 0);
 
-            messageBytes[4] = this.MessageID;
+            messageBytes[4] = MessageID;
 
-            this.MessagePayload.CopyTo(messageBytes, 5);
+            MessagePayload.CopyTo(messageBytes, 5);
 
             return messageBytes;
         }
 
         public void Dispose()
         {
-            this.MessagePayload.Clear();
+            MessagePayload.Clear();
         }
     }
 }

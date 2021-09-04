@@ -53,30 +53,30 @@ namespace System.Net.Torrent
 
         public int TTL
         {
-            get => this.ttl;
+            get => ttl;
             set
             {
-                this.ttl = value;
+                ttl = value;
 
-                this.udpSenderSocket.SetSocketOption(SocketOptionLevel.IP,
+                udpSenderSocket.SetSocketOption(SocketOptionLevel.IP,
                 SocketOptionName.MulticastTimeToLive,
-                this.ttl);
+                ttl);
             }
         }
 
         public LocalPeerDiscovery()
         {
-            this.udpReaderSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-            this.udpSenderSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+            udpReaderSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+            udpSenderSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
         }
 
         public LocalPeerDiscovery(Socket receive, Socket send)
         {
-            this.ValidateSocket(receive, "receive");
-            this.ValidateSocket(send, "send");
+            ValidateSocket(receive, "receive");
+            ValidateSocket(send, "send");
 
-            this.udpReaderSocket = receive;
-            this.udpSenderSocket = send;
+            udpReaderSocket = receive;
+            udpSenderSocket = send;
         }
 
         [DebuggerHidden, DebuggerStepThrough]
@@ -100,26 +100,26 @@ namespace System.Net.Torrent
 
         public void Open()
         {
-            IPAddress address = IPAddress.Parse(lpdMulticastAddress);
-            this.SetupReaderSocket(address, lpdMulticastPort);
-            this.SetupSenderSocket(address, lpdMulticastPort);
+            var address = IPAddress.Parse(lpdMulticastAddress);
+            SetupReaderSocket(address, lpdMulticastPort);
+            SetupSenderSocket(address, lpdMulticastPort);
 
-            this.thread = new Thread(this.Process);
-            this.thread.Start();
+            thread = new Thread(Process);
+            thread.Start();
         }
 
         private void SetupReaderSocket(IPAddress address, int port)
         {
             var endPoint = new IPEndPoint(IPAddress.Any, port);
 
-            this.udpReaderSocket.ExclusiveAddressUse = false;
-            this.udpReaderSocket.SetSocketOption(SocketOptionLevel.Socket,
+            udpReaderSocket.ExclusiveAddressUse = false;
+            udpReaderSocket.SetSocketOption(SocketOptionLevel.Socket,
                 SocketOptionName.ReuseAddress,
                 true);
 
-            this.udpReaderSocket.Bind(endPoint);
+            udpReaderSocket.Bind(endPoint);
 
-            this.udpReaderSocket.SetSocketOption(SocketOptionLevel.IP,
+            udpReaderSocket.SetSocketOption(SocketOptionLevel.IP,
                 SocketOptionName.AddMembership,
                 new MulticastOption(address, IPAddress.Any));
         }
@@ -128,55 +128,55 @@ namespace System.Net.Torrent
         {
             var endPoint = new IPEndPoint(address, port);
 
-            this.udpSenderSocket.ExclusiveAddressUse = false;
-            this.udpSenderSocket.SetSocketOption(SocketOptionLevel.Socket,
+            udpSenderSocket.ExclusiveAddressUse = false;
+            udpSenderSocket.SetSocketOption(SocketOptionLevel.Socket,
                 SocketOptionName.ReuseAddress,
                 true);
-            this.udpSenderSocket.SetSocketOption(SocketOptionLevel.IP, 
+            udpSenderSocket.SetSocketOption(SocketOptionLevel.IP, 
                 SocketOptionName.AddMembership, 
                 new MulticastOption(address));
-            this.udpSenderSocket.SetSocketOption(SocketOptionLevel.IP, 
+            udpSenderSocket.SetSocketOption(SocketOptionLevel.IP, 
                 SocketOptionName.MulticastTimeToLive,
-                this.TTL);
+                TTL);
 
-            this.udpSenderSocket.Connect(endPoint);
+            udpSenderSocket.Connect(endPoint);
         }
 
         public void Close()
         {
-            this._killSwitch = true;
-            this.thread.Abort();
+            _killSwitch = true;
+            thread.Abort();
 
-            this.udpReaderSocket.Close();
-            this.udpSenderSocket.Close();
+            udpReaderSocket.Close();
+            udpSenderSocket.Close();
         }
 
         private void Process()
         {
-            byte[] buffer = new byte[200];
-            while (!this._killSwitch)
+            var buffer = new byte[200];
+            while (!_killSwitch)
             {
-                EndPoint endPoint = new IPEndPoint(0,0);
-                this.udpReaderSocket.ReceiveFrom(buffer, ref endPoint);
+                EndPoint endPoint = new IPEndPoint(0, 0);
+                udpReaderSocket.ReceiveFrom(buffer, ref endPoint);
 
-                IPAddress remoteAddress = ((IPEndPoint) endPoint).Address;
-                int remotePort = 0;
-                string remoteHash = "";
+                var remoteAddress = ((IPEndPoint) endPoint).Address;
+                var remotePort = 0;
+                var remoteHash = "";
 
-                string packet = Encoding.ASCII.GetString(buffer).Trim();
+                var packet = Encoding.ASCII.GetString(buffer).Trim();
 
                 if (!packet.StartsWith("BT-SEARCH"))
                 {
                     continue;
                 }
 
-                String[] packetLines = packet.Split('\n');
+                var packetLines = packet.Split('\n');
 
-                foreach (string line in packetLines)
+                foreach (var line in packetLines)
                 {
                     if (line.StartsWith("Port:"))
                     {
-                        string portStr = line.Substring(5).Trim();
+                        var portStr = line.Substring(5).Trim();
                         int.TryParse(portStr, out remotePort);
                     }
                     if (line.StartsWith("Infohash:"))
@@ -185,19 +185,16 @@ namespace System.Net.Torrent
                     }
                 }
 
-                if (!String.IsNullOrEmpty(remoteHash) && remotePort != 0)
+                if (!string.IsNullOrEmpty(remoteHash) && remotePort != 0)
                 {
-                    if (NewPeer != null)
-                    {
-                        NewPeer(remoteAddress, remotePort, remoteHash);
-                    }
+                    NewPeer?.Invoke(remoteAddress, remotePort, remoteHash);
                 }
             }
         }
 
         public void Announce(int listeningPort, string infoHash)
         {
-            string message = String.Format("BT-SEARCH * HTTP/1.1\r\n" +
+            var message = string.Format("BT-SEARCH * HTTP/1.1\r\n" +
                                            "Host: {2}:{3}\r\n" +
                                            "Port: {0}\r\n" +
                                            "Infohash: {1}\r\n" +
@@ -207,23 +204,23 @@ namespace System.Net.Torrent
                                            lpdMulticastAddress,
                                            lpdMulticastPort);
 
-            byte[] buffer = Encoding.ASCII.GetBytes(message);
+            var buffer = Encoding.ASCII.GetBytes(message);
 
-            this.udpSenderSocket.Send(buffer);
+            udpSenderSocket.Send(buffer);
         }
 
         private bool isDisposed;
         public void Dispose()
         {
-            if (!this.isDisposed)
+            if (!isDisposed)
             {
-                this.isDisposed = true;
+                isDisposed = true;
 
                 try
                 {
-                    this.Close();
-                    this.udpReaderSocket.Dispose();
-                    this.udpSenderSocket.Dispose();
+                    Close();
+                    udpReaderSocket.Dispose();
+                    udpSenderSocket.Dispose();
                 }
                 catch (Exception)
                 {

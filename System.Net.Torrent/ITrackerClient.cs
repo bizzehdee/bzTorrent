@@ -35,12 +35,12 @@ namespace System.Net.Torrent
     public interface ITrackerClient
     {
         string Tracker { get; }
-        Int32 Port { get; }
+        int Port { get; }
 
         BaseScraper.AnnounceInfo Announce(string url, string hash, string peerId);
-        BaseScraper.AnnounceInfo Announce(string url, string hash, string peerId, Int64 bytesDownloaded, Int64 bytesLeft, Int64 bytesUploaded, 
-            Int32 eventTypeFilter, Int32 ipAddress, Int32 numWant, Int32 listenPort, Int32 extensions);
-        IDictionary<string, BaseScraper.AnnounceInfo> Announce(string url, String[] hashes, string peerId);
-        IDictionary<string, BaseScraper.ScrapeInfo> Scrape(string url, String[] hashes);
+        BaseScraper.AnnounceInfo Announce(string url, string hash, string peerId, long bytesDownloaded, long bytesLeft, long bytesUploaded,
+            int eventTypeFilter, int ipAddress, int numWant, int listenPort, int extensions);
+        IDictionary<string, BaseScraper.AnnounceInfo> Announce(string url, string[] hashes, string peerId);
+        IDictionary<string, BaseScraper.ScrapeInfo> Scrape(string url, string[] hashes);
     }
 }
