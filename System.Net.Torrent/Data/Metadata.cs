@@ -44,7 +44,7 @@ namespace System.Net.Torrent.Data
     public class Metadata : IMetadata
     {
         private IBencodingType _root;
-        private IDictionary<string, long> files;
+        private ICollection<MetadataFileInfo> files;
 
         public byte[] Hash { get; private set; }
 
@@ -95,7 +95,7 @@ namespace System.Net.Torrent.Data
         {
             AnnounceList = new Collection<string>();
             PieceHashes = new Collection<byte[]>();
-            files = new Dictionary<string, long>();
+            files = new List<MetadataFileInfo>();
         }
 
         public bool Load(MagnetLink magnetLink)
@@ -194,6 +194,8 @@ namespace System.Net.Torrent.Data
                 {
                     //multi file mode
                     BList fileList = (BList)infoDict["files"];
+                    var id = 0L;
+                    var startByte = 0L;
                     foreach (var bencodingType in fileList)
                     {
                         var fileDict = (BDict)bencodingType;
@@ -217,7 +219,18 @@ namespace System.Net.Torrent.Data
                             filesize = (BInt)fileDict["length"];
                         }
 
-                        files.Add(filename, filesize);
+                        var fileInfo = new MetadataFileInfo
+                        {
+                            Id = id,
+                            FileSize = filesize,
+                            Filename = filename,
+                            FileStartByte = startByte
+                        };
+
+                        id++;
+                        startByte += filesize;
+
+                        files.Add(fileInfo);
                     }
                 }
 
@@ -226,7 +239,13 @@ namespace System.Net.Torrent.Data
                     Name = (BString)infoDict["name"];
                     if (files.Count == 0 && infoDict.ContainsKey("length"))
                     {
-                        files.Add(Name, (BInt)infoDict["length"]);
+                        files.Add(new MetadataFileInfo
+                        {
+                            Id = 0,
+                            FileSize = (BInt)infoDict["length"],
+                            Filename = Name,
+                            FileStartByte = 0
+                        });
                     }
                 }
 
@@ -262,7 +281,17 @@ namespace System.Net.Torrent.Data
                 return new Collection<string>();
             }
 
-            return files?.Select(x => x.Key)?.ToList()?.AsReadOnly();
+            return files?.OrderBy(f => f.Id).Select(x => x.Filename)?.ToList()?.AsReadOnly();
+        }
+
+        public IReadOnlyCollection<MetadataFileInfo> GetFileInfos()
+        {
+            if (files.IsNullOrEmpty())
+            {
+                return new Collection<MetadataFileInfo>();
+            }
+
+            return files?.OrderBy(f => f.Id).ToList()?.AsReadOnly();
         }
 
         #region Static Helpers

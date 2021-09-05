@@ -53,6 +53,7 @@ namespace System.Net.Torrent.Data
         public bool Private { get; }
 
         public IReadOnlyCollection<string> GetFiles();
+        public IReadOnlyCollection<MetadataFileInfo> GetFileInfos();
 
         public bool Load(MagnetLink magnetLink);
 
