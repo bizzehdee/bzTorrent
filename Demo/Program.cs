@@ -3,7 +3,9 @@
     using System;
     using System.Net.Torrent;
     using System.Net.Torrent.Data;
+    using System.Net.Torrent.IO;
     using System.Text;
+    using System.Threading;
     using System.Threading.Tasks;
 
     class Program
@@ -28,6 +30,8 @@
             AnnounceTorrent();
 
             ScrapeTorrent();
+
+            TestPeerWireClient();
         }
 
         static void DecodeTorrentToMeta()
@@ -88,6 +92,29 @@
         {
             var scraper = new HTTPTrackerClient(15);
             var announce = scraper.Scrape("http://torrent.ubuntu.com:6969/announce", new string[] { "e4be9e4db876e3e3179778b03e906297be5c8dbe" });
+        }
+
+        static void TestPeerWireClient()
+        {
+            //create a socket with chosen protocol
+            var socket = new WireIO.Tcp();
+
+            //create a client with that socket
+            var client = new PeerWireClient(socket);
+
+            //connect to the remote host
+            client.Connect("127.0.0.1", 63516);
+
+            //perform handshake
+            client.Handshake("e4be9e4db876e3e3179778b03e906297be5c8dbe", "-ST2222-011345223110");
+
+            //implement events
+
+            //process until return false
+            while(client.Process())
+            {
+                Thread.Sleep(10);
+            }
         }
     }
 }
