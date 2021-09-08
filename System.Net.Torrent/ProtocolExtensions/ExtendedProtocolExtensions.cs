@@ -135,6 +135,18 @@ namespace System.Net.Torrent.ProtocolExtensions
             return 0;
         }
 
+        public byte GetIncomingMessageID(IPeerWireClient client, IBTExtension extension)
+        {
+            var map = _extIncoming.Find(f => f.Client == client && f.Protocol == extension.Protocol);
+
+            if (map != null)
+            {
+                return map.CommandID;
+            }
+
+            return 0;
+        }
+
         public bool SendExtended(IPeerWireClient client, byte extMsgId, byte[] bytes)
         {
             return client.SendBytes(new PeerMessageBuilder(20).Add(extMsgId).Add(bytes).Message());
@@ -153,9 +165,9 @@ namespace System.Net.Torrent.ProtocolExtensions
             return null;
         }
 
-        private string FindIBTProtocolByMessageID(int messageId)
+        private string FindIBTProtocolByInternalMessageID(int messageId)
         {
-            foreach (var map in _extIncoming)
+            foreach (var map in _extOutgoing)
             {
                 if (map.CommandID == messageId)
                 {
@@ -170,7 +182,7 @@ namespace System.Net.Torrent.ProtocolExtensions
         {
             var msgId = payload[0];
 
-            var buffer = payload.GetBytes(1, commandLength - 1);
+            var buffer = payload.GetBytes(1, commandLength - 2);
 
             if (msgId == 0)
             {
@@ -192,7 +204,7 @@ namespace System.Net.Torrent.ProtocolExtensions
             }
             else
             {
-                var protocol = FindIBTProtocolByMessageID(msgId);
+                var protocol = FindIBTProtocolByInternalMessageID(msgId);
                 var ext = FindIBTExtensionByProtocol(protocol);
 
                 if (ext != null)

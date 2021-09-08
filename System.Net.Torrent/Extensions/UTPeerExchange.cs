@@ -58,7 +58,7 @@ namespace System.Net.Torrent.Extensions
 
         public void OnHandshake(IPeerWireClient peerWireClient, byte[] handshake)
         {
-            var d = (BDict)BencodingUtils.Decode(handshake);
+            BencodingUtils.Decode(handshake);
         }
 
         public void OnExtendedMessage(IPeerWireClient peerWireClient, byte[] bytes)
@@ -131,7 +131,7 @@ namespace System.Net.Torrent.Extensions
                 d.Add("dropped", new BString { ByteValue = dropped });
             }
 
-            _parent.SendExtended(peerWireClient, _parent.GetOutgoingMessageID(peerWireClient, this), BencodingUtils.EncodeBytes(d));
+            _parent.SendExtended(peerWireClient, _parent.GetIncomingMessageID(peerWireClient, this), BencodingUtils.EncodeBytes(d));
         }
     }
 }

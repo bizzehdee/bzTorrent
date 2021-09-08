@@ -226,6 +226,8 @@ namespace System.Net.Torrent
                 var recBuffer = new byte[_dynamicBufferSize];
                 try
                 {
+                    _receiving = true;
+
                     _async = Socket.BeginReceive(recBuffer, 0, _dynamicBufferSize, OnReceived, recBuffer);
                 }
                 catch(Exception ex)
@@ -235,7 +237,6 @@ namespace System.Net.Torrent
                 }
 
 
-                _receiving = true;
             }
 
             if (_internalBuffer.Length < 4)
@@ -404,20 +405,23 @@ namespace System.Net.Torrent
 
             _async = null;
 
-            lock (_locker)
+            if (len > 0)
             {
-                _internalBuffer = _internalBuffer == null ? data : _internalBuffer.Cat(data.GetBytes(0, len));
-            }
+                lock (_locker)
+                {
+                    _internalBuffer = _internalBuffer == null ? data : _internalBuffer.Cat(data.GetBytes(0, len));
+                }
 
-            #region Automatically alter the buffer size
-            if (_internalBuffer.Length > _dynamicBufferSize && (_dynamicBufferSize - 1024) >= MinBufferSize)
-            {
-                _dynamicBufferSize -= 1024;
-            }
+                #region Automatically alter the buffer size
+                if (_internalBuffer.Length > _dynamicBufferSize && (_dynamicBufferSize - 1024) >= MinBufferSize)
+                {
+                    _dynamicBufferSize -= 1024;
+                }
 
-            if (_internalBuffer.Length < _dynamicBufferSize && (_dynamicBufferSize + 1024) <= MaxBufferSize)
-            {
-                _dynamicBufferSize += 1024;
+                if (_internalBuffer.Length < _dynamicBufferSize && (_dynamicBufferSize + 1024) <= MaxBufferSize)
+                {
+                    _dynamicBufferSize += 1024;
+                }
             }
 
             _receiving = false;
@@ -565,7 +569,7 @@ namespace System.Net.Torrent
                 _internalBuffer = _internalBuffer.GetBytes(4);
             }
 
-            PeerBitField[pieceIndex] = true;
+            //PeerBitField[pieceIndex] = true;
             OnHave(pieceIndex);
         }
 

@@ -108,9 +108,9 @@ namespace System.Net.Torrent.Extensions
 
                 var encoded = BencodingUtils.EncodeString(masterBDict);
 
-                var buffer = PackHelper.Int32(2 + encoded.Length);
+                var buffer = PackHelper.UInt32((uint)(2 + encoded.Length));
                 buffer = buffer.Concat(new byte[] {20}).ToArray();
-                buffer = buffer.Concat(new[] { _parent.GetOutgoingMessageID(peerWireClient, this) }).ToArray();
+                buffer = buffer.Concat(new[] { _parent.GetIncomingMessageID(peerWireClient, this) }).ToArray();
                 buffer = buffer.Concat(Encoding.GetEncoding(1252).GetBytes(encoded)).ToArray();
 
                 sendBuffer = sendBuffer.Concat(buffer).ToArray();
