@@ -290,7 +290,6 @@ namespace System.Net.Torrent
                 }
 
                 Handshake();
-                SendBitField(PeerBitField);
 
                 return true;
             }
@@ -569,7 +568,6 @@ namespace System.Net.Torrent
                 _internalBuffer = _internalBuffer.GetBytes(4);
             }
 
-            //PeerBitField[pieceIndex] = true;
             OnHave(pieceIndex);
         }
 
