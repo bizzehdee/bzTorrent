@@ -69,6 +69,7 @@ namespace System.Net.Torrent.Data
         public long PieceSize { get; private set; }
 
         public ICollection<byte[]> PieceHashes { get; private set; }
+        public ICollection<MetadataPieceInfo> Pieces { get; private set; }
 
         public bool Private { get; private set; }
 
@@ -95,6 +96,7 @@ namespace System.Net.Torrent.Data
         {
             AnnounceList = new Collection<string>();
             PieceHashes = new Collection<byte[]>();
+            Pieces = new Collection<MetadataPieceInfo>();
             files = new List<MetadataFileInfo>();
         }
 
@@ -261,7 +263,14 @@ namespace System.Net.Torrent.Data
                     for (var x = 0; x < pieces.ByteValue.Length; x += 20)
                     {
                         var hash = pieces.ByteValue.GetBytes(x, 20);
+                        var pieceInfo = new MetadataPieceInfo
+                        {
+                            Id = x / 20,
+                            PieceHash = hash
+                        };
+
                         PieceHashes.Add(hash);
+                        Pieces.Add(pieceInfo);
                     }
                 }
 
