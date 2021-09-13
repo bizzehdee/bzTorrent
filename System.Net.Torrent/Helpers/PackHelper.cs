@@ -127,9 +127,11 @@ namespace System.Net.Torrent.Helpers
             }
 
             var bytes = new byte[str.Length / 2];
-            for (int i = 0; i < str.Length; i += 2)
+            for (int i = 0; i < str.Length/2; i++)
             {
-                bytes[i / 2] = Convert.ToByte(str.Substring(NeedsFlipping(e) ? ((str.Length - (i*2)) - 2) : i, 2), 16);
+                var startByte = NeedsFlipping(e) == false ? i : (str.Length - (i * 2))-2;
+
+                bytes[i] = Convert.ToByte(str.Substring(startByte, 2), 16);
             }
 
             return bytes;
