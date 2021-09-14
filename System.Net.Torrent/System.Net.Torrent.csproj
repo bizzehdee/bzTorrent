@@ -1,9 +1,17 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <TargetFramework>netstandard2.1</TargetFramework>
-        <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-        <Version>1.0.1</Version>
-        <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+        <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
+        <Version>2.0.0</Version>
+        <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+        <Authors>Darren Horrocks</Authors>
+        <PackageLicenseFile>LICENSE</PackageLicenseFile>
+        <PackageProjectUrl>https://github.com/bizzehdee/System.Net.Torrent</PackageProjectUrl>
+        <RepositoryUrl>https://github.com/bizzehdee/System.Net.Torrent</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+        <PackageTags>bittorrent torrent p2p</PackageTags>
+        <Copyright>Darren Horrocks</Copyright>
+        <Description>Open source bittorrent scraper and peer wire implementation written in C#</Description>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
       <LangVersion>default</LangVersion>
@@ -12,8 +20,9 @@
       <PackageReference Include="bzBencode" Version="1.0.2" />
     </ItemGroup>
     <ItemGroup>
-      <Compile Remove="Nuget\**" />
-      <EmbeddedResource Remove="Nuget\**" />
-      <None Remove="Nuget\**" />
+      <None Include="..\LICENSE">
+        <Pack>True</Pack>
+        <PackagePath></PackagePath>
+      </None>
     </ItemGroup>
 </Project>
