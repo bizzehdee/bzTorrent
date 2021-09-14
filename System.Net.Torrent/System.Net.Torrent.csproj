@@ -9,6 +9,9 @@
       <LangVersion>default</LangVersion>
     </PropertyGroup>
     <ItemGroup>
+      <PackageReference Include="bzBencode" Version="1.0.2" />
+    </ItemGroup>
+    <ItemGroup>
       <Compile Remove="Nuget\**" />
       <EmbeddedResource Remove="Nuget\**" />
       <None Remove="Nuget\**" />

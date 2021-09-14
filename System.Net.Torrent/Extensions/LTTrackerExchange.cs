@@ -29,7 +29,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 using System.Collections.Generic;
-using System.Net.Torrent.BEncode;
+using bzBencode;
 using System.Net.Torrent.ProtocolExtensions;
 
 namespace System.Net.Torrent.Extensions

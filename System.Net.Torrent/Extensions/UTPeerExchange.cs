@@ -28,7 +28,7 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
 */
 
-using System.Net.Torrent.BEncode;
+using bzBencode;
 using System.Net.Torrent.Helpers;
 using System.Net.Torrent.ProtocolExtensions;
 
