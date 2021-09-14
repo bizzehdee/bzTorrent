@@ -28,11 +28,11 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
 */
 
+using System.Globalization;
+using System.IO;
+
 namespace System.Net.Torrent.BEncode
 {
-    using System.Globalization;
-    using System.IO;
-
     /// <summary>
     /// Represents a string object. It cannot contain a null value.
     /// </summary>
@@ -170,7 +170,7 @@ namespace System.Net.Torrent.BEncode
             return new BString(x);
         }
 
-        public static implicit operator String(BString x)
+        public static implicit operator string(BString x)
         {
             return x.Value;
         }

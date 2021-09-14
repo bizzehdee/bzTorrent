@@ -28,11 +28,11 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
 */
 
+using System.Globalization;
+using System.IO;
+
 namespace System.Net.Torrent.BEncode
 {
-    using System.Globalization;
-    using System.IO;
-
     public class BInt : IBencodingType, IComparable<long>, IEquatable<long>, IEquatable<BInt>, IComparable<BInt>
     {
         private BInt()

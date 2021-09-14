@@ -39,11 +39,11 @@ namespace System.Net.Torrent.Extensions
         private ExtendedProtocolExtensions _parent;
 
         public string Protocol
-        {
-            get { return "ut_pex"; }
-        }
+		{
+			get => "ut_pex";
+		}
 
-        public event Action<IPeerWireClient, IBTExtension, IPEndPoint, byte> Added;
+		public event Action<IPeerWireClient, IBTExtension, IPEndPoint, byte> Added;
         public event Action<IPeerWireClient, IBTExtension, IPEndPoint> Dropped;
 
         public void Init(ExtendedProtocolExtensions parent)
@@ -69,11 +69,11 @@ namespace System.Net.Torrent.Extensions
                 var pexList = (BString)d["added"];
                 var pexFlags = (BString)d["added.f"];
 
-                for (int i = 0; i < pexList.ByteValue.Length/6; i++)
+                for (var i = 0; i < pexList.ByteValue.Length/6; i++)
                 {
                     var ip = UnpackHelper.UInt32(pexList.ByteValue, i * 6, UnpackHelper.Endianness.Little);
                     var port = UnpackHelper.UInt16(pexList.ByteValue, (i * 6) + 4, UnpackHelper.Endianness.Big);
-                    byte flags = pexFlags.ByteValue[i];
+                    var flags = pexFlags.ByteValue[i];
 
                     var ipAddr = new IPEndPoint(ip, port);
 
@@ -85,12 +85,12 @@ namespace System.Net.Torrent.Extensions
             {
                 var pexList = (BString)d["dropped"];
 
-                for (int i = 0; i < pexList.ByteValue.Length / 6; i++)
+                for (var i = 0; i < pexList.ByteValue.Length / 6; i++)
                 {
                     var ip = UnpackHelper.UInt32(pexList.ByteValue, i * 6, UnpackHelper.Endianness.Little);
                     var port = UnpackHelper.UInt16(pexList.ByteValue, (i * 6) + 4, UnpackHelper.Endianness.Big);
 
-                    IPEndPoint ipAddr = new IPEndPoint(ip, port);
+                    var ipAddr = new IPEndPoint(ip, port);
 
                     Dropped?.Invoke(peerWireClient, this, ipAddr);
                 }
@@ -121,7 +121,7 @@ namespace System.Net.Torrent.Extensions
             if (droppedEndPoints != null)
             {
                 var dropped = new byte[droppedEndPoints.Length * 6];
-                for (int x = 0; x < droppedEndPoints.Length; x++)
+                for (var x = 0; x < droppedEndPoints.Length; x++)
                 {
                     droppedEndPoints[x].Address.GetAddressBytes().CopyTo(dropped, x * 6);
 

@@ -28,10 +28,10 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
 */
 
+using System.Net.Torrent.Helpers;
+
 namespace System.Net.Torrent.ProtocolExtensions
 {
-    using System.Net.Torrent.Helpers;
-
     public class FastExtensions : IProtocolExtension
     {
         public event Action<IPeerWireClient, int> SuggestPiece;
@@ -41,26 +41,23 @@ namespace System.Net.Torrent.ProtocolExtensions
         public event Action<IPeerWireClient, int> AllowedFast;
 
         public byte[] ByteMask
-        {
-            get { return new byte[] {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04}; }
-        }
+		{
+			get => new byte[] { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04 };
+		}
 
-        public byte[] CommandIDs
-        {
-            get 
-            { 
-                return new byte[]
-                {
-                    13,//Suggest Piece
+		public byte[] CommandIDs
+		{
+			get => new byte[]
+				{
+					13,//Suggest Piece
                     14,//Have all
                     15,//Have none
                     16,//Reject Request
                     17 //Allowed Fast
-                }; 
-            }
-        }
+                };
+		}
 
-        public bool OnHandshake(IPeerWireClient client)
+		public bool OnHandshake(IPeerWireClient client)
         {
             return false;
         }

@@ -28,10 +28,10 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
 */
 
+using System.Net.Sockets;
+
 namespace System.Net.Torrent.IO
 {
-    using System.Net.Sockets;
-
     public partial class WireIO
     {
         public class Tcp : IWireIO
@@ -49,11 +49,11 @@ namespace System.Net.Torrent.IO
             }
 
             public bool Connected
-            {
-                get { return _socket.Connected; }
-            }
+			{
+				get => _socket.Connected;
+			}
 
-            public Tcp()
+			public Tcp()
             {
                 _socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
                 _socket.NoDelay = true;

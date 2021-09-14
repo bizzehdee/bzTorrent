@@ -28,10 +28,10 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
 */
 
+using System.Net.Torrent.IO;
+
 namespace System.Net.Torrent
 {
-    using System.Net.Torrent.IO;
-
     public class PeerWireListener
     {
         private readonly IWireIO _socket;

@@ -28,13 +28,13 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
 */
 
+using System.Collections.Generic;
+using System.Net.Torrent.BEncode;
+using System.Net.Torrent.Helpers;
+using System.Text;
+
 namespace System.Net.Torrent.ProtocolExtensions
 {
-    using System.Collections.Generic;
-    using System.Net.Torrent.BEncode;
-    using System.Net.Torrent.Helpers;
-    using System.Text;
-
     public class ExtendedProtocolExtensions : IProtocolExtension
     {
         public class ClientProtocolIDMap
@@ -63,26 +63,24 @@ namespace System.Net.Torrent.ProtocolExtensions
         }
 
         public byte[] ByteMask
-        {
-            get { return new byte[] { 0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00 }; }
-        }
+		{
+			get => new byte[] { 0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00 };
+		}
 
-        public byte[] CommandIDs
-        {
-            get { 
-                return new byte[]
-                {
-                    20 //extended protocol
-                }; 
-            }
-        }
+		public byte[] CommandIDs
+		{
+			get => new byte[]
+				{
+					20 //extended protocol
+                };
+		}
 
-        public bool OnHandshake(IPeerWireClient client)
+		public bool OnHandshake(IPeerWireClient client)
         {
             var handshakeDict = new BDict();
             var mDict = new BDict();
             byte i = 1;
-            foreach (IBTExtension extension in _protocolExtensions)
+            foreach (var extension in _protocolExtensions)
             {
                 _extOutgoing.Add(new ClientProtocolIDMap(client, extension.Protocol, i));
                 mDict.Add(extension.Protocol, new BInt(i));
@@ -189,7 +187,7 @@ namespace System.Net.Torrent.ProtocolExtensions
                 var extendedHandshake = (BDict)BencodingUtils.Decode(buffer);
 
                 var mDict = (BDict)extendedHandshake["m"];
-                foreach (KeyValuePair<string, IBencodingType> pair in mDict)
+                foreach (var pair in mDict)
                 {
                     var i = (BInt)pair.Value;
                     _extIncoming.Add(new ClientProtocolIDMap(client, pair.Key, (byte)i));

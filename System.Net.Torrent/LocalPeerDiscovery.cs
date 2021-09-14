@@ -28,13 +28,13 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
 */
 
+using System.Diagnostics;
+using System.Net.Sockets;
+using System.Text;
+using System.Threading;
+
 namespace System.Net.Torrent
 {
-    using System.Diagnostics;
-    using System.Net.Sockets;
-    using System.Text;
-    using System.Threading;
-
     public class LocalPeerDiscovery : IDisposable, ILocalPeerDiscovery
     {
         private const string lpdMulticastAddress = "239.192.152.143";

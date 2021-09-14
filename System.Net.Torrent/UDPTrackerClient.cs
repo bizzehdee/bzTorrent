@@ -28,15 +28,15 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
 */
 
+using System.Collections.Generic;
+using System.Data;
+using System.Linq;
+using System.Net.Sockets;
+using System.Net.Torrent.Helpers;
+using System.Text;
+
 namespace System.Net.Torrent
 {
-    using System.Collections.Generic;
-    using System.Data;
-    using System.Linq;
-    using System.Net.Sockets;
-    using System.Net.Torrent.Helpers;
-    using System.Text;
-
     public class UDPTrackerClient : BaseScraper, ITrackerClient
     {
         private byte[] _currentConnectionId;
@@ -47,7 +47,7 @@ namespace System.Net.Torrent
             _currentConnectionId = BaseCurrentConnectionId;
         }
 
-        public IDictionary<string, ScrapeInfo> Scrape(string url, String[] hashes)
+        public IDictionary<string, ScrapeInfo> Scrape(string url, string[] hashes)
         {
             var returnVal = new Dictionary<string, ScrapeInfo>();
 
@@ -64,11 +64,11 @@ namespace System.Net.Torrent
                         }
                 };
 
-            byte[] sendBuf = _currentConnectionId.Concat(PackHelper.Int32(0)).Concat(PackHelper.Int32(transactionId)).ToArray();
+            var sendBuf = _currentConnectionId.Concat(PackHelper.Int32(0)).Concat(PackHelper.Int32(transactionId)).ToArray();
             udpClient.Send(sendBuf, sendBuf.Length);
 
             IPEndPoint endPoint = null;
-            byte[] recBuf = udpClient.Receive(ref endPoint);
+            var recBuf = udpClient.Receive(ref endPoint);
 
             if (recBuf == null)
             {
@@ -95,7 +95,7 @@ namespace System.Net.Torrent
 
             _currentConnectionId = CopyBytes(recBuf, 8, 8);
 
-            byte[] hashBytes = new byte[0];
+            var hashBytes = new byte[0];
             hashBytes = hashes.Aggregate(hashBytes, (current, hash) => current.Concat(PackHelper.Hex(hash)).ToArray());
 
             var expectedLength = 8 + (12 * hashes.Length);
@@ -131,7 +131,7 @@ namespace System.Net.Torrent
             }
 
             var startIndex = 8;
-            foreach (string hash in hashes)
+            foreach (var hash in hashes)
             {
                 var seeders = UnpackHelper.UInt32(recBuf, startIndex, UnpackHelper.Endianness.Big);
                 var completed = UnpackHelper.UInt32(recBuf, startIndex + 4, UnpackHelper.Endianness.Big);
@@ -172,7 +172,7 @@ namespace System.Net.Torrent
                         }
                 };
 
-            byte[] sendBuf = _currentConnectionId.Concat(PackHelper.Int32(0)).Concat(PackHelper.Int32(trasactionId)).ToArray();
+            var sendBuf = _currentConnectionId.Concat(PackHelper.Int32(0)).Concat(PackHelper.Int32(trasactionId)).ToArray();
             udpClient.Send(sendBuf, sendBuf.Length);
 
             IPEndPoint endPoint = null;
@@ -212,7 +212,7 @@ namespace System.Net.Torrent
 
             _currentConnectionId = CopyBytes(recBuf, 8, 8);
 
-            byte[] hashBytes = PackHelper.Hex(hash).ToArray();
+            var hashBytes = PackHelper.Hex(hash).ToArray();
 
             var key = Random.Next(0, 65535);
 
@@ -278,7 +278,7 @@ namespace System.Net.Torrent
         private static byte[] CopyBytes(byte[] bytes, int start, int length)
         {
             var intBytes = new byte[length];
-            for (int i = 0; i < length; i++)
+            for (var i = 0; i < length; i++)
             {
                 intBytes[i] = bytes[start + i];
             }

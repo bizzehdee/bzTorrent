@@ -28,16 +28,16 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
 */
 
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Net.Sockets;
+using System.Net.Torrent.IO;
+using System.Net.Torrent.Helpers;
+using System.Text;
+using System.Threading;
+
 namespace System.Net.Torrent
 {
-    using System.Collections.Generic;
-    using System.Diagnostics;
-    using System.Net.Sockets;
-    using System.Net.Torrent.IO;
-    using System.Net.Torrent.Helpers;
-    using System.Text;
-    using System.Threading;
-
     public class PeerWireClient : IPeerWireClient
     {
         private readonly object _locker = new();
@@ -57,7 +57,7 @@ namespace System.Net.Torrent
         private int _dynamicBufferSize = 1024*16;
         
 
-        public int Timeout { get { return Socket.Timeout; } }
+        public int Timeout { get => Socket.Timeout; }
         public bool[] PeerBitField { get; set; }
         public bool KeepConnectionAlive { get; set; }
         
@@ -147,9 +147,9 @@ namespace System.Net.Torrent
 
             byte[] reservedBytes = {0, 0, 0, 0, 0, 0, 0, 0};
 
-            foreach (IProtocolExtension extension in _btProtocolExtensions)
+            foreach (var extension in _btProtocolExtensions)
             {
-                for (int x = 0; x < 8; x++)
+                for (var x = 0; x < 8; x++)
                 {
                     reservedBytes[x] |= extension.ByteMask[x];
                 }
@@ -159,7 +159,7 @@ namespace System.Net.Torrent
 
             try
             {
-                int len = Socket.Send(sendBuf);
+                var len = Socket.Send(sendBuf);
                 if (len != sendBuf.Length)
                 {
                     throw new Exception("Didnt sent entire handshake");
@@ -171,7 +171,7 @@ namespace System.Net.Torrent
                 return false;
             }
 
-            foreach (IProtocolExtension extension in _btProtocolExtensions)
+            foreach (var extension in _btProtocolExtensions)
             {
                 extension.OnHandshake(this);
             }
@@ -187,7 +187,7 @@ namespace System.Net.Torrent
 
             (new Thread(o =>
             {
-                PeerWireClient client = (PeerWireClient) o;
+                var client = (PeerWireClient) o;
                 while (client.Process() && _asyncContinue)
                 {
                     Thread.Sleep(10);
@@ -202,7 +202,7 @@ namespace System.Net.Torrent
 
         public bool Process()
         {
-            bool returnVal = _process();
+            var returnVal = InternalProcess();
 
             if (returnVal)
             {
@@ -219,7 +219,7 @@ namespace System.Net.Torrent
             return false;
         }
 
-        private bool _process()
+        private bool InternalProcess()
         {
             if (!_receiving)
             {
@@ -269,7 +269,7 @@ namespace System.Net.Torrent
                 var remoteHashBytes = _internalBuffer.GetBytes(28, 20);
                 if (string.IsNullOrEmpty(Hash))
                 {
-                    string remoteHash = UnpackHelper.Hex(remoteHashBytes);
+                    var remoteHash = UnpackHelper.Hex(remoteHashBytes);
                     Hash = remoteHash;
                 }
 
@@ -294,7 +294,7 @@ namespace System.Net.Torrent
                 return true;
             }
 
-            int commandLength = UnpackHelper.Int32(_internalBuffer, 0, UnpackHelper.Endianness.Big);
+            var commandLength = UnpackHelper.Int32(_internalBuffer, 0, UnpackHelper.Endianness.Big);
 
             if (commandLength > (_internalBuffer.Length - 4))
             {
@@ -421,11 +421,11 @@ namespace System.Net.Torrent
                 {
                     _dynamicBufferSize += 1024;
                 }
+                #endregion
             }
 
             _receiving = false;
 
-            #endregion
         }
 
         public bool SendKeepAlive()
@@ -581,7 +581,7 @@ namespace System.Net.Torrent
             }
 
             PeerBitField = new bool[length * 8];
-            for (int i = 0; i < length; i++)
+            for (var i = 0; i < length; i++)
             {
                 var b = _internalBuffer[0];
 

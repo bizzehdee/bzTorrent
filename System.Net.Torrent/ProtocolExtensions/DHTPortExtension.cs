@@ -28,26 +28,26 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
 */
 
+using System.Net.Torrent.Helpers;
+
 namespace System.Net.Torrent.ProtocolExtensions
 {
-    using System.Net.Torrent.Helpers;
-
     public class DHTPortExtension : IProtocolExtension
     {
         public event Action<IPeerWireClient, ushort> Port;
         public bool RemoteUsesDHT { get; private set; }
 
         public byte[] ByteMask
-        {
-            get { return new byte[] {0, 0, 0, 0, 0, 0, 0, 0x1}; }
-        }
+		{
+			get => new byte[] { 0, 0, 0, 0, 0, 0, 0, 0x1 };
+		}
 
-        public byte[] CommandIDs
-        {
-            get { return new byte[] {9}; }
-        }
+		public byte[] CommandIDs
+		{
+			get => new byte[] { 9 };
+		}
 
-        public bool OnHandshake(IPeerWireClient client)
+		public bool OnHandshake(IPeerWireClient client)
         {
             return false;
         }
@@ -56,7 +56,7 @@ namespace System.Net.Torrent.ProtocolExtensions
         {
             if (commandId == 9)
             {
-                ushort port = UnpackHelper.UInt16(payload, 0, UnpackHelper.Endianness.Big);
+                var port = UnpackHelper.UInt16(payload, 0, UnpackHelper.Endianness.Big);
 
                 OnPort(client, port);
                 return true;

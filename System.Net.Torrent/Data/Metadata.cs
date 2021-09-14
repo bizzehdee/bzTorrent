@@ -29,18 +29,18 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
 */
 
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.IO;
+using System.Linq;
+using System.Net.Torrent.BEncode;
+using System.Net.Torrent.Extensions;
+using System.Net.Torrent.Helpers;
+using System.Security.Cryptography;
+using System.Text;
+
 namespace System.Net.Torrent.Data
 {
-    using System.Collections.Generic;
-    using System.Collections.ObjectModel;
-    using System.IO;
-    using System.Linq;
-    using System.Net.Torrent.BEncode;
-    using System.Net.Torrent.Extensions;
-    using System.Net.Torrent.Helpers;
-    using System.Security.Cryptography;
-    using System.Text;
-
     public class Metadata : IMetadata
     {
         private IBencodingType _root;
@@ -111,7 +111,7 @@ namespace System.Net.Torrent.Data
 
             if (magnetLink.Trackers != null)
             {
-                foreach (string tracker in magnetLink.Trackers)
+                foreach (var tracker in magnetLink.Trackers)
                 {
                     AnnounceList.Add(tracker);
                 }
@@ -142,7 +142,7 @@ namespace System.Net.Torrent.Data
             if (dictRoot.ContainsKey("announce-list"))
             {
                 var announceList = (BList)dictRoot["announce-list"];
-                foreach (IBencodingType type in announceList)
+                foreach (var type in announceList)
                 {
                     if (type is BString)
                     {
@@ -157,9 +157,9 @@ namespace System.Net.Torrent.Data
                         }
 
                         var listType = list;
-                        foreach (IBencodingType bencodingType in listType)
+                        foreach (var bencodingType in listType)
                         {
-                            BString s = (BString)bencodingType;
+                            var s = (BString)bencodingType;
                             AnnounceList.Add(s);
                         }
                     }
@@ -186,7 +186,7 @@ namespace System.Net.Torrent.Data
             {
                 var infoDict = (BDict)dictRoot["info"];
 
-                using (SHA1Managed sha1 = new SHA1Managed())
+                using (var sha1 = new SHA1Managed())
                 {
                     var str = BencodingUtils.EncodeBytes(infoDict);
                     Hash = sha1.ComputeHash(str);
@@ -195,7 +195,7 @@ namespace System.Net.Torrent.Data
                 if (infoDict.ContainsKey("files"))
                 {
                     //multi file mode
-                    BList fileList = (BList)infoDict["files"];
+                    var fileList = (BList)infoDict["files"];
                     var id = 0L;
                     var startByte = 0L;
                     foreach (var bencodingType in fileList)
@@ -208,7 +208,7 @@ namespace System.Net.Torrent.Data
                         if (fileDict.ContainsKey("path"))
                         {
                             var filenameList = (BList)fileDict["path"];
-                            foreach (IBencodingType type in filenameList)
+                            foreach (var type in filenameList)
                             {
                                 filename += (BString)type;
                                 filename += "\\";

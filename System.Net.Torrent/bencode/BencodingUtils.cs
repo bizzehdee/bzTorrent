@@ -28,12 +28,12 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
 */
 
+using System.IO;
+using System.Security.Cryptography;
+using System.Text;
+
 namespace System.Net.Torrent.BEncode
 {
-    using System.IO;
-    using System.Security.Cryptography;
-    using System.Text;
-
     public static class BencodingUtils
     {
         /// <summary>
@@ -128,45 +128,47 @@ namespace System.Net.Torrent.BEncode
         {
             var next = (char)inputStream.PeekChar();
 
-            switch (next)
-            {
-                case 'i':
-                    // Integer
-                    return BInt.Decode(inputStream, ref bytesConsumed);
+			switch (next)
+			{
+				case 'i':
+					// Integer
+					return BInt.Decode(inputStream, ref bytesConsumed);
 
-                case 'l':
-                    // List
-                    return BList.Decode(inputStream, ref bytesConsumed);
+				case 'l':
+					// List
+					return BList.Decode(inputStream, ref bytesConsumed);
 
-                case 'd':
-                    // List
-                    return BDict.Decode(inputStream, ref bytesConsumed);
+				case 'd':
+					// List
+					return BDict.Decode(inputStream, ref bytesConsumed);
 
-                case '0':
-                case '1':
-                case '2':
-                case '3':
-                case '4':
-                case '5':
-                case '6':
-                case '7':
-                case '8':
-                case '9':
-                    // String
-                    return BString.Decode(inputStream, ref bytesConsumed);
-            }
+				case '0':
+				case '1':
+				case '2':
+				case '3':
+				case '4':
+				case '5':
+				case '6':
+				case '7':
+				case '8':
+				case '9':
+					// String
+					return BString.Decode(inputStream, ref bytesConsumed);
+				default:
+					break;
+			}
 
-            return null;
-        }
+			return null;
+		}
 
-        /// <summary>
-        /// Encode the given object to a stream.
-        /// </summary>
-        /// <param name="bencode">The object to encode.</param>
-        /// <param name="output">The stream to write to.</param>
-        public static void Encode(IBencodingType bencode, Stream output)
+		/// <summary>
+		/// Encode the given object to a stream.
+		/// </summary>
+		/// <param name="bencode">The object to encode.</param>
+		/// <param name="output">The stream to write to.</param>
+		public static void Encode(IBencodingType bencode, Stream output)
         {
-            BinaryWriter writer = new BinaryWriter(output, ExtendedASCIIEncoding);
+            var writer = new BinaryWriter(output, ExtendedASCIIEncoding);
 
             bencode.Encode(writer);
 
@@ -225,5 +227,5 @@ namespace System.Net.Torrent.BEncode
             // Hash the encoded dictionary
             return new SHA1CryptoServiceProvider().ComputeHash(infoBytes);
         }
-    }
+	}
 }

@@ -28,15 +28,15 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
 */
 
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Net.Torrent.BEncode;
+using System.Net.Torrent.Helpers;
+using System.Text;
+
 namespace System.Net.Torrent
 {
-    using System.Collections.Generic;
-    using System.IO;
-    using System.Linq;
-    using System.Net.Torrent.BEncode;
-    using System.Net.Torrent.Helpers;
-    using System.Text;
-
     public class HTTPTrackerClient : BaseScraper, ITrackerClient
     {
         public HTTPTrackerClient(int timeout) 
@@ -47,10 +47,10 @@ namespace System.Net.Torrent
 
         private static IEnumerable<IPEndPoint> GetPeers(byte[] peerData)
         {
-            for (int i = 0; i < peerData.Length; i += 6)
+            for (var i = 0; i < peerData.Length; i += 6)
             {
                 long addr = UnpackHelper.UInt32(peerData, i, UnpackHelper.Endianness.Big);
-                ushort port = UnpackHelper.UInt16(peerData, i + 4, UnpackHelper.Endianness.Big);
+                var port = UnpackHelper.UInt16(peerData, i + 4, UnpackHelper.Endianness.Big);
 
                 yield return new IPEndPoint(addr, port);
             }
@@ -75,13 +75,13 @@ namespace System.Net.Torrent
             var realUrl = url.Replace("scrape", "announce") + "?";
 
             var hashEncoded = "";
-            foreach (byte b in hashBytes)
+            foreach (var b in hashBytes)
             {
                 hashEncoded += string.Format("%{0:X2}", b);
             }
 
-            string peerIdEncoded = "";
-            foreach (byte b in peerIdBytes)
+            var peerIdEncoded = "";
+            foreach (var b in peerIdBytes)
             {
                 peerIdEncoded += string.Format("%{0:X2}", b);
             }
@@ -115,7 +115,7 @@ namespace System.Net.Torrent
             {
                 try
                 {
-                    byte[] b = new byte[1];
+                    var b = new byte[1];
                     b[0] = binaryReader.ReadByte();
                     bytes = bytes.Concat(b).ToArray();
                 }
@@ -141,9 +141,9 @@ namespace System.Net.Torrent
                 throw new NotSupportedException("Dictionary based peers not supported");
             }
 
-            int waitTime = 0;
-            int seeders = 0;
-            int leechers = 0;
+            var waitTime = 0;
+            var seeders = 0;
+            var leechers = 0;
 
             if (decoded.ContainsKey("interval"))
             {
@@ -184,7 +184,7 @@ namespace System.Net.Torrent
             var webRequest = (HttpWebRequest)WebRequest.Create(realUrl);
             webRequest.Accept = "*/*";
             webRequest.UserAgent = "System.Net.Torrent";
-            webRequest.Timeout = this.Timeout*1000;
+            webRequest.Timeout = Timeout*1000;
             var webResponse = (HttpWebResponse)webRequest.GetResponse();
 
             var stream = webResponse.GetResponseStream();
@@ -202,7 +202,7 @@ namespace System.Net.Torrent
             {
                 try
                 {
-                    byte[] b = new byte[1];
+                    var b = new byte[1];
                     b[0] = binaryReader.ReadByte();
                     bytes = bytes.Concat(b).ToArray();
                 }
@@ -225,7 +225,7 @@ namespace System.Net.Torrent
 
             var bDecoded = (BDict)decoded["files"];
 
-            foreach (string k in bDecoded.Keys)
+            foreach (var k in bDecoded.Keys)
             {
                 var d = (BDict)bDecoded[k];
 

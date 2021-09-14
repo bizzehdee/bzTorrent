@@ -28,13 +28,13 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
 */
 
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Net.Torrent.Helpers;
+using System.Threading.Tasks;
+
 namespace System.Net.Torrent.Data
 {
-    using System.Collections.Generic;
-    using System.Collections.ObjectModel;
-    using System.Net.Torrent.Helpers;
-    using System.Threading.Tasks;
-
     public class MagnetLink : IMagnetLink
     {
         public string Name { get; private set; }
@@ -43,8 +43,8 @@ namespace System.Net.Torrent.Data
 
         public string HashString
         {
-            get => UnpackHelper.Hex(this.Hash);
-            private set => this.Hash = PackHelper.Hex(value);
+            get => UnpackHelper.Hex(Hash);
+            private set => Hash = PackHelper.Hex(value);
         }
 
         public ICollection<string> Trackers { get; set; }
@@ -70,7 +70,7 @@ namespace System.Net.Torrent.Data
 
             var magnet = new MagnetLink();
 
-            foreach (KeyValuePair<string, string> pair in values)
+            foreach (var pair in values)
             {
                 if (pair.Key == "xt")
                 {
@@ -116,7 +116,7 @@ namespace System.Net.Torrent.Data
             return xt.Length == 49 && xt.StartsWith("urn:btih:");
         }
 
-        private static IEnumerable<KeyValuePair<string, String>> SplitURLIntoParts(string magnetLink)
+        private static IEnumerable<KeyValuePair<string, string>> SplitURLIntoParts(string magnetLink)
         {
             var parts = magnetLink.Split('&');
             var values = new Collection<KeyValuePair<string, string>>();

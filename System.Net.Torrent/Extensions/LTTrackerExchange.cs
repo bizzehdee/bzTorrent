@@ -39,11 +39,11 @@ namespace System.Net.Torrent.Extensions
         public event Action<IPeerWireClient, IBTExtension, string> TrackerAdded;
 
         public string Protocol
-        {
-            get { return "lt_tex"; }
-        }
+		{
+			get => "lt_tex";
+		}
 
-        public void Init(ExtendedProtocolExtensions parent)
+		public void Init(ExtendedProtocolExtensions parent)
         {
             
         }

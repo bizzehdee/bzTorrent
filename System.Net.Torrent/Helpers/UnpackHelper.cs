@@ -41,7 +41,7 @@ namespace System.Net.Torrent.Helpers
 
         public static short Int16(byte[] bytes, int start, Endianness e = Endianness.Machine)
         {
-            byte[] intBytes = Utils.GetBytes(bytes, start, 2);
+            var intBytes = Utils.GetBytes(bytes, start, 2);
 
             if (NeedsFlipping(e))
             {
@@ -53,7 +53,7 @@ namespace System.Net.Torrent.Helpers
 
         public static int Int32(byte[] bytes, int start, Endianness e = Endianness.Machine)
         {
-            byte[] intBytes = Utils.GetBytes(bytes, start, 4);
+            var intBytes = Utils.GetBytes(bytes, start, 4);
 
             if (NeedsFlipping(e))
             {
@@ -65,7 +65,7 @@ namespace System.Net.Torrent.Helpers
 
         public static long Int64(byte[] bytes, int start, Endianness e = Endianness.Machine)
         {
-            byte[] intBytes = Utils.GetBytes(bytes, start, 8);
+            var intBytes = Utils.GetBytes(bytes, start, 8);
 
             if (NeedsFlipping(e))
             {
@@ -77,7 +77,7 @@ namespace System.Net.Torrent.Helpers
 
         public static ushort UInt16(byte[] bytes, int start, Endianness e = Endianness.Machine)
         {
-            byte[] intBytes = Utils.GetBytes(bytes, start, 2);
+            var intBytes = Utils.GetBytes(bytes, start, 2);
 
             if (NeedsFlipping(e))
             {
@@ -89,7 +89,7 @@ namespace System.Net.Torrent.Helpers
 
         public static uint UInt32(byte[] bytes, int start, Endianness e = Endianness.Machine)
         {
-            byte[] intBytes = Utils.GetBytes(bytes, start, 4);
+            var intBytes = Utils.GetBytes(bytes, start, 4);
 
             if (NeedsFlipping(e))
             {
@@ -113,26 +113,28 @@ namespace System.Net.Torrent.Helpers
 
         private static bool NeedsFlipping(Endianness e)
         {
-            switch (e)
-            {
-                case Endianness.Big:
-                    return BitConverter.IsLittleEndian;
-                case Endianness.Little:
-                    return !BitConverter.IsLittleEndian;
-            }
+			switch (e)
+			{
+				case Endianness.Big:
+					return BitConverter.IsLittleEndian;
+				case Endianness.Little:
+					return !BitConverter.IsLittleEndian;
+				default:
+					break;
+			}
 
-            return false;
-        }
-        public static string Hex(byte[] bytes, Endianness e = Endianness.Machine)
+			return false;
+		}
+		public static string Hex(byte[] bytes, Endianness e = Endianness.Machine)
         {
             var str = "";
 
-            foreach (byte b in bytes)
+            foreach (var b in bytes)
             {
                 str += string.Format("{0:X2}", b);
             }
 
             return str;
         }
-    }
+	}
 }

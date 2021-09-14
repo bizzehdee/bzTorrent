@@ -44,15 +44,15 @@ namespace System.Net.Torrent.Helpers
 
         public static byte[] GetBytes(this byte[] bytes, int start, int length = -1)
         {
-            int l = length;
+            var l = length;
             if (l == -1)
             {
                 l = bytes.Length - start;
             }
 
-            byte[] intBytes = new byte[l];
+            var intBytes = new byte[l];
 
-            for (int i = 0; i < l; i++)
+            for (var i = 0; i < l; i++)
             {
                 intBytes[i] = bytes[start + i];
             }
@@ -62,7 +62,7 @@ namespace System.Net.Torrent.Helpers
 
         public static byte[] Cat(this byte[] first, byte[] second)
         {
-            byte[] returnBytes = new byte[first.Length + second.Length];
+            var returnBytes = new byte[first.Length + second.Length];
 
             first.CopyTo(returnBytes, 0);
             second.CopyTo(returnBytes, first.Length);
@@ -72,7 +72,7 @@ namespace System.Net.Torrent.Helpers
 
         public static bool Contains<T>(this T[] ar, T o)
         {
-            foreach (T t in ar)
+            foreach (var t in ar)
             {
                 if (Equals(t, o))
                 {
@@ -85,7 +85,7 @@ namespace System.Net.Torrent.Helpers
 
         public static bool Contains<T>(this T[] ar, Func<T, bool> expr)
         {
-            foreach (T t in ar)
+            foreach (var t in ar)
             {
                 if (expr != null && expr(t))
                 {

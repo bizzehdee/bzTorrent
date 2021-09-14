@@ -29,11 +29,11 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
 */
 
+using System.Collections.Generic;
+using System.IO;
+
 namespace System.Net.Torrent.Data
 {
-    using System.Collections.Generic;
-    using System.IO;
-
     public interface IMetadata : IHashProvider
     {
         public string Announce { get; }

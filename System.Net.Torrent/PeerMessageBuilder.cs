@@ -28,15 +28,15 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
 */
 
+using System.Collections.Generic;
+using System.Net.Torrent.Helpers;
+
 namespace System.Net.Torrent
 {
-    using System.Collections.Generic;
-    using System.Net.Torrent.Helpers;
-
     public class PeerMessageBuilder : IDisposable
     {
-        public uint PacketLength { get { return (uint)(5 + MessagePayload.Count); } }
-        public uint MessageLength { get { return (uint)(1 + MessagePayload.Count); } }
+        public uint PacketLength { get => (uint)(5 + MessagePayload.Count); }
+        public uint MessageLength { get => (uint)(1 + MessagePayload.Count); }
         public byte MessageID { get; private set; }
         public List<byte> MessagePayload { get; private set; }
 

@@ -45,11 +45,11 @@ namespace System.Net.Torrent.Extensions
         private ExtendedProtocolExtensions _parent;
 
         public string Protocol
-        {
-            get { return "ut_metadata"; }
-        }
+		{
+			get => "ut_metadata";
+		}
 
-        public event Action<IPeerWireClient, IBTExtension, BDict> MetaDataReceived;
+		public event Action<IPeerWireClient, IBTExtension, BDict> MetaDataReceived;
 
         public void Init(ExtendedProtocolExtensions parent)
         {

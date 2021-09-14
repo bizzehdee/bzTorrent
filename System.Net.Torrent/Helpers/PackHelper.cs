@@ -41,18 +41,20 @@ namespace System.Net.Torrent.Helpers
 
         private static bool NeedsFlipping(Endianness e)
         {
-            switch (e)
-            {
-                case Endianness.Big:
-                    return BitConverter.IsLittleEndian;
-                case Endianness.Little:
-                    return !BitConverter.IsLittleEndian;
-            }
+			switch (e)
+			{
+				case Endianness.Big:
+					return BitConverter.IsLittleEndian;
+				case Endianness.Little:
+					return !BitConverter.IsLittleEndian;
+				case Endianness.Machine:
+					break;
+			}
 
-            return false;
-        }
+			return false;
+		}
 
-        public static byte[] Int16(short i)
+		public static byte[] Int16(short i)
         {
             return BitConverter.GetBytes(IPAddress.HostToNetworkOrder(i));
         }
@@ -73,7 +75,7 @@ namespace System.Net.Torrent.Helpers
 
             var byteMarker = bytes.Length;
             ushort result = 0;
-            for (int i = 0; i < bytes.Length; i++)
+            for (var i = 0; i < bytes.Length; i++)
             {
                 byteMarker--;
                 result = (ushort)(result | bytes[i] << (byteMarker * 8));
@@ -127,7 +129,7 @@ namespace System.Net.Torrent.Helpers
             }
 
             var bytes = new byte[str.Length / 2];
-            for (int i = 0; i < str.Length/2; i++)
+            for (var i = 0; i < str.Length/2; i++)
             {
                 var startByte = NeedsFlipping(e) == false ? i : (str.Length - (i * 2))-2;
 
@@ -136,5 +138,5 @@ namespace System.Net.Torrent.Helpers
 
             return bytes;
         }
-    }
+	}
 }

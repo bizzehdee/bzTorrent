@@ -28,11 +28,11 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
 */
 
+using System.Collections.Generic;
+using System.Text.RegularExpressions;
+
 namespace System.Net.Torrent
 {
-    using System.Collections.Generic;
-    using System.Text.RegularExpressions;
-
     public abstract class BaseScraper
     {
         protected readonly Regex HashRegex = new Regex("^[a-f0-9]{40}$", RegexOptions.ECMAScript | RegexOptions.IgnoreCase);

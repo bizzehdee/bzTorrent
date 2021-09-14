@@ -28,11 +28,11 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
 */
 
+using System.Collections.Generic;
+using System.IO;
+
 namespace System.Net.Torrent.BEncode
 {
-    using System.Collections.Generic;
-    using System.IO;
-
     [Serializable]
     public class BDict : Dictionary<string, IBencodingType>, IEquatable<BDict>, IEquatable<Dictionary<string, IBencodingType>>, IBencodingType
     {
@@ -76,7 +76,7 @@ namespace System.Net.Torrent.BEncode
             writer.Write('d');
 
             // Write elements
-            foreach (KeyValuePair<string, IBencodingType> item in this)
+            foreach (var item in this)
             {
                 // Write key
                 var key = new BString
@@ -169,7 +169,7 @@ namespace System.Net.Torrent.BEncode
             {
                 if (value == null)
                 {
-                    throw new ArgumentNullException("value");
+					throw new ArgumentNullException("value");
                 }
 
                 base[index] = value;
@@ -178,7 +178,7 @@ namespace System.Net.Torrent.BEncode
 
         public override int GetHashCode()
         {
-            int r = 1;
+            var r = 1;
 
             foreach (var pair in this)
             {
