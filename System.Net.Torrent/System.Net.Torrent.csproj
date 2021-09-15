@@ -13,7 +13,7 @@
         <Copyright>Darren Horrocks</Copyright>
         <Description>Open source bittorrent scraper and peer wire implementation written in C#</Description>
     </PropertyGroup>
-    <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <PropertyGroup>
       <LangVersion>default</LangVersion>
     </PropertyGroup>
     <ItemGroup>
