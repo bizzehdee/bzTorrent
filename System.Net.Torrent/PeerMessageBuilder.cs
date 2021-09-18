@@ -29,6 +29,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 using System.Collections.Generic;
+using System.Net.Torrent.Data;
 using System.Net.Torrent.Helpers;
 
 namespace System.Net.Torrent
@@ -73,23 +74,25 @@ namespace System.Net.Torrent
             MessagePayload.AddRange(PackHelper.Hex(str));
 
             return this;
-        }
+		}
 
-        public byte[] Message()
-        {
-            var messageBytes = new byte[PacketLength];
-            var lengthBytes = PackHelper.UInt32(MessageLength);
+		public PeerWirePacket Message()
+		{
+			var messageBytes = new byte[PacketLength];
+			var lengthBytes = PackHelper.UInt32(MessageLength);
 
-            lengthBytes.CopyTo(messageBytes, 0);
+			lengthBytes.CopyTo(messageBytes, 0);
 
-            messageBytes[4] = MessageID;
+			messageBytes[4] = MessageID;
 
-            MessagePayload.CopyTo(messageBytes, 5);
+			MessagePayload.CopyTo(messageBytes, 5);
 
-            return messageBytes;
-        }
+			var packet = new PeerWirePacket();
+			packet.Parse(messageBytes);
+			return packet;
+		}
 
-        public void Dispose()
+		public void Dispose()
         {
             MessagePayload.Clear();
         }

@@ -29,12 +29,10 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.Net.Sockets;
 using System.Net.Torrent.IO;
 using System.Net.Torrent.Helpers;
-using System.Text;
 using System.Threading;
+using System.Net.Torrent.Data;
 
 namespace System.Net.Torrent
 {
@@ -42,22 +40,12 @@ namespace System.Net.Torrent
     {
         private readonly object _locker = new();
         private bool _asyncContinue = true;
-        private readonly byte[] _bitTorrentProtocolHeader = { 0x42, 0x69, 0x74, 0x54, 0x6F, 0x72, 0x72, 0x65, 0x6E, 0x74, 0x20, 0x70, 0x72, 0x6F, 0x74, 0x6F, 0x63, 0x6F, 0x6C };
 
-        internal readonly IWireIO Socket;
-        private byte[] _internalBuffer; //async internal buffer
-        private readonly List<IProtocolExtension> _btProtocolExtensions;
-        private bool _handshakeSent;
-        private bool _handshakeComplete;
-        private bool _receiving;
-        private IAsyncResult _async;
+		private readonly IPeerConnection peerConnection;
+		private byte[] _internalBuffer; //async internal buffer
+        private readonly List<IProtocolExtension> _btProtocolExtensions;        
 
-        private const int MinBufferSize = 1024;
-        private const int MaxBufferSize = 1024 * 256;
-        private int _dynamicBufferSize = 1024*16;
-        
-
-        public int Timeout { get => Socket.Timeout; }
+        public int Timeout { get => peerConnection.Timeout; }
         public bool[] PeerBitField { get; set; }
         public bool KeepConnectionAlive { get; set; }
         
@@ -81,9 +69,9 @@ namespace System.Net.Torrent
         public event Action<IPeerWireClient, int, int, int> Cancel;
         
 
-        public PeerWireClient(IWireIO io)
+        public PeerWireClient(IPeerConnection io)
         {
-            Socket = io;
+			peerConnection = io;
 
             _btProtocolExtensions = new List<IProtocolExtension>();
 
@@ -92,38 +80,26 @@ namespace System.Net.Torrent
 
         public void Connect(IPEndPoint endPoint)
         {
-            Socket.Connect(endPoint);
+			peerConnection.Connect(endPoint);
         }
 
         public void Connect(string ipHost, int port)
         {
-            Socket.Connect(new IPEndPoint(IPAddress.Parse(ipHost), port));
+			peerConnection.Connect(new IPEndPoint(IPAddress.Parse(ipHost), port));
         }
 
         public void Disconnect()
         {
-            if(_async != null)
-            {
-                Socket.EndReceive(_async);
-            }
-
-            Socket.Disconnect();
+			peerConnection.Disconnect();
         }
 
         public bool Handshake()
         {
-            return Handshake(PackHelper.Hex(Hash), Encoding.ASCII.GetBytes(LocalPeerID));
+            return Handshake(Hash, LocalPeerID);
         }
+
 
         public bool Handshake(string hash, string peerId)
-        {
-            LocalPeerID = peerId;
-            Hash = hash;
-
-            return Handshake();
-        }
-
-        public bool Handshake(byte[] hash, byte[] peerId)
         {
             if (hash == null)
             {
@@ -135,7 +111,7 @@ namespace System.Net.Torrent
                 throw new ArgumentNullException("peerId", "Peer ID cannot be null");
             }
 
-            if (hash.Length != 20)
+            if (hash.Length != 40)
             {
                 throw new ArgumentOutOfRangeException("hash", "hash must be 20 bytes exactly");
             }
@@ -155,28 +131,19 @@ namespace System.Net.Torrent
                 }
             }
 
-            var sendBuf = (new[] { (byte)_bitTorrentProtocolHeader.Length }).Cat(_bitTorrentProtocolHeader).Cat(reservedBytes).Cat(hash).Cat(peerId);
+			var handshake = new PeerClientHandshake
+			{
+				InfoHash = hash,
+				PeerId = peerId,
+				ReservedBytes = reservedBytes
+			};
 
-            try
-            {
-                var len = Socket.Send(sendBuf);
-                if (len != sendBuf.Length)
-                {
-                    throw new Exception("Didnt sent entire handshake");
-                }
-            }
-            catch (SocketException ex)
-            {
-                Trace.TraceInformation(ex.Message);
-                return false;
-            }
+			peerConnection.Handshake(handshake);
 
-            foreach (var extension in _btProtocolExtensions)
+			foreach (var extension in _btProtocolExtensions)
             {
                 extension.OnHandshake(this);
             }
-
-            _handshakeSent = true;
 
             return true;
         }
@@ -209,159 +176,72 @@ namespace System.Net.Torrent
                 return true;
             }
 
-            if (Socket.Connected)
-            {
-                Socket.Disconnect();
-            }
-
             DroppedConnection?.Invoke(this);
 
-            return false;
+            return true;
         }
 
         private bool InternalProcess()
         {
-            if (!_receiving)
-            {
-                var recBuffer = new byte[_dynamicBufferSize];
-                try
-                {
-                    _receiving = true;
+			peerConnection.Process();
 
-                    _async = Socket.BeginReceive(recBuffer, 0, _dynamicBufferSize, OnReceived, recBuffer);
-                }
-                catch(Exception ex)
-                {
-                    Trace.TraceInformation(ex.Message);
-                    return false;
-                }
+			var command = peerConnection.Receive();
 
-
-            }
-
-            if (_internalBuffer.Length < 4)
+			if (command == null)
             {
                 OnNoData();
 
-                return Socket.Connected;
+                return peerConnection.Connected;
             }
 
-            if (!_handshakeComplete)
-            {
-                int resLen = _internalBuffer[0];
-                if (resLen != 19)
-                {
-                    if (resLen == 0)
-                    {
-                        // keep alive?
-                        Thread.Sleep(100);
-
-                        Disconnect();
-                        return false;
-                    }
-                }
-
-                _handshakeComplete = true;
-
-                var recReserved = _internalBuffer.GetBytes(20, 8);
-                RemoteUsesDHT = (recReserved[7] & 0x1) == 0x1;
-
-                var remoteHashBytes = _internalBuffer.GetBytes(28, 20);
-                if (string.IsNullOrEmpty(Hash))
-                {
-                    var remoteHash = UnpackHelper.Hex(remoteHashBytes);
-                    Hash = remoteHash;
-                }
-
-                var remoteIdbytes = _internalBuffer.GetBytes(48, 20);
-
-                RemotePeerID = Encoding.ASCII.GetString(remoteIdbytes);
-
-                lock (_locker)
-                {
-                    _internalBuffer = _internalBuffer.GetBytes(68);
-                }
-
-                OnHandshake();
-
-                if (_handshakeSent)
-                {
-                    return true;
-                }
-
-                Handshake();
-
-                return true;
-            }
-
-            var commandLength = UnpackHelper.Int32(_internalBuffer, 0, UnpackHelper.Endianness.Big);
-
-            if (commandLength > (_internalBuffer.Length - 4))
-            {
-                //need more data first
-                return true;
-            }
-
-            lock (_locker)
-            {
-                _internalBuffer = _internalBuffer.GetBytes(4);
-            }
-
-            if (commandLength == 0)
+            if (command.Command == PeerClientCommands.KeepAlive)
             {
                 if (!KeepConnectionAlive)
                 {
-                    return true;
+                    return peerConnection.Connected;
                 }
 
                 SendKeepAlive();
                 OnKeepAlive();
 
-                return true;
+                return peerConnection.Connected;
             }
 
-            int commandId = _internalBuffer[0];
-
-            lock (_locker)
+            switch (command.Command)
             {
-                _internalBuffer = _internalBuffer.GetBytes(1);
-            }
-
-            switch (commandId)
-            {
-                case 0:
+                case PeerClientCommands.Choke:
                     //choke
                     OnChoke();
                     break;
-                case 1:
+                case PeerClientCommands.Unchoke:
                     //unchoke
                     OnUnChoke();
                     break;
-                case 2:
+                case PeerClientCommands.Interested:
                     //interested
                     OnInterested();
                     break;
-                case 3:
+                case PeerClientCommands.NotInterested:
                     //not interested
                     OnNotInterested();
                     break;
-                case 4:
+                case PeerClientCommands.Have:
                     //have
                     ProcessHave();
                     break;
-                case 5:
+                case PeerClientCommands.Bitfield:
                     //bitfield
-                    ProcessBitfield(commandLength - 1);
+                    ProcessBitfield(command.CommandLength - 1);
                     break;
-                case 6:
+                case PeerClientCommands.Request:
                     //request
                     ProcessRequest(false);
                     break;
-                case 7:
+                case PeerClientCommands.Piece:
                     //piece
-                    ProcessPiece(commandLength - 1);
+                    ProcessPiece(command.CommandLength - 1);
                     break;
-                case 8:
+                case PeerClientCommands.Cancel:
                     //cancel
                     ProcessRequest(true);
                     break;
@@ -369,106 +249,64 @@ namespace System.Net.Torrent
                 {
                     foreach (var extension in _btProtocolExtensions)
                     {
-                        if (!extension.CommandIDs.Contains(b => b == commandId))
+                        if (!extension.CommandIDs.Contains(b => b == (byte)command.Command))
                         {
                             continue;
                         }
 
-                        if (extension.OnCommand(this, commandLength, (byte)commandId, _internalBuffer))
+                        if (extension.OnCommand(this, command.CommandLength, (byte)command.Command, command.Payload))
                         {
                             break;
                         }
                     }
-
-                    lock (_locker)
-                    {
-                            _internalBuffer = _internalBuffer.GetBytes(commandLength - 1);
-                    }
                 }
-                    break;
+                break;
             }
 
             return true;
         }
 
-        private void OnReceived(IAsyncResult ar)
-        {
-            if (Socket == null)
-            {
-                return;
-            }
-
-            var data = (byte[])ar.AsyncState;
-
-            var len = Socket.EndReceive(ar);
-
-            _async = null;
-
-            if (len > 0)
-            {
-                lock (_locker)
-                {
-                    _internalBuffer = _internalBuffer == null ? data : _internalBuffer.Cat(data.GetBytes(0, len));
-                }
-
-                #region Automatically alter the buffer size
-                if (_internalBuffer.Length > _dynamicBufferSize && (_dynamicBufferSize - 1024) >= MinBufferSize)
-                {
-                    _dynamicBufferSize -= 1024;
-                }
-
-                if (_internalBuffer.Length < _dynamicBufferSize && (_dynamicBufferSize + 1024) <= MaxBufferSize)
-                {
-                    _dynamicBufferSize += 1024;
-                }
-                #endregion
-            }
-
-            _receiving = false;
-
-        }
-
         public bool SendKeepAlive()
         {
-            var sent = Socket.Send(PackHelper.Int32(0));
+            peerConnection.Send(new PeerMessageBuilder(128).Message());
 
-            return sent == 4;
+            return true;
         }
 
         public bool SendChoke()
         {
-            var sent = Socket.Send(new PeerMessageBuilder(0).Message());
+            peerConnection.Send(new PeerMessageBuilder(0).Message());
 
-            return sent == 5;
+            return true;
         }
 
         public bool SendUnChoke()
         {
-            var sent = Socket.Send(new PeerMessageBuilder(1).Message());
+			peerConnection.Send(new PeerMessageBuilder(1).Message());
 
-            return sent == 5;
-        }
+			return true;
+		}
 
         public bool SendInterested()
         {
-            var sent = Socket.Send(new PeerMessageBuilder(2).Message());
+			peerConnection.Send(new PeerMessageBuilder(2).Message());
 
-            return sent == 5;
-        }
+			return true;
+		}
 
         public bool SendNotInterested()
         {
-            var sent = Socket.Send(new PeerMessageBuilder(3).Message());
+			peerConnection.Send(new PeerMessageBuilder(3).Message());
 
-            return sent == 5;
-        }
+			return true;
+		}
 
         public bool SendHave(uint index)
         {
-            var sent = Socket.Send(new PeerMessageBuilder(4).Add(index).Message());
+			peerConnection.Send(new PeerMessageBuilder(4).Add(index).Message());
 
-            return sent == 9;
-        }
+			return true;
+		}
 
         public void SendBitField(bool[] bitField)
         {
@@ -517,7 +355,7 @@ namespace System.Net.Torrent
                 }
             }
 
-            var sent = Socket.Send(new PeerMessageBuilder(5).Add(bytes).Message());
+			peerConnection.Send(new PeerMessageBuilder(5).Add(bytes).Message());
 
             if (obsfIDs.Length > 0)
             {
@@ -527,35 +365,35 @@ namespace System.Net.Torrent
                 }
             }
 
-            return sent == (5 + bitField.Length);
-        }
+			return true;
+		}
 
         public bool SendRequest(uint index, uint start, uint length)
         {
-            var sent = Socket.Send(new PeerMessageBuilder(6).Add(index).Add(start).Add(length).Message());
+			peerConnection.Send(new PeerMessageBuilder(6).Add(index).Add(start).Add(length).Message());
 
-            return sent == 17;
+            return true;
         }
 
         public bool SendPiece(uint index, uint start, byte[] data)
         {
-            var sent = Socket.Send(new PeerMessageBuilder(7).Add(index).Add(start).Add(data).Message());
+			peerConnection.Send(new PeerMessageBuilder(7).Add(index).Add(start).Add(data).Message());
 
-            return (sent == 13 + data.Length);
+            return true;
         }
 
         public bool SendCancel(uint index, uint start, uint length)
         {
-            var sent = Socket.Send(new PeerMessageBuilder(8).Add(index).Add(start).Add(length).Message());
+			peerConnection.Send(new PeerMessageBuilder(8).Add(index).Add(start).Add(length).Message());
 
-            return sent == 13;
+            return true;
         }
 
         public bool SendBytes(byte[] bytes)
         {
-            var sent = Socket.Send(bytes);
+            //var sent = Socket.Send(bytes);
 
-            return sent == bytes.Length;
+            return true;
         }
 
         #region Processors

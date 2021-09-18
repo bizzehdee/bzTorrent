@@ -15,6 +15,8 @@ namespace System.Net.Torrent.IO
 
 		bool Process();
 
+		void Handshake(PeerClientHandshake handshake);
+
 		PeerWirePacket Receive();
 		void Send(PeerWirePacket packet);
 	}

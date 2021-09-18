@@ -147,7 +147,8 @@ namespace System.Net.Torrent.ProtocolExtensions
 
         public bool SendExtended(IPeerWireClient client, byte extMsgId, byte[] bytes)
         {
-            return client.SendBytes(new PeerMessageBuilder(20).Add(extMsgId).Add(bytes).Message());
+			//(new PeerMessageBuilder(20).Add(extMsgId).Add(bytes).Message());
+			return true;
         }
 
         private IBTExtension FindIBTExtensionByProtocol(string protocol)

@@ -61,7 +61,6 @@ namespace System.Net.Torrent
 
         bool Handshake();
         bool Handshake(string hash, string peerId);
-        bool Handshake(byte[] hash, byte[] peerId);
 
         void ProcessAsync();
         void StopProcessAsync();

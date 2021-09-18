@@ -13,7 +13,7 @@
         static void Main(string[] args)
         {
             Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
-
+            /*
             DecodeTorrentToMeta();
 
             TestMagnetLink();
@@ -30,7 +30,7 @@
             AnnounceTorrent();
 
             ScrapeTorrent();
-
+            */
             TestPeerWireClient();
         }
 
@@ -97,7 +97,7 @@
         static void TestPeerWireClient()
         {
             //create a socket with chosen protocol
-            var socket = new WireIO.Tcp();
+            var socket = new PeerWireTCPConnection();
 
             //create a client with that socket
             var client = new PeerWireClient(socket);
@@ -106,7 +106,7 @@
             client.Connect("127.0.0.1", 63516);
 
             //perform handshake
-            client.Handshake("e4be9e4db876e3e3179778b03e906297be5c8dbe", "-ST2222-011345223110");
+            client.Handshake("e4be9e4db876e3e3179778b03e906297be5c8dbe", "-LN2222-011345223110");
 
             //implement events
 

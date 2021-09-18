@@ -16,6 +16,7 @@ namespace System.Net.Torrent.IO
 		private readonly byte[] socketBuffer = new byte[socketBufferSize];
 		private readonly Queue<PeerWirePacket> receiveQueue = new();
 		private readonly Queue<PeerWirePacket> sendQueue = new();
+		private PeerClientHandshake incomingHandshake = null;
 
 		public int Timeout
 		{
@@ -28,8 +29,10 @@ namespace System.Net.Torrent.IO
 
 		public bool Connected
 		{
-			get => socket.Connected;
+			get => socket.Connected && incomingHandshake != null;
 		}
+
+		public PeerClientHandshake RemoteHandshake { get => incomingHandshake; }
 
 		public PeerWireTCPConnection()
 		{
@@ -82,7 +85,7 @@ namespace System.Net.Torrent.IO
 
 			foreach (var packet in sendQueue)
 			{
-
+				
 			}
 
 			return Connected;
@@ -103,9 +106,52 @@ namespace System.Net.Torrent.IO
 			return null;
 		}
 
+		public void Handshake(PeerClientHandshake handshake)
+		{
+			var infoHashBytes = PackHelper.Hex(handshake.InfoHash);
+			var protocolHeaderBytes = Encoding.ASCII.GetBytes(handshake.ProtocolHeader);
+			var peerIdBytes = Encoding.ASCII.GetBytes(handshake.PeerId);
+
+			var sendBuf = (new byte[] { (byte)protocolHeaderBytes.Length }).Cat(protocolHeaderBytes).Cat(handshake.ReservedBytes).Cat(infoHashBytes).Cat(peerIdBytes);
+			socket.Send(sendBuf);
+		}
+
 		private void ReceiveCallback(IAsyncResult asyncResult)
 		{
 			var dataLength = socket.EndReceive(asyncResult);
+
+			if(incomingHandshake == null)
+			{
+				if (dataLength == 0)
+				{
+					receiving = false;
+					return;
+				}
+
+				var protocolStrLen = socketBuffer[0];
+				var protocolStrBytes = socketBuffer.GetBytes(1, protocolStrLen);
+				var reservedBytes = socketBuffer.GetBytes(1 + protocolStrLen, 8);
+				var infoHashBytes = socketBuffer.GetBytes(1 + protocolStrLen + 8, 20);
+				var peerIdBytes = socketBuffer.GetBytes(1 + protocolStrLen + 28, 20);
+
+				var protocolStr = Encoding.ASCII.GetString(protocolStrBytes);
+
+				if(protocolStr != "BitTorrent protocol")
+				{
+					//throw exception
+				}
+
+				incomingHandshake = new PeerClientHandshake
+				{
+					ReservedBytes = reservedBytes,
+					ProtocolHeader = protocolStr,
+					InfoHash = UnpackHelper.Hex(infoHashBytes),
+					PeerId = Encoding.ASCII.GetString(peerIdBytes)
+				};
+
+				receiving = false;
+				return;
+			}
 
 			if (currentPacketBuffer == null)
 			{

@@ -65,7 +65,7 @@ namespace System.Net.Torrent
         {
             var socket = _socket.EndAccept(ar);
 
-            NewPeer?.Invoke(new PeerWireClient(socket));
+            //NewPeer?.Invoke(new PeerWireClient(socket));
 
             _socket.BeginAccept(Callback);
         }
