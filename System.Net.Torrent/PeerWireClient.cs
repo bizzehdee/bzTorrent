@@ -191,12 +191,6 @@ namespace System.Net.Torrent
 
             if (command.Command == PeerClientCommands.KeepAlive)
             {
-                if (!KeepConnectionAlive)
-                {
-                    return peerConnection.Connected;
-                }
-
-                SendKeepAlive();
                 OnKeepAlive();
 
                 return peerConnection.Connected;
