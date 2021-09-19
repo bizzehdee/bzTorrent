@@ -28,6 +28,7 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
 */
 
+using System.Net.Sockets;
 using System.Net.Torrent.Data;
 
 namespace System.Net.Torrent.IO
@@ -39,6 +40,10 @@ namespace System.Net.Torrent.IO
 
 		void Connect(IPEndPoint endPoint);
 		void Disconnect();
+		void Listen(EndPoint ep);
+		IPeerConnection Accept();
+		IAsyncResult BeginAccept(AsyncCallback callback);
+		Socket EndAccept(IAsyncResult ar);
 
 		bool Process();
 

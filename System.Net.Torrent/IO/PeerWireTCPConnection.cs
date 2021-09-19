@@ -115,6 +115,16 @@ namespace System.Net.Torrent.IO
 			return new PeerWireTCPConnection(socket.Accept());
 		}
 
+		public IAsyncResult BeginAccept(AsyncCallback callback)
+		{
+			return socket.BeginAccept(callback,  null);
+		}
+
+		public Socket EndAccept(IAsyncResult ar)
+		{
+			return socket.EndAccept(ar);
+		}
+
 		public bool Process()
 		{
 			if (receiving == false)

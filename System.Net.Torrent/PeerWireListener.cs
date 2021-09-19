@@ -28,48 +28,51 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
 */
 
+using System.Net.Sockets;
 using System.Net.Torrent.IO;
 
 namespace System.Net.Torrent
 {
-    public class PeerWireListener
-    {
-		/*
-        private readonly IWireIO _socket;
-        private readonly int _port;
-        private IAsyncResult _ar = null;
+    public class PeerWireListener<T> where T : IPeerConnection, new()
+	{
+		
+        private readonly T peerConnection;
+        private readonly int port;
+        private IAsyncResult asyncResult = null;
 
         public event Action<PeerWireClient> NewPeer;
 
         public PeerWireListener(int port)
         {
-            _port = port;
-            _socket = new WireIO.Tcp();
+			this.port = port;
+			peerConnection = new T();
         }
 
         public void StartListening()
         {
-            _socket.Listen(new IPEndPoint(IPAddress.Any, _port));
-            _ar = _socket.BeginAccept(Callback);
+			peerConnection.Listen(new IPEndPoint(IPAddress.Any, port));
+			asyncResult = peerConnection.BeginAccept(Callback);
         }
 
 
         public void StopListening()
         {
-            if (_ar != null)
+            if (asyncResult != null)
             {
-                _socket.EndAccept(_ar);
+				peerConnection.EndAccept(asyncResult);
             }
         }
 
         private void Callback(IAsyncResult ar)
         {
-            var socket = _socket.EndAccept(ar);
+            var socket = peerConnection.EndAccept(ar);
 
-            //NewPeer?.Invoke(new PeerWireClient(socket));
+			var constructorInfo = typeof(T).GetConstructor(new[] { typeof(Socket) });
 
-            _socket.BeginAccept(Callback);
+			NewPeer?.Invoke(new PeerWireClient((IPeerConnection)constructorInfo.Invoke(new object[] { socket })));
+
+            peerConnection.BeginAccept(Callback);
         }
-		*/
+		
     }
 }

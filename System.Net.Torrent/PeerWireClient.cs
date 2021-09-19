@@ -71,7 +71,6 @@ namespace System.Net.Torrent
         {
 			peerConnection = io;
             _btProtocolExtensions = new List<IProtocolExtension>();
-
         }
 
         public void Connect(IPEndPoint endPoint)
