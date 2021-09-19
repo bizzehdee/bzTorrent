@@ -30,11 +30,10 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 using bzBencode;
 using System.Net.Torrent.Helpers;
-using System.Net.Torrent.ProtocolExtensions;
 
-namespace System.Net.Torrent.Extensions
+namespace System.Net.Torrent.ProtocolExtensions
 {
-    public class UTPeerExchange : IBTExtension
+	public class UTPeerExchange : IBTExtension
     {
         private ExtendedProtocolExtensions _parent;
 

@@ -31,12 +31,12 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 using System.Linq;
 using bzBencode;
 using System.Net.Torrent.Helpers;
-using System.Net.Torrent.ProtocolExtensions;
 using System.Text;
+using System.Net.Torrent.Data;
 
-namespace System.Net.Torrent.Extensions
+namespace System.Net.Torrent.ProtocolExtensions
 {
-    public class UTMetadata : IBTExtension
+	public class UTMetadata : IBTExtension
     {
         private long _metadataSize;
         private long _pieceCount;
@@ -108,16 +108,20 @@ namespace System.Net.Torrent.Extensions
 
                 var encoded = BencodingUtils.EncodeString(masterBDict);
 
-                var buffer = PackHelper.UInt32((uint)(2 + encoded.Length));
-                buffer = buffer.Concat(new byte[] {20}).ToArray();
-                buffer = buffer.Concat(new[] { _parent.GetIncomingMessageID(peerWireClient, this) }).ToArray();
+				var buffer = new[] { _parent.GetIncomingMessageID(peerWireClient, this) };
                 buffer = buffer.Concat(Encoding.GetEncoding(1252).GetBytes(encoded)).ToArray();
 
                 sendBuffer = sendBuffer.Concat(buffer).ToArray();
-            }
 
-            peerWireClient.SendBytes(sendBuffer);
+				var packet = new PeerWirePacket
+				{
+					Command = PeerClientCommands.ExtendedProtocol,
+					Payload = buffer,
+					CommandLength = (uint)(2 + encoded.Length)
+				};
+
+				peerWireClient.SendPacket(packet);
+			}            
         }
-
     }
 }

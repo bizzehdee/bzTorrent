@@ -34,6 +34,7 @@ namespace System.Net.Torrent
 {
     public class PeerWireListener
     {
+		/*
         private readonly IWireIO _socket;
         private readonly int _port;
         private IAsyncResult _ar = null;
@@ -69,5 +70,6 @@ namespace System.Net.Torrent
 
             _socket.BeginAccept(Callback);
         }
+		*/
     }
 }

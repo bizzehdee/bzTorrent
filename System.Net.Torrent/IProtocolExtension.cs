@@ -36,5 +36,5 @@ namespace System.Net.Torrent
         byte[] CommandIDs { get; }
         bool OnHandshake(IPeerWireClient client);
         bool OnCommand(IPeerWireClient client, int commandLength, byte commandId, byte[] payload);
-    }
+	}
 }

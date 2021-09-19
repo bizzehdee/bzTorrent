@@ -30,11 +30,10 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 using System.Collections.Generic;
 using bzBencode;
-using System.Net.Torrent.ProtocolExtensions;
 
-namespace System.Net.Torrent.Extensions
+namespace System.Net.Torrent.ProtocolExtensions
 {
-    public class LTTrackerExchange : IBTExtension
+	public class LTTrackerExchange : IBTExtension
     {
         public event Action<IPeerWireClient, IBTExtension, string> TrackerAdded;
 

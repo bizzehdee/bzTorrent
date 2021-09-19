@@ -28,6 +28,8 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
 */
 
+using System.Net.Torrent.Data;
+
 namespace System.Net.Torrent
 {
     public interface IPeerWireClient
@@ -78,7 +80,7 @@ namespace System.Net.Torrent
         bool SendPiece(uint index, uint start, byte[] data);
         bool SendCancel(uint index, uint start, uint length);
 
-        bool SendBytes(byte[] bytes);
+        bool SendPacket(PeerWirePacket packet);
 
         void RegisterBTExtension(IProtocolExtension extension);
         void UnregisterBTExtension(IProtocolExtension extension);

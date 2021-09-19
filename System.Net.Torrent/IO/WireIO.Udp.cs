@@ -34,6 +34,7 @@ namespace System.Net.Torrent.IO
 {
     public partial class WireIO
     {
+		/*
         public class Udp : IWireIO
         {
             private readonly Socket _socket;
@@ -110,6 +111,6 @@ namespace System.Net.Torrent.IO
             {
                 throw new NotImplementedException();
             }
-        }
+        }*/
     }
 }

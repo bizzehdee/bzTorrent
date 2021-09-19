@@ -250,7 +250,7 @@ namespace System.Net.Torrent
                             continue;
                         }
 
-                        if (extension.OnCommand(this, command.CommandLength, (byte)command.Command, command.Payload))
+                        if (extension.OnCommand(this, (int)command.CommandLength, (byte)command.Command, command.Payload))
                         {
                             break;
                         }
@@ -530,5 +530,12 @@ namespace System.Net.Torrent
         {
             _btProtocolExtensions.Remove(extension);
         }
-    }
+
+		public bool SendPacket(PeerWirePacket packet)
+		{
+			peerConnection.Send(packet);
+
+			return true;
+		}
+	}
 }

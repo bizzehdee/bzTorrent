@@ -93,7 +93,10 @@ namespace System.Net.Torrent.ProtocolExtensions
             var handshakeBytes = Encoding.ASCII.GetBytes(handshakeEncoded);
             var length = 2 + handshakeBytes.Length;
 
-            client.SendBytes((new byte[0]).Cat(PackHelper.Int32(length).Cat(new[] { (byte)20 }).Cat(new[] { (byte)0 }).Cat(handshakeBytes)));
+			var packet = new PeerMessageBuilder(20).Add(0).Add(handshakeBytes).Message();
+			client.SendPacket(packet);
+
+            //client.SendBytes((new byte[0]).Cat(PackHelper.Int32(length).Cat(new[] { (byte)20 }).Cat(new[] { (byte)0 }).Cat(handshakeBytes)));
 
             return true;
         }
@@ -147,7 +150,9 @@ namespace System.Net.Torrent.ProtocolExtensions
 
         public bool SendExtended(IPeerWireClient client, byte extMsgId, byte[] bytes)
         {
-			//(new PeerMessageBuilder(20).Add(extMsgId).Add(bytes).Message());
+			var packet = (new PeerMessageBuilder(20).Add(extMsgId).Add(bytes).Message());
+			client.SendPacket(packet);
+
 			return true;
         }
 

@@ -104,6 +104,17 @@ namespace System.Net.Torrent.IO
 			}
 		}
 
+		public void Listen(EndPoint ep)
+		{
+			socket.Bind(ep);
+			socket.Listen(10);
+		}
+
+		public IPeerConnection Accept()
+		{
+			return new PeerWireTCPConnection(socket.Accept());
+		}
+
 		public bool Process()
 		{
 			if (receiving == false)
@@ -112,9 +123,9 @@ namespace System.Net.Torrent.IO
 				socket.BeginReceive(socketBuffer, 0, socketBufferSize, SocketFlags.None, ReceiveCallback, this);
 			}
 
-			foreach (var packet in sendQueue)
+			while (sendQueue.TryDequeue(out var packet))
 			{
-				
+				socket.Send(packet.GetBytes());
 			}
 
 			return Connected;
@@ -195,9 +206,9 @@ namespace System.Net.Torrent.IO
 			receiving = false;
 		}
 
-		private int ParsePackets(byte[] currentPacketBuffer)
+		private uint ParsePackets(byte[] currentPacketBuffer)
 		{
-			var parsedBytes = 0;
+			uint parsedBytes = 0;
 			PeerWirePacket packet;
 
 			do
@@ -207,7 +218,7 @@ namespace System.Net.Torrent.IO
 				if (packet != null)
 				{
 					parsedBytes += packet.PacketByteLength;
-					currentPacketBuffer = currentPacketBuffer.GetBytes(packet.PacketByteLength);
+					currentPacketBuffer = currentPacketBuffer.GetBytes((int)packet.PacketByteLength);
 					receiveQueue.Enqueue(packet);
 				}
 			} while (packet != null && currentPacketBuffer.Length > 0);

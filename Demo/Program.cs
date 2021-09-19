@@ -100,7 +100,10 @@
             var socket = new PeerWireTCPConnection();
 
             //create a client with that socket
-            var client = new PeerWireClient(socket);
+            var client = new PeerWireClient(socket)
+            {
+                KeepConnectionAlive = true
+            };
 
             //connect to the remote host
             client.Connect("127.0.0.1", 17101);

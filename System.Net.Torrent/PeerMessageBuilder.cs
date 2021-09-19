@@ -78,6 +78,13 @@ namespace System.Net.Torrent
 
 		public PeerWirePacket Message()
 		{
+			var packet = new PeerWirePacket()
+			{
+				Command = (PeerClientCommands)MessageID,
+				CommandLength = MessageLength,
+				Payload = MessagePayload.ToArray()
+			};
+			/*
 			var messageBytes = new byte[PacketLength];
 			var lengthBytes = PackHelper.UInt32(MessageLength);
 
@@ -89,6 +96,7 @@ namespace System.Net.Torrent
 
 			var packet = new PeerWirePacket();
 			packet.Parse(messageBytes);
+			*/
 			return packet;
 		}
 

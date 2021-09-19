@@ -34,15 +34,21 @@ namespace System.Net.Torrent.Data
 {
 	public class PeerWirePacket
 	{
-		public int PacketByteLength => 4 + CommandLength;
+		public uint PacketByteLength => 4 + CommandLength;
 
-		public int CommandLength { get; set; }
+		public uint CommandLength { get; set; }
 		public PeerClientCommands Command { get; set; }
 		public byte[] Payload { get; set; }
 
 		public bool Parse(byte[] currentPacketBuffer)
 		{
-			var commandLength = UnpackHelper.Int32(currentPacketBuffer, 0, UnpackHelper.Endianness.Big);
+			var commandLength = UnpackHelper.UInt32(currentPacketBuffer, 0, UnpackHelper.Endianness.Big);
+			if (commandLength == 0)
+			{
+				//keep-alive message
+				Command = PeerClientCommands.KeepAlive;
+				return true;
+			}
 
 			if (commandLength > (currentPacketBuffer.Length - 4))
 			{
@@ -52,18 +58,30 @@ namespace System.Net.Torrent.Data
 
 			CommandLength = commandLength;
 
-			if(CommandLength == 0)
-			{
-				//keep-alive message
-				Command = PeerClientCommands.KeepAlive;
-				return true;
-			}
-
 			Command = (PeerClientCommands)currentPacketBuffer[4];
 
-			Payload = currentPacketBuffer.GetBytes(5, CommandLength);
+			Payload = currentPacketBuffer.GetBytes(5, (int)CommandLength);
 
 			return true;
+		}
+
+		public byte[] GetBytes()
+		{
+			if(Command == PeerClientCommands.KeepAlive)
+			{
+				return new byte[1] { 0 };
+			}
+
+			var messageBytes = new byte[5 + Payload.Length];
+			var lengthBytes = PackHelper.UInt32((uint)(1 + Payload.Length));
+
+			lengthBytes.CopyTo(messageBytes, 0);
+
+			messageBytes[4] = (byte)Command;
+
+			Payload.CopyTo(messageBytes, 5);
+
+			return messageBytes;
 		}
 	}
 }
