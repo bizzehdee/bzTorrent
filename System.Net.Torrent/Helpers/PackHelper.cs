@@ -128,15 +128,13 @@ namespace System.Net.Torrent.Helpers
                 str += '0';
             }
 
-            var bytes = new byte[str.Length / 2];
-            for (var i = 0; i < str.Length/2; i++)
-            {
-                var startByte = NeedsFlipping(e) == false ? i : (str.Length - (i * 2))-2;
+			var bytes = new byte[str.Length / 2];
+			for (var i = 0; i < str.Length; i += 2)
+			{
+				bytes[i / 2] = Convert.ToByte(str.Substring(NeedsFlipping(e) ? ((str.Length - (i * 2)) - 2) : i, 2), 16);
+			}
 
-                bytes[i] = Convert.ToByte(str.Substring(startByte, 2), 16);
-            }
-
-            return bytes;
+			return bytes;
         }
 	}
 }
