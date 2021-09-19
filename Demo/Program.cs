@@ -103,7 +103,7 @@
             var client = new PeerWireClient(socket);
 
             //connect to the remote host
-            client.Connect("127.0.0.1", 63516);
+            client.Connect("127.0.0.1", 17101);
 
             //perform handshake
             client.Handshake("e4be9e4db876e3e3179778b03e906297be5c8dbe", "-LN2222-011345223110");

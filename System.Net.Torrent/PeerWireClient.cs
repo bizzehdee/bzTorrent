@@ -38,11 +38,9 @@ namespace System.Net.Torrent
 {
     public class PeerWireClient : IPeerWireClient
     {
-        private readonly object _locker = new();
         private bool _asyncContinue = true;
 
 		private readonly IPeerConnection peerConnection;
-		private byte[] _internalBuffer; //async internal buffer
         private readonly List<IProtocolExtension> _btProtocolExtensions;        
 
         public int Timeout { get => peerConnection.Timeout; }
@@ -72,10 +70,8 @@ namespace System.Net.Torrent
         public PeerWireClient(IPeerConnection io)
         {
 			peerConnection = io;
-
             _btProtocolExtensions = new List<IProtocolExtension>();
 
-            _internalBuffer = new byte[0];
         }
 
         public void Connect(IPEndPoint endPoint)
@@ -178,7 +174,7 @@ namespace System.Net.Torrent
 
             DroppedConnection?.Invoke(this);
 
-            return true;
+            return false;
         }
 
         private bool InternalProcess()
@@ -227,23 +223,23 @@ namespace System.Net.Torrent
                     break;
                 case PeerClientCommands.Have:
                     //have
-                    ProcessHave();
+                    ProcessHave(command);
                     break;
                 case PeerClientCommands.Bitfield:
                     //bitfield
-                    ProcessBitfield(command.CommandLength - 1);
+                    ProcessBitfield(command);
                     break;
                 case PeerClientCommands.Request:
                     //request
-                    ProcessRequest(false);
+                    ProcessRequest(command, false);
                     break;
                 case PeerClientCommands.Piece:
                     //piece
-                    ProcessPiece(command.CommandLength - 1);
+                    ProcessPiece(command);
                     break;
                 case PeerClientCommands.Cancel:
                     //cancel
-                    ProcessRequest(true);
+                    ProcessRequest(command, true);
                     break;
                 default:
                 {
@@ -263,7 +259,7 @@ namespace System.Net.Torrent
                 break;
             }
 
-            return true;
+            return peerConnection.Connected;
         }
 
         public bool SendKeepAlive()
@@ -397,31 +393,28 @@ namespace System.Net.Torrent
         }
 
         #region Processors
-        private void ProcessHave()
+        private void ProcessHave(PeerWirePacket packet)
         {
-            var pieceIndex = UnpackHelper.Int32(_internalBuffer, 0, UnpackHelper.Endianness.Big);
-
-            lock (_locker)
-            {
-                _internalBuffer = _internalBuffer.GetBytes(4);
-            }
+            var pieceIndex = UnpackHelper.Int32(packet.Payload, 0, UnpackHelper.Endianness.Big);
 
             OnHave(pieceIndex);
         }
 
-        private void ProcessBitfield(int length)
+        private void ProcessBitfield(PeerWirePacket packet)
         {
-            if (_internalBuffer.Length < length)
+            if (packet.Payload.Length < packet.CommandLength)
             {
                 //not sent entire bitfield, kill the connection
                 Disconnect();
                 return;
             }
 
-            PeerBitField = new bool[length * 8];
-            for (var i = 0; i < length; i++)
+			var bitfieldLength = packet.Payload.Length;
+
+			PeerBitField = new bool[bitfieldLength * 8];
+            for (var i = 0; i < bitfieldLength; i++)
             {
-                var b = _internalBuffer[0];
+                var b = packet.Payload[i];
 
                 PeerBitField[(i * 8) + 0] = b.GetBit(0);
                 PeerBitField[(i * 8) + 1] = b.GetBit(1);
@@ -431,27 +424,17 @@ namespace System.Net.Torrent
                 PeerBitField[(i * 8) + 5] = b.GetBit(5);
                 PeerBitField[(i * 8) + 6] = b.GetBit(6);
                 PeerBitField[(i * 8) + 7] = b.GetBit(7);
-
-                lock (_locker)
-                {
-                    _internalBuffer = _internalBuffer.GetBytes(1);
-                }
             }
 
-            OnBitField(length*8, PeerBitField);
+            OnBitField(bitfieldLength * 8, PeerBitField);
         }
 
 
-        private void ProcessRequest(bool cancel)
+        private void ProcessRequest(PeerWirePacket packet, bool cancel)
         {
-            var index = UnpackHelper.Int32(_internalBuffer, 0, UnpackHelper.Endianness.Big);
-            var begin = UnpackHelper.Int32(_internalBuffer, 4, UnpackHelper.Endianness.Big);
-            var length = UnpackHelper.Int32(_internalBuffer, 8, UnpackHelper.Endianness.Big);
-
-            lock (_locker)
-            {
-                _internalBuffer = _internalBuffer.GetBytes(12);
-            }
+            var index = UnpackHelper.Int32(packet.Payload, 0, UnpackHelper.Endianness.Big);
+            var begin = UnpackHelper.Int32(packet.Payload, 4, UnpackHelper.Endianness.Big);
+            var length = UnpackHelper.Int32(packet.Payload, 8, UnpackHelper.Endianness.Big);
 
             if (!cancel)
             {
@@ -463,22 +446,12 @@ namespace System.Net.Torrent
             }
         }
 
-        private void ProcessPiece(int length)
+        private void ProcessPiece(PeerWirePacket packet)
         {
-            var index = UnpackHelper.Int32(_internalBuffer, 0, UnpackHelper.Endianness.Big);
-            var begin = UnpackHelper.Int32(_internalBuffer, 4, UnpackHelper.Endianness.Big);
+			var index = UnpackHelper.Int32(packet.Payload, 0, UnpackHelper.Endianness.Big);
+            var begin = UnpackHelper.Int32(packet.Payload, 4, UnpackHelper.Endianness.Big);
 
-            lock (_locker)
-            {
-                _internalBuffer = _internalBuffer.GetBytes(8);
-            }
-
-            var buffer = _internalBuffer.GetBytes(0, length - 8);
-
-            lock (_locker)
-            {
-                _internalBuffer = _internalBuffer.GetBytes(length - 8);
-            }
+            var buffer = packet.Payload.GetBytes(8);
 
             OnPiece(index, begin, buffer);
         }

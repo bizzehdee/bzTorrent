@@ -120,7 +120,9 @@ namespace System.Net.Torrent.IO
 		{
 			var dataLength = socket.EndReceive(asyncResult);
 
-			if(incomingHandshake == null)
+			var socketBufferCopy = socketBuffer;
+
+			if (incomingHandshake == null)
 			{
 				if (dataLength == 0)
 				{
@@ -128,17 +130,17 @@ namespace System.Net.Torrent.IO
 					return;
 				}
 
-				var protocolStrLen = socketBuffer[0];
-				var protocolStrBytes = socketBuffer.GetBytes(1, protocolStrLen);
-				var reservedBytes = socketBuffer.GetBytes(1 + protocolStrLen, 8);
-				var infoHashBytes = socketBuffer.GetBytes(1 + protocolStrLen + 8, 20);
-				var peerIdBytes = socketBuffer.GetBytes(1 + protocolStrLen + 28, 20);
+				var protocolStrLen = socketBufferCopy[0];
+				var protocolStrBytes = socketBufferCopy.GetBytes(1, protocolStrLen);
+				var reservedBytes = socketBufferCopy.GetBytes(1 + protocolStrLen, 8);
+				var infoHashBytes = socketBufferCopy.GetBytes(1 + protocolStrLen + 8, 20);
+				var peerIdBytes = socketBufferCopy.GetBytes(1 + protocolStrLen + 28, 20);
 
 				var protocolStr = Encoding.ASCII.GetString(protocolStrBytes);
 
 				if(protocolStr != "BitTorrent protocol")
 				{
-					//throw exception
+					throw new Exception(string.Format("Unsupported protocol: '{0}'", protocolStr));
 				}
 
 				incomingHandshake = new PeerClientHandshake
@@ -149,8 +151,7 @@ namespace System.Net.Torrent.IO
 					PeerId = Encoding.ASCII.GetString(peerIdBytes)
 				};
 
-				receiving = false;
-				return;
+				socketBufferCopy = socketBufferCopy.GetBytes(protocolStrLen + 49);
 			}
 
 			if (currentPacketBuffer == null)
@@ -158,11 +159,9 @@ namespace System.Net.Torrent.IO
 				currentPacketBuffer = new byte[0];
 			}
 
-			currentPacketBuffer = currentPacketBuffer.Cat(socketBuffer.GetBytes(0, dataLength));
+			currentPacketBuffer = currentPacketBuffer.Cat(socketBufferCopy.GetBytes(0, dataLength));
 
-			var advanceBytes = ParsePackets(currentPacketBuffer);
-
-			currentPacketBuffer = currentPacketBuffer.GetBytes(advanceBytes);
+			ParsePackets(currentPacketBuffer);
 
 			receiving = false;
 		}
@@ -176,10 +175,13 @@ namespace System.Net.Torrent.IO
 			{
 				packet = ParsePacket(currentPacketBuffer);
 
-				parsedBytes += packet.PacketByteLength;
-
-				receiveQueue.Enqueue(packet);
-			} while (packet != null);
+				if (packet != null)
+				{
+					parsedBytes += packet.PacketByteLength;
+					currentPacketBuffer = currentPacketBuffer.GetBytes(packet.PacketByteLength);
+					receiveQueue.Enqueue(packet);
+				}
+			} while (packet != null && currentPacketBuffer.Length > 0);
 
 			return parsedBytes;
 		}

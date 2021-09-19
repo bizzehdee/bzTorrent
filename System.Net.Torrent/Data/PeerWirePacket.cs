@@ -36,7 +36,7 @@ namespace System.Net.Torrent.Data
 
 			Payload = currentPacketBuffer.GetBytes(5, CommandLength);
 
-			return false;
+			return true;
 		}
 	}
 }
