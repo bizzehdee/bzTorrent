@@ -1,11 +1,12 @@
-System.Net.Torrent
-==================
+bzTorrent
+=========
 
-Open source bittorrent scraper and peer wire implementation written in C#
+Open source dotnet bittorrent library with scraper and peer wire implementation written in C#
 
 - [x] Tracker Announce (HTTP/UDP)
 - [x] Tracker Scrape (HTTP/UDP)
 - [x] PeerWire (TCP) Client
+- [ ] PeerWire (uTP uTorrent Protocol) Client in development
 - [x] Choke
 - [x] Unchoke
 - [x] Interested
@@ -20,6 +21,5 @@ Open source bittorrent scraper and peer wire implementation written in C#
 - [x] Peer Exchange (utPEX)
 - [x] Trackerless Metadata (utMetadata)
 - [x] Magnet Link Parser
-- [x] Bencode Encode/Decode
 - [x] .torrent Metadata Parser
 - [x] Tracker Exchange Protocol
