@@ -11,7 +11,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\System.Net.Torrent\System.Net.Torrent.csproj" />
+    <ProjectReference Include="..\bzTorrent\bzTorrent.csproj" />
   </ItemGroup>
 
   <ItemGroup>

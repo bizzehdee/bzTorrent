@@ -1,9 +1,9 @@
 ﻿namespace Demo
 {
     using System;
-    using System.Net.Torrent;
-    using System.Net.Torrent.Data;
-    using System.Net.Torrent.IO;
+    using bzTorrent;
+    using bzTorrent.Data;
+    using bzTorrent.IO;
     using System.Text;
     using System.Threading;
     using System.Threading.Tasks;
