@@ -39,6 +39,7 @@ namespace System.Net.Torrent
     public class PeerWireClient : IPeerWireClient
     {
         private bool _asyncContinue = true;
+		private bool receivedHandshake = false;
 
 		private readonly IPeerConnection peerConnection;
         private readonly List<IProtocolExtension> _btProtocolExtensions;        
@@ -47,7 +48,6 @@ namespace System.Net.Torrent
         public bool[] PeerBitField { get; set; }
         public bool KeepConnectionAlive { get; set; }
         
-        public bool RemoteUsesDHT { get; private set; }
         public string LocalPeerID { get; set; }
         public string RemotePeerID { get; private set; }
         public string Hash { get; set; }
@@ -179,6 +179,15 @@ namespace System.Net.Torrent
         private bool InternalProcess()
         {
 			peerConnection.Process();
+
+			if(receivedHandshake == false && peerConnection.RemoteHandshake != null)
+			{
+				receivedHandshake = true;
+
+				RemotePeerID = peerConnection.RemoteHandshake.PeerId;
+
+				OnHandshake();
+			}
 
 			var command = peerConnection.Receive();
 
@@ -374,13 +383,6 @@ namespace System.Net.Torrent
         public bool SendCancel(uint index, uint start, uint length)
         {
 			peerConnection.Send(new PeerMessageBuilder(8).Add(index).Add(start).Add(length).Message());
-
-            return true;
-        }
-
-        public bool SendBytes(byte[] bytes)
-        {
-            //var sent = Socket.Send(bytes);
 
             return true;
         }

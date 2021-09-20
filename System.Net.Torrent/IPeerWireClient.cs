@@ -38,7 +38,6 @@ namespace System.Net.Torrent
         bool[] PeerBitField { get; set; }
         bool KeepConnectionAlive { get; set; }
         
-        bool RemoteUsesDHT { get; }
         string LocalPeerID { get; set; }
         string RemotePeerID { get; }
         string Hash { get; set; }

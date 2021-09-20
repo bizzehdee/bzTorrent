@@ -37,7 +37,7 @@ namespace System.Net.Torrent.IO
 	{
 		bool Connected { get; }
 		int Timeout { get; set; }
-
+		public PeerClientHandshake RemoteHandshake { get; }
 		void Connect(IPEndPoint endPoint);
 		void Disconnect();
 		void Listen(EndPoint ep);
