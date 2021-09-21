@@ -42,6 +42,7 @@ namespace bzTorrent
     {
         private bool _asyncContinue = true;
 		private bool receivedHandshake = false;
+		private DateTime lastKeepAliveSent;
 
 		private readonly IPeerConnection peerConnection;
         private readonly List<IProtocolExtension> _btProtocolExtensions;        
@@ -180,6 +181,12 @@ namespace bzTorrent
 
         private bool InternalProcess()
         {
+			if(lastKeepAliveSent == null || lastKeepAliveSent < DateTime.UtcNow.AddMinutes(-1))
+			{
+				lastKeepAliveSent = DateTime.UtcNow;
+				peerConnection.Send(new PeerWirePacket { Command = PeerClientCommands.KeepAlive });
+			}
+
 			peerConnection.Process();
 
 			if(receivedHandshake == false && peerConnection.RemoteHandshake != null)
