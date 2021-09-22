@@ -105,12 +105,12 @@ namespace bzTorrent
 
         public class AnnounceInfo
         {
-            public IEnumerable<EndPoint> Peers { get; set; }
+            public IEnumerable<IPEndPoint> Peers { get; set; }
             public int WaitTime { get; set; }
             public int Seeders { get; set; }
             public int Leechers { get; set; }
 
-            public AnnounceInfo(IEnumerable<EndPoint> peers, int a, int b, int c)
+            public AnnounceInfo(IEnumerable<IPEndPoint> peers, int a, int b, int c)
             {
                 Peers = peers;
 

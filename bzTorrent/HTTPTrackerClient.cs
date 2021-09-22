@@ -93,14 +93,24 @@ namespace bzTorrent
             realUrl += "&port=" + listenPort;
             realUrl += "&uploaded=" + bytesUploaded;
             realUrl += "&downloaded=" + bytesDownloaded;
-            realUrl += "&left=" + bytesLeft;
-            realUrl += "&event=started";
+			realUrl += "&left=" + bytesLeft;
+			realUrl += "&numWant=" + numWant;
+			realUrl += "&event=started";
             realUrl += "&compact=1";
 
             var webRequest = (HttpWebRequest)WebRequest.Create(realUrl);
             webRequest.Accept = "*/*";
             webRequest.UserAgent = "bzTorrent";
-            var webResponse = (HttpWebResponse)webRequest.GetResponse();
+			HttpWebResponse webResponse;
+
+			try
+			{
+				webResponse = (HttpWebResponse)webRequest.GetResponse();
+			}
+			catch (Exception)
+			{
+				return null;
+			}
 
             var stream = webResponse.GetResponseStream();
 
