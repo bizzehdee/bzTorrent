@@ -1,123 +1,166 @@
-﻿namespace Demo
+﻿using System;
+using bzTorrent;
+using bzTorrent.Data;
+using bzTorrent.IO;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+using System.IO;
+using System.Linq;
+using System.Collections.Generic;
+using System.Net;
+
+namespace Demo
 {
-    using System;
-    using bzTorrent;
-    using bzTorrent.Data;
-    using bzTorrent.IO;
-    using System.Text;
-    using System.Threading;
-    using System.Threading.Tasks;
 
     class Program
     {
+        static string peerId = "-bz2200-";
+        static string inputFilename;
+        static string downloadDirectory;
+        static IMetadata downloadMetadata;
+        static List<IPEndPoint> knownPeers = new();
+
         static void Main(string[] args)
         {
             Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
-            /*
-            DecodeTorrentToMeta();
 
-            TestMagnetLink();
+            GeneratePeerId();
 
-            TestMagnetLinkUDP();
+            Console.Title = "bzTorrent Demo";
 
-            TestAsyncMagnetLinkUDP();
-
-            TestAsyncMagnetLink();
-
-            AnnounceTorrentUDP();
-            AnnounceTorrentUDP();
-
-            AnnounceTorrent();
-
-            ScrapeTorrent();
-            */
-            TestPeerWireClient();
-        }
-
-        static void DecodeTorrentToMeta()
-        {
-            var meta = Metadata.FromFile("TestTorrents\\ubuntu-18.04-desktop-amd64.iso.torrent");
-        }
-
-        static void TestMagnetLink()
-        {
-            var ubuntuMagnetLink = "magnet:?xt=urn:btih:e4be9e4db876e3e3179778b03e906297be5c8dbe&dn=ubuntu-18.04-desktop-amd64.iso&tr=http://torrent.ubuntu.com:6969/announce";
-
-            var magnetLink = MagnetLink.Resolve(ubuntuMagnetLink);
-        }
-        static void TestMagnetLinkUDP()
-        {
-            var ubuntuMagnetLink = "magnet:?xt=urn:btih:e4be9e4db876e3e3179778b03e906297be5c8dbe&dn=ubuntu-18.04-desktop-amd64.iso&tr=udp://tracker.opentrackr.org:1337/announce";
-
-            var magnetLink = MagnetLink.Resolve(ubuntuMagnetLink);
-        }
-
-        static void TestAsyncMagnetLinkUDP()
-        {
-            var ubuntuMagnetLink = "magnet:?xt=urn:btih:e4be9e4db876e3e3179778b03e906297be5c8dbe&dn=ubuntu-18.04-desktop-amd64.iso&tr=udp://tracker.opentrackr.org:1337/announce";
-
-            var magnetMetadata = MagnetLink.ResolveToMetadata(ubuntuMagnetLink);
-
-            foreach (var item in magnetMetadata.AnnounceList)
+            for (var x = 0; x < args.Length; x++)
             {
-                Console.WriteLine(item);
+                if (args[x] == "-file")
+                {
+                    x++;
+                    inputFilename = args[x];
+                }
+                else if (args[x] == "-output")
+                {
+                    x++;
+                    downloadDirectory = Path.GetFullPath(args[x]);
+                }
             }
-        }
 
-        static void TestAsyncMagnetLink()
-        {
-            var ubuntuMagnetLink = "magnet:?xt=urn:btih:e4be9e4db876e3e3179778b03e906297be5c8dbe&dn=ubuntu-18.04-desktop-amd64.iso&tr=http://torrent.ubuntu.com:6969/announce";
-
-            var magnetMetadata = MagnetLink.ResolveToMetadata(ubuntuMagnetLink);
-
-            foreach (var item in magnetMetadata.AnnounceList)
+            if (!File.Exists(inputFilename))
             {
-                Console.WriteLine(item);
+                Console.WriteLine("{0} does not exist", inputFilename);
+                return;
             }
-        }
 
-        static void AnnounceTorrentUDP()
-        {
-            var scraper = new UDPTrackerClient(15);
-            var peers = scraper.Announce("udp://tracker.opentrackr.org:1337/announce", "e4be9e4db876e3e3179778b03e906297be5c8dbe", "-LW2222-011345223110");
-        }
+            if (!Directory.Exists(downloadDirectory))
+            {
+                Directory.CreateDirectory(downloadDirectory);
+            }
 
-        static void AnnounceTorrent()
-        {
-            var scraper = new HTTPTrackerClient(15);
-            var peers = scraper.Announce("http://torrent.ubuntu.com:6969/announce", "e4be9e4db876e3e3179778b03e906297be5c8dbe", "-LW2222-011345223110");
-        }
+            downloadMetadata = Metadata.FromFile(inputFilename);
 
-        static void ScrapeTorrent()
-        {
-            var scraper = new HTTPTrackerClient(15);
-            var announce = scraper.Scrape("http://torrent.ubuntu.com:6969/announce", new string[] { "e4be9e4db876e3e3179778b03e906297be5c8dbe" });
-        }
+            Console.Title = string.Format("bzTorrent Demo - {0}", downloadMetadata.Name);
 
-        static void TestPeerWireClient()
-        {
-            //create a socket with chosen protocol
-            var socket = new PeerWireTCPConnection();
+            Console.WriteLine("Downloading: {0} to {1}", downloadMetadata.Name, downloadDirectory);
+            Console.WriteLine("Hash: {0}", downloadMetadata.HashString);
+            Console.WriteLine("Pieces: {0} x {1} kb", downloadMetadata.PieceHashes.Count, downloadMetadata.PieceSize / 1024);
 
-            //create a client with that socket
+            foreach (var tracker in downloadMetadata.AnnounceList)
+            {
+                Console.WriteLine("Requesting Peers from {0} for {1}", tracker, downloadMetadata.HashString);
+
+                ITrackerClient trackerClient = null;
+                if (tracker.StartsWith("http"))
+                {
+                    trackerClient = new HTTPTrackerClient(5);
+                }
+                else if (tracker.StartsWith("udp"))
+                {
+                    trackerClient = new UDPTrackerClient(5);
+                }
+
+                var announceInfo = trackerClient.Announce(tracker, downloadMetadata.HashString, peerId, 0, downloadMetadata.PieceHashes.Count() * downloadMetadata.PieceSize, 0, 0, 0, 256, 12345, 0);
+                if (announceInfo == null)
+                {
+                    Console.WriteLine("Error announcing to {0}", tracker);
+                    continue;
+                }
+
+                var peerArray = announceInfo.Peers.ToArray();
+                knownPeers.AddRange(peerArray);
+
+                Console.WriteLine("Found {0} seeders, {1} leachers and {2} total peers", announceInfo.Seeders, announceInfo.Leechers, peerArray.Length);
+
+                if (knownPeers.Count >= 200)
+                {
+                    break;
+                }
+            }
+
+            if (knownPeers.Count == 0)
+            {
+                Console.WriteLine("No peers found on trackers");
+                return;
+            }
+
+            foreach (var file in downloadMetadata.GetFileInfos())
+            {
+                var fullFileName = Path.GetFullPath(file.Filename, downloadDirectory);
+                var fullPathName = Path.GetDirectoryName(fullFileName);
+
+                if (!Directory.Exists(fullPathName))
+                {
+                    Directory.CreateDirectory(fullPathName);
+                }
+
+                if (!File.Exists(fullFileName))
+                {
+                    Console.WriteLine("Preallocating {0} in {1}", file.Filename, downloadDirectory);
+
+                    var fileStream = File.Create(fullFileName);
+                    fileStream.SetLength(file.FileSize);
+                    fileStream.Close();
+                }
+            }
+
+            var socket = new PeerWireuTPConnection();
+            socket.Timeout = 5;
             var client = new PeerWireClient(socket)
             {
                 KeepConnectionAlive = true
             };
 
-            //connect to the remote host
-            client.Connect("127.0.0.1", 17101);
+            var peer = new IPEndPoint(IPAddress.Parse("127.0.0.1"), 52525);
 
-            //perform handshake
-            client.Handshake("e4be9e4db876e3e3179778b03e906297be5c8dbe", "-bz2100-011345223110");
+            //foreach (var peer in knownPeers)
+            //{
+                try
+                {
+                    Console.WriteLine("Attempting to connect to tcp://{0}:{1}", peer.Address.ToString(), peer.Port);
+                    client.Connect(peer);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("Failed to connect: {0}", ex.Message);
+                    //continue;
+                }
 
-            //implement events
+                Console.WriteLine("Connected");
+                client.Handshake(downloadMetadata.HashString, peerId);
 
-            //process until return false
-            while(client.Process())
+                while (client.Process())
+                {
+                    Thread.Sleep(10);
+                }
+            //}
+        }
+
+        private static void GeneratePeerId()
+        {
+            var sb = new StringBuilder();
+            var rand = new Random();
+            for (var x = 0; x < 12; x++)
             {
-                Thread.Sleep(10);
+                sb.Append(rand.Next(0, 9));
             }
+            peerId = "-bz2200-" + sb.ToString();
         }
     }
 }

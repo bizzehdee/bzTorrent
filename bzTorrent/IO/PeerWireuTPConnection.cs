@@ -50,12 +50,14 @@ namespace bzTorrent.IO
 		private PeerClientHandshake incomingHandshake = null;
 		private ushort SeqNumber = 1;
 		private ushort AckNumber = 0;
+		private ushort LastAckNumber = 0;
 		private uint MaxWindow = socketBufferSize;
 		private ushort ConnectionIdLocal;
 		private ushort ConnectionIdRemote => (ushort)(ConnectionIdLocal + 1);
 		private IPEndPoint remoteEndPoint;
 		private bool isConnected = false;
 		private uint LastTimestampReceived;
+		private uint LastTimestampReceivedDiff;
 
 		private Random rng = new();
 
@@ -119,12 +121,11 @@ namespace bzTorrent.IO
 			var typeAndVersion = new byte[] { (byte)PacketType.STSyn << 4 | 1 };
 			var extension = new byte[] { 0 };
 			uint timestamp = TimestampMicro();
-			uint timestampDiff = 0;
 			uint windowSize = 0;
 
 			var header = typeAndVersion.Cat((extension)).Cat(PackHelper.UInt16(ConnectionIdLocal))
 					.Cat(PackHelper.UInt32(timestamp))
-					.Cat(PackHelper.UInt32(timestampDiff))
+					.Cat(PackHelper.UInt32(0))
 					.Cat(PackHelper.UInt32(windowSize))
 					.Cat(PackHelper.UInt16(SeqNumber)).Cat(PackHelper.UInt16(AckNumber));
 
@@ -173,7 +174,7 @@ namespace bzTorrent.IO
 
 			while (sendQueue.TryDequeue(out var packet))
 			{
-				//socket.Send(packet.GetBytes());
+				SendData(packet);
 			}
 
 			return true;
@@ -205,12 +206,11 @@ namespace bzTorrent.IO
 			var timestamp = TimestampMicro();
 			var typeAndVersion = new byte[] { (byte)PacketType.STData << 4 | 1 };
 			var extension = new byte[] { 0 };
-			uint timestampDiff = timestamp - LastTimestampReceived;
 			uint windowSize = MaxWindow;
 
 			var header = typeAndVersion.Cat((extension)).Cat(PackHelper.UInt16(ConnectionIdRemote))
 					.Cat(PackHelper.UInt32(timestamp))
-					.Cat(PackHelper.UInt32(timestampDiff))
+					.Cat(PackHelper.UInt32(LastTimestampReceivedDiff))
 					.Cat(PackHelper.UInt32(windowSize))
 					.Cat(PackHelper.UInt16(SeqNumber)).Cat(PackHelper.UInt16(AckNumber));
 
@@ -220,8 +220,10 @@ namespace bzTorrent.IO
 
 		private void ReceiveCallback(IAsyncResult asyncResult)
 		{
+			var timestampRecvd = TimestampMicro();
+
 			var dataLength = socket.EndReceive(asyncResult);
-			var socketBufferCopy = socketBuffer;
+			var socketBufferCopy = socketBuffer.GetBytes(0, dataLength);
 
 			if(dataLength < 20)
 			{
@@ -237,7 +239,11 @@ namespace bzTorrent.IO
 			var seqNumberRecvd = UnpackHelper.UInt16(socketBufferCopy, 16, UnpackHelper.Endianness.Big);
 			var ackNumberRecvd = UnpackHelper.UInt16(socketBufferCopy, 18, UnpackHelper.Endianness.Big);
 
-			if(isConnected == false)
+			Console.WriteLine("{0}#{1}", typeRecvd.ToString(), seqNumberRecvd);
+
+			LastTimestampReceivedDiff = LastTimestampReceived - timestampRecvd;
+
+			if (isConnected == false)
 			{
 				//syn sent but not received status yet
 				if(typeRecvd == PacketType.STState && connectionIdRecvd == ConnectionIdLocal)
@@ -253,10 +259,11 @@ namespace bzTorrent.IO
 			if(typeRecvd != PacketType.STState)
 			{
 				//send ack
+				SendAck();
 			}
 
 			dataLength -= 20;
-			socketBufferCopy = socketBufferCopy.GetBytes(20);
+			socketBufferCopy = socketBufferCopy.GetBytes(20, dataLength);
 
 			if (incomingHandshake == null)
 			{
@@ -287,7 +294,8 @@ namespace bzTorrent.IO
 					PeerId = Encoding.ASCII.GetString(peerIdBytes)
 				};
 
-				socketBufferCopy = socketBufferCopy.GetBytes(protocolStrLen + 49);
+				dataLength -= (protocolStrLen + 49);
+				socketBufferCopy = socketBufferCopy.GetBytes(protocolStrLen + 49, dataLength);
 			}
 
 			if (currentPacketBuffer == null)
@@ -300,6 +308,40 @@ namespace bzTorrent.IO
 			ParsePackets(currentPacketBuffer);
 
 			receiving = false;
+		}
+
+		private void SendData(PeerWirePacket packet)
+		{
+			SeqNumber++;
+
+			var timestamp = TimestampMicro();
+			var typeAndVersion = new byte[] { (byte)PacketType.STData << 4 | 1 };
+			var extension = new byte[] { 0 };
+			uint windowSize = MaxWindow;
+
+			var header = typeAndVersion.Cat((extension)).Cat(PackHelper.UInt16(ConnectionIdRemote))
+				.Cat(PackHelper.UInt32(timestamp))
+				.Cat(PackHelper.UInt32(LastTimestampReceivedDiff))
+				.Cat(PackHelper.UInt32(windowSize))
+				.Cat(PackHelper.UInt16(SeqNumber)).Cat(PackHelper.UInt16(AckNumber));
+
+			socket.SendTo(header.Cat(packet.GetBytes()), remoteEndPoint);
+		}
+
+		private void SendAck()
+		{
+			var timestamp = TimestampMicro();
+			var typeAndVersion = new byte[] { (byte)PacketType.STState << 4 | 1 };
+			var extension = new byte[] { 0 };
+			uint windowSize = MaxWindow;
+
+			var header = typeAndVersion.Cat((extension)).Cat(PackHelper.UInt16(ConnectionIdRemote))
+				.Cat(PackHelper.UInt32(timestamp))
+				.Cat(PackHelper.UInt32(LastTimestampReceivedDiff))
+				.Cat(PackHelper.UInt32(windowSize))
+				.Cat(PackHelper.UInt16(SeqNumber)).Cat(PackHelper.UInt16(AckNumber));
+
+			socket.SendTo(header, remoteEndPoint);
 		}
 
 		private uint ParsePackets(byte[] currentPacketBuffer)
@@ -328,6 +370,8 @@ namespace bzTorrent.IO
 
 			if (newPacket.Parse(currentPacketBuffer))
 			{
+				Console.WriteLine(newPacket.Command.ToString());
+
 				return newPacket;
 			}
 

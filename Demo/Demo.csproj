@@ -15,7 +15,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Update="TestTorrents\ubuntu-18.04-desktop-amd64.iso.torrent">
+    <None Update="TestTorrents\ubuntu-20.04.3-desktop-amd64.iso.torrent">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
   </ItemGroup>

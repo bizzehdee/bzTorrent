@@ -34,7 +34,7 @@ namespace bzTorrent.Data
 {
 	public class PeerWirePacket
 	{
-		public uint PacketByteLength => 4 + CommandLength;
+		public uint PacketByteLength => 5 + CommandLength;
 
 		public uint CommandLength { get; set; }
 		public PeerClientCommands Command { get; set; }
