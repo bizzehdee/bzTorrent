@@ -347,8 +347,6 @@ namespace bzTorrent.IO
 
 			if (newPacket.Parse(currentPacketBuffer))
 			{
-				Console.WriteLine(newPacket.Command.ToString());
-
 				return newPacket;
 			}
 
