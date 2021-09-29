@@ -48,9 +48,8 @@ namespace bzTorrent.IO
 		private readonly Queue<PeerWirePacket> receiveQueue = new();
 		private readonly Queue<PeerWirePacket> sendQueue = new();
 		private PeerClientHandshake incomingHandshake = null;
-		private ushort SeqNumber = 1;
+		private ushort SeqNumber = 0;
 		private ushort AckNumber = 0;
-		private ushort LastAckNumber = 0;
 		private uint MaxWindow = socketBufferSize;
 		private ushort ConnectionIdLocal;
 		private ushort ConnectionIdRemote => (ushort)(ConnectionIdLocal + 1);
@@ -81,7 +80,7 @@ namespace bzTorrent.IO
 
 		public bool Connected
 		{
-			get => true;
+			get => isConnected;
 		}
 
 		public PeerClientHandshake RemoteHandshake { get => incomingHandshake; }
@@ -118,20 +117,7 @@ namespace bzTorrent.IO
 			remoteEndPoint = endPoint;
 			socket.Connect(endPoint);
 
-			var typeAndVersion = new byte[] { (byte)PacketType.STSyn << 4 | 1 };
-			var extension = new byte[] { 0 };
-			uint timestamp = TimestampMicro();
-			uint windowSize = 0;
-
-			var header = typeAndVersion.Cat((extension)).Cat(PackHelper.UInt16(ConnectionIdLocal))
-					.Cat(PackHelper.UInt32(timestamp))
-					.Cat(PackHelper.UInt32(0))
-					.Cat(PackHelper.UInt32(windowSize))
-					.Cat(PackHelper.UInt16(SeqNumber)).Cat(PackHelper.UInt16(AckNumber));
-
-			SeqNumber++;
-
-			socket.SendTo(header, remoteEndPoint);
+			SenduTPData(PacketType.STSyn, null);
 
 			Process();
 		}
@@ -203,19 +189,7 @@ namespace bzTorrent.IO
 
 			var sendBuf = (new byte[] { (byte)protocolHeaderBytes.Length }).Cat(protocolHeaderBytes).Cat(handshake.ReservedBytes).Cat(infoHashBytes).Cat(peerIdBytes);
 
-			var timestamp = TimestampMicro();
-			var typeAndVersion = new byte[] { (byte)PacketType.STData << 4 | 1 };
-			var extension = new byte[] { 0 };
-			uint windowSize = MaxWindow;
-
-			var header = typeAndVersion.Cat((extension)).Cat(PackHelper.UInt16(ConnectionIdRemote))
-					.Cat(PackHelper.UInt32(timestamp))
-					.Cat(PackHelper.UInt32(LastTimestampReceivedDiff))
-					.Cat(PackHelper.UInt32(windowSize))
-					.Cat(PackHelper.UInt16(SeqNumber)).Cat(PackHelper.UInt16(AckNumber));
-
-
-			socket.SendTo(header.Cat(sendBuf), remoteEndPoint);
+			SenduTPData(PacketType.STData, sendBuf);
 		}
 
 		private void ReceiveCallback(IAsyncResult asyncResult)
@@ -256,10 +230,14 @@ namespace bzTorrent.IO
 			}
 
 			AckNumber = seqNumberRecvd;
-			if(typeRecvd != PacketType.STState)
+			if (typeRecvd != PacketType.STState)
 			{
 				//send ack
 				SendAck();
+			}
+			else if (typeRecvd == PacketType.STFin)
+			{
+				isConnected = false;
 			}
 
 			dataLength -= 20;
@@ -312,36 +290,35 @@ namespace bzTorrent.IO
 
 		private void SendData(PeerWirePacket packet)
 		{
-			SeqNumber++;
-
-			var timestamp = TimestampMicro();
-			var typeAndVersion = new byte[] { (byte)PacketType.STData << 4 | 1 };
-			var extension = new byte[] { 0 };
-			uint windowSize = MaxWindow;
-
-			var header = typeAndVersion.Cat((extension)).Cat(PackHelper.UInt16(ConnectionIdRemote))
-				.Cat(PackHelper.UInt32(timestamp))
-				.Cat(PackHelper.UInt32(LastTimestampReceivedDiff))
-				.Cat(PackHelper.UInt32(windowSize))
-				.Cat(PackHelper.UInt16(SeqNumber)).Cat(PackHelper.UInt16(AckNumber));
-
-			socket.SendTo(header.Cat(packet.GetBytes()), remoteEndPoint);
+			SenduTPData(PacketType.STData, packet.GetBytes());
 		}
 
 		private void SendAck()
 		{
-			var timestamp = TimestampMicro();
-			var typeAndVersion = new byte[] { (byte)PacketType.STState << 4 | 1 };
-			var extension = new byte[] { 0 };
-			uint windowSize = MaxWindow;
+			SenduTPData(PacketType.STState, null);
+		}
 
-			var header = typeAndVersion.Cat((extension)).Cat(PackHelper.UInt16(ConnectionIdRemote))
+		private void SenduTPData(PacketType packetType, byte[] data)
+		{
+			if (packetType != PacketType.STState)
+			{
+				SeqNumber++;
+			}
+
+			var sendData = data != null ? data : new byte[0];
+
+			var connectionId = packetType == PacketType.STSyn ? ConnectionIdLocal : ConnectionIdRemote;
+			var typeAndVersion = new byte[] { (byte)(((byte)packetType << 4) | 1) };
+			var extension = new byte[] { 0 };
+			var timestamp = TimestampMicro();
+
+			var header = typeAndVersion.Cat(extension).Cat(PackHelper.UInt16(connectionId))
 				.Cat(PackHelper.UInt32(timestamp))
 				.Cat(PackHelper.UInt32(LastTimestampReceivedDiff))
-				.Cat(PackHelper.UInt32(windowSize))
+				.Cat(PackHelper.UInt32(MaxWindow))
 				.Cat(PackHelper.UInt16(SeqNumber)).Cat(PackHelper.UInt16(AckNumber));
 
-			socket.SendTo(header, remoteEndPoint);
+			socket.SendTo(header.Cat(sendData), remoteEndPoint);
 		}
 
 		private uint ParsePackets(byte[] currentPacketBuffer)
