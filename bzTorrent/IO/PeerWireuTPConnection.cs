@@ -56,10 +56,11 @@ namespace bzTorrent.IO
 		private ushort ConnectionIdRemote => (ushort)(ConnectionIdLocal + 1);
 		private IPEndPoint remoteEndPoint;
 		private bool isConnected = false;
+		private bool isFullyConnected = false;
 		private uint LastTimestampReceived;
 		private uint LastTimestampReceivedDiff;
 
-		private static Dictionary<EndPoint, PeerWireuTPConnection> uTPConnections = new Dictionary<EndPoint, PeerWireuTPConnection>();
+		private static Dictionary<EndPoint, PeerWireuTPConnection> uTPConnections = new();
 
 		private Random rng = new();
 
@@ -121,6 +122,7 @@ namespace bzTorrent.IO
 
 		public void Connect(IPEndPoint endPoint)
 		{
+			isConnected = true;
 			uTPConnections.Add(endPoint, this);
 
 			ConnectionIdLocal = (ushort)rng.Next(0, ushort.MaxValue);
@@ -166,9 +168,12 @@ namespace bzTorrent.IO
 			//ensure we are only receving from the shared UDP socket in a single place, and data is passed out to "connections"
 			InternalProcess(this);
 
-			while (sendQueue.TryDequeue(out var packet))
+			if (Connected)
 			{
-				SendData(packet);
+				while (sendQueue.TryDequeue(out var packet))
+				{
+					SendData(packet);
+				}
 			}
 
 			return Connected;
@@ -178,7 +183,7 @@ namespace bzTorrent.IO
 		{
 			if (receiving == false)
 			{
-				var ep = (EndPoint)utp.remoteEndPoint;
+				var ep = (EndPoint)new IPEndPoint(0,0);
 				receiving = true;
 				socket.BeginReceiveFrom(socketBuffer, 0, socketBufferSize, SocketFlags.None, ref ep, PeerWireuTPConnection.ReceiveCallback, utp);
 			}
@@ -232,27 +237,28 @@ namespace bzTorrent.IO
 
 			LastTimestampReceivedDiff = LastTimestampReceived - timestampRecvd;
 
-			if (isConnected == false)
+			if (isFullyConnected == false)
 			{
 				//syn sent but not received status yet
 				if (typeRecvd == PacketType.STState && connectionIdRecvd == ConnectionIdLocal)
 				{
-					isConnected = true;
+					isFullyConnected = true;
 					AckNumber = (ushort)(seqNumberRecvd - 1);
 					return;
 				}
 			}
 
 			AckNumber = seqNumberRecvd;
+			if (typeRecvd == PacketType.STFin)
+			{
+				isConnected = false;
+				return;
+			}
+			
 			if (typeRecvd != PacketType.STState)
 			{
 				//send ack
 				SendAck();
-			}
-			else if (typeRecvd == PacketType.STFin)
-			{
-				isConnected = false;
-				return;
 			}
 
 			dataLength -= 20;
@@ -297,7 +303,10 @@ namespace bzTorrent.IO
 
 			currentPacketBuffer = currentPacketBuffer.Cat(socketBufferCopy.GetBytes(0, dataLength));
 
-			ParsePackets(currentPacketBuffer);
+			if (currentPacketBuffer.Length > 0)
+			{
+				ParsePackets(currentPacketBuffer);
+			}
 		}
 
 		private static void ReceiveCallback(IAsyncResult asyncResult)
