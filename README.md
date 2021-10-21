@@ -6,7 +6,7 @@ Open source dotnet bittorrent library with scraper and peer wire implementation 
 - [x] Tracker Announce (HTTP/UDP)
 - [x] Tracker Scrape (HTTP/UDP)
 - [x] PeerWire (TCP) Client
-- [ ] PeerWire (uTP uTorrent Protocol) Client in development
+- [x] PeerWire (uTP uTorrent Protocol) (partial implementation, no congestion control built in right now)
 - [x] Choke
 - [x] Unchoke
 - [x] Interested
