@@ -127,19 +127,19 @@ namespace Demo
                 KeepConnectionAlive = true
             };
 
-            var peer = new IPEndPoint(IPAddress.Parse("127.0.0.1"), 52525);
+            //var peer = new IPEndPoint(IPAddress.Parse("127.0.0.1"), 6881); //rappid testing against local install of qBittorrent
 
-            //foreach (var peer in knownPeers)
-            //{
+            foreach (var peer in knownPeers)
+            {
                 try
                 {
-                    Console.WriteLine("Attempting to connect to tcp://{0}:{1}", peer.Address.ToString(), peer.Port);
+                    Console.WriteLine("Attempting to connect to utp://{0}:{1}", peer.Address.ToString(), peer.Port);
                     client.Connect(peer);
                 }
                 catch (Exception ex)
                 {
                     Console.WriteLine("Failed to connect: {0}", ex.Message);
-                    //continue;
+                    continue;
                 }
 
                 Console.WriteLine("Connected");
@@ -147,9 +147,9 @@ namespace Demo
 
                 while (client.Process())
                 {
-                    Thread.Sleep(10);
+                    Thread.Sleep(100);
                 }
-            //}
+            }
         }
 
         private static void GeneratePeerId()
