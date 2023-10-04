@@ -45,7 +45,7 @@ namespace bzTorrent.Data
 	public class Metadata : IMetadata
 	{
 		private IBencodingType _root;
-		private ICollection<MetadataFileInfo> files;
+		private readonly ICollection<MetadataFileInfo> files = new List<MetadataFileInfo>();
 
 		public byte[] Hash { get; private set; }
 
@@ -59,7 +59,7 @@ namespace bzTorrent.Data
 
 		public string Announce { get; private set; }
 
-		public ICollection<string> AnnounceList { get; private set; }
+		public ICollection<string> AnnounceList { get; private set; } = new Collection<string>();
 
 		public string CreatedBy { get; private set; }
 
@@ -69,36 +69,24 @@ namespace bzTorrent.Data
 
 		public long PieceSize { get; private set; }
 
-		public ICollection<byte[]> PieceHashes { get; private set; }
-		public ICollection<MetadataPieceInfo> Pieces { get; private set; }
+		public ICollection<byte[]> PieceHashes { get; private set; } = new Collection<byte[]>();
+		public ICollection<MetadataPieceInfo> Pieces { get; private set; } = new Collection<MetadataPieceInfo>();
 
 		public bool Private { get; private set; }
 
 		public Metadata()
 		{
-			Init();
+
 		}
 
 		public Metadata(Stream stream)
 		{
-			Init();
-
 			Load(stream);
 		}
 
 		public Metadata(MagnetLink magnetLink)
 		{
-			Init();
-
 			Load(magnetLink);
-		}
-
-		private void Init()
-		{
-			AnnounceList = new Collection<string>();
-			PieceHashes = new Collection<byte[]>();
-			Pieces = new Collection<MetadataPieceInfo>();
-			files = new List<MetadataFileInfo>();
 		}
 
 		public bool Load(MagnetLink magnetLink)

@@ -101,22 +101,22 @@ namespace bzTorrent
 		{
 			if (hash == null)
 			{
-				throw new ArgumentNullException("hash", "Hash cannot be null");
+				throw new ArgumentNullException(nameof(hash), "Hash cannot be null");
 			}
 
 			if (peerId == null)
 			{
-				throw new ArgumentNullException("peerId", "Peer ID cannot be null");
+				throw new ArgumentNullException(nameof(peerId), "Peer ID cannot be null");
 			}
 
 			if (hash.Length != 40)
 			{
-				throw new ArgumentOutOfRangeException("hash", "hash must be 20 bytes exactly");
+				throw new ArgumentOutOfRangeException(nameof(hash), "hash must be 20 bytes exactly");
 			}
 
 			if (peerId.Length != 20)
 			{
-				throw new ArgumentOutOfRangeException("peerId", "Peer ID must be 20 bytes exactly");
+				throw new ArgumentOutOfRangeException(nameof(peerId), "Peer ID must be 20 bytes exactly");
 			}
 
 			byte[] reservedBytes = { 0, 0, 0, 0, 0, 0, 0, 0 };

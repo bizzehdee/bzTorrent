@@ -28,12 +28,11 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
 */
 
-using System.Linq;
-using bzBencode;
-using bzTorrent.Helpers;
-using System.Text;
-using bzTorrent.Data;
 using System;
+using System.Linq;
+using System.Text;
+using bzBencode;
+using bzTorrent.Data;
 
 namespace bzTorrent.ProtocolExtensions
 {
@@ -55,7 +54,7 @@ namespace bzTorrent.ProtocolExtensions
 		public void Init(ExtendedProtocolExtensions parent)
 		{
 			_parent = parent;
-			_metadataBuffer = new byte[0];
+			_metadataBuffer = Array.Empty<byte>();
 		}
 
 		public void Deinit()
@@ -97,7 +96,7 @@ namespace bzTorrent.ProtocolExtensions
 
 		public void RequestMetaData(IPeerWireClient peerWireClient)
 		{
-			var sendBuffer = new byte[0];
+			var sendBuffer = Array.Empty<byte>();
 
 			for (var i = 0; i < _pieceCount; i++)
 			{

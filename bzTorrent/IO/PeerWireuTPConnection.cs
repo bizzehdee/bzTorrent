@@ -160,7 +160,6 @@ namespace bzTorrent.IO
 		public Socket EndAccept(IAsyncResult ar)
 		{
 			return socket;
-			//return socket.EndAccept(ar);
 		}
 
 		public bool Process()
@@ -298,7 +297,7 @@ namespace bzTorrent.IO
 
 			if (currentPacketBuffer == null)
 			{
-				currentPacketBuffer = new byte[0];
+				currentPacketBuffer = Array.Empty<byte>();
 			}
 
 			currentPacketBuffer = currentPacketBuffer.Cat(socketBufferCopy.GetBytes(0, dataLength));
@@ -347,7 +346,7 @@ namespace bzTorrent.IO
 				SeqNumber++;
 			}
 
-			var sendData = data ?? (new byte[0]);
+			var sendData = data ?? (Array.Empty<byte>());
 
 			var connectionId = packetType == PacketType.STSyn ? ConnectionIdLocal : ConnectionIdRemote;
 			var typeAndVersion = new byte[] { (byte)(((byte)packetType << 4) | 1) };

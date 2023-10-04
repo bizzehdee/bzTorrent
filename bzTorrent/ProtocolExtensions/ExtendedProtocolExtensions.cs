@@ -96,8 +96,6 @@ namespace bzTorrent.ProtocolExtensions
 			var packet = new PeerMessageBuilder(20).Add(0).Add(handshakeBytes).Message();
 			client.SendPacket(packet);
 
-			//client.SendBytes((new byte[0]).Cat(PackHelper.Int32(length).Cat(new[] { (byte)20 }).Cat(new[] { (byte)0 }).Cat(handshakeBytes)));
-
 			return true;
 		}
 
@@ -200,10 +198,7 @@ namespace bzTorrent.ProtocolExtensions
 
 					var ext = FindIBTExtensionByProtocol(pair.Key);
 
-					if (ext != null)
-					{
-						ext.OnHandshake(client, buffer);
-					}
+					ext?.OnHandshake(client, buffer);
 				}
 			}
 			else
@@ -211,10 +206,7 @@ namespace bzTorrent.ProtocolExtensions
 				var protocol = FindIBTProtocolByInternalMessageID(msgId);
 				var ext = FindIBTExtensionByProtocol(protocol);
 
-				if (ext != null)
-				{
-					ext.OnExtendedMessage(client, buffer);
-				}
+				ext?.OnExtendedMessage(client, buffer);
 			}
 		}
 	}

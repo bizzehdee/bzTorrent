@@ -121,7 +121,7 @@ namespace bzTorrent
 
 			var binaryReader = new BinaryReader(stream);
 
-			var bytes = new byte[0];
+			var bytes = Array.Empty<byte>();
 
 			while (true)
 			{
@@ -208,7 +208,7 @@ namespace bzTorrent
 
 			var binaryReader = new BinaryReader(stream);
 
-			var bytes = new byte[0];
+			var bytes = Array.Empty<byte>();
 
 			while (true)
 			{

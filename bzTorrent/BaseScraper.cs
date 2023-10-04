@@ -62,19 +62,19 @@ namespace bzTorrent
 		{
 			if (hashes.Length < 1)
 			{
-				throw new ArgumentOutOfRangeException("hashes", hashes, "Must have at least one hash when calling scrape");
+				throw new ArgumentOutOfRangeException(nameof(hashes), hashes, "Must have at least one hash when calling scrape");
 			}
 
 			if (hashes.Length > 74)
 			{
-				throw new ArgumentOutOfRangeException("hashes", hashes, "Must have a maximum of 74 hashes when calling scrape");
+				throw new ArgumentOutOfRangeException(nameof(hashes), hashes, "Must have a maximum of 74 hashes when calling scrape");
 			}
 
 			foreach (var hash in hashes)
 			{
 				if (!HashRegex.IsMatch(hash))
 				{
-					throw new ArgumentOutOfRangeException("hashes", hash, "Hash is not valid");
+					throw new ArgumentOutOfRangeException(nameof(hashes), hash, "Hash is not valid");
 				}
 			}
 
@@ -84,7 +84,7 @@ namespace bzTorrent
 
 				if (!match.Success)
 				{
-					throw new ArgumentOutOfRangeException("url", url, "URL is not a valid UDP tracker address");
+					throw new ArgumentOutOfRangeException(nameof(url), url, "URL is not a valid UDP tracker address");
 				}
 
 				Tracker = match.Groups[1].Value;
@@ -96,7 +96,7 @@ namespace bzTorrent
 
 				if (!match.Success)
 				{
-					throw new ArgumentOutOfRangeException("url", url, "URL is not a valid HTTP tracker address");
+					throw new ArgumentOutOfRangeException(nameof(url), url, "URL is not a valid HTTP tracker address");
 				}
 
 				Tracker = match.Groups[0].Value;

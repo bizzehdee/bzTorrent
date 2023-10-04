@@ -97,7 +97,7 @@ namespace bzTorrent
 
 			_currentConnectionId = CopyBytes(recBuf, 8, 8);
 
-			var hashBytes = new byte[0];
+			var hashBytes = Array.Empty<byte>();
 			hashBytes = hashes.Aggregate(hashBytes, (current, hash) => current.Concat(PackHelper.Hex(hash)).ToArray());
 
 			var expectedLength = 8 + (12 * hashes.Length);

@@ -208,7 +208,7 @@ namespace bzTorrent.IO
 
 			if (currentPacketBuffer == null)
 			{
-				currentPacketBuffer = new byte[0];
+				currentPacketBuffer = Array.Empty<byte>();
 			}
 
 			currentPacketBuffer = currentPacketBuffer.Cat(socketBufferCopy.GetBytes(0, dataLength));
