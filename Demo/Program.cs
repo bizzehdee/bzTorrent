@@ -19,7 +19,7 @@ namespace Demo
         static string inputFilename;
         static string downloadDirectory;
         static IMetadata downloadMetadata;
-        static List<IPEndPoint> knownPeers = new();
+        static readonly List<IPEndPoint> knownPeers = new();
 
         static void Main(string[] args)
         {
@@ -76,7 +76,7 @@ namespace Demo
                     trackerClient = new UDPTrackerClient(5);
                 }
 
-                var announceInfo = trackerClient.Announce(tracker, downloadMetadata.HashString, peerId, 0, downloadMetadata.PieceHashes.Count() * downloadMetadata.PieceSize, 0, 0, 0, 256, 12345, 0);
+                var announceInfo = trackerClient.Announce(tracker, downloadMetadata.HashString, peerId, 0, downloadMetadata.PieceHashes.Count * downloadMetadata.PieceSize, 0, 0, 0, 256, 12345, 0);
                 if (announceInfo == null)
                 {
                     Console.WriteLine("Error announcing to {0}", tracker);
@@ -120,14 +120,15 @@ namespace Demo
                 }
             }
 
-            var socket = new PeerWireuTPConnection();
-            socket.Timeout = 5;
+            var socket = new PeerWireuTPConnection
+            {
+                Timeout = 5
+            };
+
             var client = new PeerWireClient(socket)
             {
                 KeepConnectionAlive = true
             };
-
-            //var peer = new IPEndPoint(IPAddress.Parse("127.0.0.1"), 6881); //rappid testing against local install of qBittorrent
 
             foreach (var peer in knownPeers)
             {

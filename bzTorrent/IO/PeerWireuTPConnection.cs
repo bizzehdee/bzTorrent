@@ -45,24 +45,28 @@ namespace bzTorrent.IO
 		private static bool receiving = false;
 		private byte[] currentPacketBuffer = null;
 		private const int socketBufferSize = 16 * 1024;
-		private static byte[] socketBuffer = new byte[socketBufferSize];
+		private static readonly byte[] socketBuffer = new byte[socketBufferSize];
 		private readonly Queue<PeerWirePacket> receiveQueue = new();
 		private readonly Queue<PeerWirePacket> sendQueue = new();
 		private PeerClientHandshake incomingHandshake = null;
 		private ushort SeqNumber = 0;
 		private ushort AckNumber = 0;
-		private uint MaxWindow = socketBufferSize;
+		private readonly uint MaxWindow = socketBufferSize;
 		private ushort ConnectionIdLocal;
-		private ushort ConnectionIdRemote => (ushort)(ConnectionIdLocal + 1);
+		private ushort ConnectionIdRemote
+		{
+			get => (ushort)(ConnectionIdLocal + 1);
+		}
+
 		private IPEndPoint remoteEndPoint;
 		private bool isConnected = false;
 		private bool isFullyConnected = false;
 		private uint LastTimestampReceived;
 		private uint LastTimestampReceivedDiff;
 
-		private static Dictionary<EndPoint, PeerWireuTPConnection> uTPConnections = new();
+		private static readonly Dictionary<EndPoint, PeerWireuTPConnection> uTPConnections = new();
 
-		private Random rng = new();
+		private readonly Random rng = new();
 
 		public enum PacketType : byte
 		{
@@ -91,10 +95,7 @@ namespace bzTorrent.IO
 
 		public PeerWireuTPConnection()
 		{
-			if (socket == null)
-			{
-				socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-			}
+			socket ??= new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
 		}
 
 		public PeerWireuTPConnection(Socket socket)
@@ -114,10 +115,7 @@ namespace bzTorrent.IO
 				throw new ArgumentException("ProtocolType of socket must be Udp");
 			}
 
-			if (PeerWireuTPConnection.socket == null)
-			{
-				PeerWireuTPConnection.socket = socket;
-			}
+			PeerWireuTPConnection.socket ??= socket;
 		}
 
 		public void Connect(IPEndPoint endPoint)
@@ -169,8 +167,9 @@ namespace bzTorrent.IO
 
 			if (Connected)
 			{
-				while (sendQueue.TryDequeue(out var packet))
+				while (sendQueue.Count > 0)
 				{
+					var packet = sendQueue.Dequeue();
 					SendData(packet);
 				}
 			}
@@ -195,9 +194,9 @@ namespace bzTorrent.IO
 
 		public PeerWirePacket Receive()
 		{
-			if (receiveQueue.TryDequeue(out var packet))
+			if (receiveQueue.Count > 0)
 			{
-				return packet;
+				return receiveQueue.Dequeue();
 			}
 
 			return null;
@@ -295,10 +294,7 @@ namespace bzTorrent.IO
 				socketBufferCopy = socketBufferCopy.GetBytes(protocolStrLen + 49, dataLength);
 			}
 
-			if (currentPacketBuffer == null)
-			{
-				currentPacketBuffer = Array.Empty<byte>();
-			}
+			currentPacketBuffer ??= Array.Empty<byte>();
 
 			currentPacketBuffer = currentPacketBuffer.Cat(socketBufferCopy.GetBytes(0, dataLength));
 
@@ -316,9 +312,9 @@ namespace bzTorrent.IO
 			var dataLength = socket.EndReceiveFrom(asyncResult, ref endPoint);
 			var socketBufferCopy = socketBuffer.GetBytes(0, dataLength);
 
-			if (uTPConnections.Keys.Contains(endPoint))
+			if (uTPConnections.TryGetValue(endPoint, out var value))
 			{
-				var utpConnection = uTPConnections[endPoint];
+				var utpConnection = value;
 				utpConnection.ProcessReceivedData(socketBufferCopy, dataLength);
 			}
 			else
@@ -382,7 +378,7 @@ namespace bzTorrent.IO
 			return parsedBytes;
 		}
 
-		private PeerWirePacket ParsePacket(byte[] currentPacketBuffer)
+		private static PeerWirePacket ParsePacket(byte[] currentPacketBuffer)
 		{
 			var newPacket = new PeerWirePacket();
 
@@ -394,7 +390,7 @@ namespace bzTorrent.IO
 			return null;
 		}
 
-		private uint TimestampMicro()
+		private static uint TimestampMicro()
 		{
 			return (uint)(DateTime.UtcNow.Ticks / (TimeSpan.TicksPerMillisecond / 1000));
 		}

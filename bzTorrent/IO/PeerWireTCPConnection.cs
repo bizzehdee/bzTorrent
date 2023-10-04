@@ -135,8 +135,9 @@ namespace bzTorrent.IO
 				socket.BeginReceive(socketBuffer, 0, socketBufferSize, SocketFlags.None, ReceiveCallback, this);
 			}
 
-			while (sendQueue.TryDequeue(out var packet))
+			while(sendQueue.Count > 0)
 			{
+				var packet = sendQueue.Dequeue();
 				socket.Send(packet.GetBytes());
 			}
 
@@ -150,9 +151,9 @@ namespace bzTorrent.IO
 
 		public PeerWirePacket Receive()
 		{
-			if (receiveQueue.TryDequeue(out var packet))
+			if (receiveQueue.Count > 0)
 			{
-				return packet;
+				return receiveQueue.Dequeue();
 			}
 
 			return null;

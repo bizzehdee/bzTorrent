@@ -1,8 +1,8 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <TargetFramework>netstandard2.1</TargetFramework>
+        <TargetFramework>netstandard2.0</TargetFramework>
         <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
-        <Version>2.1.0</Version>
+        <Version>2.1.1</Version>
         <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
         <Authors>Darren Horrocks</Authors>
         <PackageLicenseFile>LICENSE</PackageLicenseFile>
@@ -20,7 +20,7 @@
       <AnalysisLevel>latest</AnalysisLevel>
     </PropertyGroup>
     <ItemGroup>
-      <PackageReference Include="bzBencode" Version="1.0.2" />
+      <PackageReference Include="bzBencode" Version="1.0.4" />
     </ItemGroup>
     <ItemGroup>
       <None Include="..\LICENSE">
