@@ -33,15 +33,15 @@ using bzTorrent.Helpers;
 
 namespace bzTorrent.ProtocolExtensions
 {
-    public class FastExtensions : IProtocolExtension
-    {
-        public event Action<IPeerWireClient, int> SuggestPiece;
-        public event Action<IPeerWireClient, int, int, int> Reject;
-        public event Action<IPeerWireClient> HaveAll;
-        public event Action<IPeerWireClient> HaveNone;
-        public event Action<IPeerWireClient, int> AllowedFast;
+	public class FastExtensions : IProtocolExtension
+	{
+		public event Action<IPeerWireClient, int> SuggestPiece;
+		public event Action<IPeerWireClient, int, int, int> Reject;
+		public event Action<IPeerWireClient> HaveAll;
+		public event Action<IPeerWireClient> HaveNone;
+		public event Action<IPeerWireClient, int> AllowedFast;
 
-        public byte[] ByteMask
+		public byte[] ByteMask
 		{
 			get => new byte[] { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04 };
 		}
@@ -59,80 +59,80 @@ namespace bzTorrent.ProtocolExtensions
 		}
 
 		public bool OnHandshake(IPeerWireClient client)
-        {
-            return false;
-        }
+		{
+			return false;
+		}
 
-        public bool OnCommand(IPeerWireClient client, int commandLength, byte commandId, byte[] payload)
-        {
-            switch (commandId)
-            {
-                case 13:
-                    ProcessSuggest(client, payload);
-                    break;
-                case 14:
-                    OnHaveAll(client);
-                    break;
-                case 15:
-                    OnHaveNone(client);
-                    break;
-                case 16:
-                    ProcessReject(client, payload);
-                    break;
-                case 17:
-                    ProcessAllowFast(client, payload);
-                    break;
-            }
+		public bool OnCommand(IPeerWireClient client, int commandLength, byte commandId, byte[] payload)
+		{
+			switch (commandId)
+			{
+				case 13:
+					ProcessSuggest(client, payload);
+					break;
+				case 14:
+					OnHaveAll(client);
+					break;
+				case 15:
+					OnHaveNone(client);
+					break;
+				case 16:
+					ProcessReject(client, payload);
+					break;
+				case 17:
+					ProcessAllowFast(client, payload);
+					break;
+			}
 
-            return false;
-        }
+			return false;
+		}
 
-        private void ProcessSuggest(IPeerWireClient client, byte[] payload)
-        {
-            var index = UnpackHelper.Int32(payload, 0, UnpackHelper.Endianness.Big);
+		private void ProcessSuggest(IPeerWireClient client, byte[] payload)
+		{
+			var index = UnpackHelper.Int32(payload, 0, UnpackHelper.Endianness.Big);
 
-            OnSuggest(client, index);
-        }
+			OnSuggest(client, index);
+		}
 
-        private void ProcessAllowFast(IPeerWireClient client, byte[] payload)
-        {
-            var index = UnpackHelper.Int32(payload, 0, UnpackHelper.Endianness.Big);
+		private void ProcessAllowFast(IPeerWireClient client, byte[] payload)
+		{
+			var index = UnpackHelper.Int32(payload, 0, UnpackHelper.Endianness.Big);
 
-            OnAllowFast(client, index);
-        }
+			OnAllowFast(client, index);
+		}
 
-        private void ProcessReject(IPeerWireClient client, byte[] payload)
-        {
-            var index = UnpackHelper.Int32(payload, 0, UnpackHelper.Endianness.Big);
-            var begin = UnpackHelper.Int32(payload, 4, UnpackHelper.Endianness.Big);
-            var length = UnpackHelper.Int32(payload, 8, UnpackHelper.Endianness.Big);
+		private void ProcessReject(IPeerWireClient client, byte[] payload)
+		{
+			var index = UnpackHelper.Int32(payload, 0, UnpackHelper.Endianness.Big);
+			var begin = UnpackHelper.Int32(payload, 4, UnpackHelper.Endianness.Big);
+			var length = UnpackHelper.Int32(payload, 8, UnpackHelper.Endianness.Big);
 
-            OnReject(client, index, begin, length);
-        }
+			OnReject(client, index, begin, length);
+		}
 
-        private void OnSuggest(IPeerWireClient client, int pieceIndex)
-        {
-            SuggestPiece?.Invoke(client, pieceIndex);
-        }
+		private void OnSuggest(IPeerWireClient client, int pieceIndex)
+		{
+			SuggestPiece?.Invoke(client, pieceIndex);
+		}
 
-        private void OnHaveAll(IPeerWireClient client)
-        {
-            HaveAll?.Invoke(client);
-        }
+		private void OnHaveAll(IPeerWireClient client)
+		{
+			HaveAll?.Invoke(client);
+		}
 
-        private void OnHaveNone(IPeerWireClient client)
-        {
-            HaveNone?.Invoke(client);
-        }
+		private void OnHaveNone(IPeerWireClient client)
+		{
+			HaveNone?.Invoke(client);
+		}
 
-        private void OnReject(IPeerWireClient client, int index, int begin, int length)
-        {
-            Reject?.Invoke(client, index, begin, length);
-        }
+		private void OnReject(IPeerWireClient client, int index, int begin, int length)
+		{
+			Reject?.Invoke(client, index, begin, length);
+		}
 
-        private void OnAllowFast(IPeerWireClient client, int pieceIndex)
-        {
-            AllowedFast?.Invoke(client, pieceIndex);
-        }
-    }
+		private void OnAllowFast(IPeerWireClient client, int pieceIndex)
+		{
+			AllowedFast?.Invoke(client, pieceIndex);
+		}
+	}
 }

@@ -30,12 +30,12 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 namespace bzTorrent
 {
-    public interface ILocalPeerDiscovery
-    {
-        event LocalPeerDiscovery.NewPeerCB NewPeer;
-        int TTL { get; set; }
-        void Open();
-        void Close();
-        void Announce(int listeningPort, string infoHash);
-    }
+	public interface ILocalPeerDiscovery
+	{
+		event LocalPeerDiscovery.NewPeerCB NewPeer;
+		int TTL { get; set; }
+		void Open();
+		void Close();
+		void Announce(int listeningPort, string infoHash);
+	}
 }

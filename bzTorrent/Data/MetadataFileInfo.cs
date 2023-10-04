@@ -30,16 +30,16 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 namespace bzTorrent.Data
 {
-    public class MetadataFileInfo
-    {
-        public long Id { get; set; }
-        public string Filename { get; set; }
-        public long FileStartByte { get; set; }
-        public long FileSize { get; set; }
+	public class MetadataFileInfo
+	{
+		public long Id { get; set; }
+		public string Filename { get; set; }
+		public long FileStartByte { get; set; }
+		public long FileSize { get; set; }
 
-        public override string ToString()
-        {
-            return Filename;
-        }
-    }
+		public override string ToString()
+		{
+			return Filename;
+		}
+	}
 }

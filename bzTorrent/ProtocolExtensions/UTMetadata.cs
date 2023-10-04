@@ -38,81 +38,81 @@ using System;
 namespace bzTorrent.ProtocolExtensions
 {
 	public class UTMetadata : IBTExtension
-    {
-        private long _metadataSize;
-        private long _pieceCount;
-        private long _piecesReceived;
-        private byte[] _metadataBuffer;
-        private ExtendedProtocolExtensions _parent;
+	{
+		private long _metadataSize;
+		private long _pieceCount;
+		private long _piecesReceived;
+		private byte[] _metadataBuffer;
+		private ExtendedProtocolExtensions _parent;
 
-        public string Protocol
+		public string Protocol
 		{
 			get => "ut_metadata";
 		}
 
 		public event Action<IPeerWireClient, IBTExtension, BDict> MetaDataReceived;
 
-        public void Init(ExtendedProtocolExtensions parent)
-        {
-            _parent = parent;
-            _metadataBuffer = new byte[0];
-        }
+		public void Init(ExtendedProtocolExtensions parent)
+		{
+			_parent = parent;
+			_metadataBuffer = new byte[0];
+		}
 
-        public void Deinit()
-        {
+		public void Deinit()
+		{
 
-        }
+		}
 
-        public void OnHandshake(IPeerWireClient peerWireClient, byte[] handshake)
-        {
-            var dict = (BDict)BencodingUtils.Decode(handshake);
-            if (dict.ContainsKey("metadata_size"))
-            {
-                var size = (BInt)dict["metadata_size"];
-                _metadataSize = size;
-                _pieceCount = (long)Math.Ceiling((double)_metadataSize / 16384);
-            }
+		public void OnHandshake(IPeerWireClient peerWireClient, byte[] handshake)
+		{
+			var dict = (BDict)BencodingUtils.Decode(handshake);
+			if (dict.ContainsKey("metadata_size"))
+			{
+				var size = (BInt)dict["metadata_size"];
+				_metadataSize = size;
+				_pieceCount = (long)Math.Ceiling((double)_metadataSize / 16384);
+			}
 
-            RequestMetaData(peerWireClient);
-        }
+			RequestMetaData(peerWireClient);
+		}
 
-        public void OnExtendedMessage(IPeerWireClient peerWireClient, byte[] bytes)
-        {
-            var startAt = 0;
-            BencodingUtils.Decode(bytes, ref startAt);
-            _piecesReceived += 1;
+		public void OnExtendedMessage(IPeerWireClient peerWireClient, byte[] bytes)
+		{
+			var startAt = 0;
+			BencodingUtils.Decode(bytes, ref startAt);
+			_piecesReceived += 1;
 
-            if (_pieceCount >= _piecesReceived)
-            {
-                _metadataBuffer = _metadataBuffer.Concat(bytes.Skip(startAt)).ToArray();
-            }
+			if (_pieceCount >= _piecesReceived)
+			{
+				_metadataBuffer = _metadataBuffer.Concat(bytes.Skip(startAt)).ToArray();
+			}
 
-            if (_pieceCount == _piecesReceived)
-            {
-                var metadata = (BDict)BencodingUtils.Decode(_metadataBuffer);
+			if (_pieceCount == _piecesReceived)
+			{
+				var metadata = (BDict)BencodingUtils.Decode(_metadataBuffer);
 
-                MetaDataReceived?.Invoke(peerWireClient, this, metadata);
-            }
-        }
+				MetaDataReceived?.Invoke(peerWireClient, this, metadata);
+			}
+		}
 
-        public void RequestMetaData(IPeerWireClient peerWireClient)
-        {
-            var sendBuffer = new byte[0];
+		public void RequestMetaData(IPeerWireClient peerWireClient)
+		{
+			var sendBuffer = new byte[0];
 
-            for (var i = 0; i < _pieceCount; i++)
-            {
-                var masterBDict = new BDict
-                {
-                    {"msg_type", (BInt) 0}, 
-                    {"piece", (BInt) i}
-                };
+			for (var i = 0; i < _pieceCount; i++)
+			{
+				var masterBDict = new BDict
+				{
+					{"msg_type", (BInt) 0},
+					{"piece", (BInt) i}
+				};
 
-                var encoded = BencodingUtils.EncodeString(masterBDict);
+				var encoded = BencodingUtils.EncodeString(masterBDict);
 
 				var buffer = new[] { _parent.GetIncomingMessageID(peerWireClient, this) };
-                buffer = buffer.Concat(Encoding.GetEncoding(1252).GetBytes(encoded)).ToArray();
+				buffer = buffer.Concat(Encoding.GetEncoding(1252).GetBytes(encoded)).ToArray();
 
-                sendBuffer = sendBuffer.Concat(buffer).ToArray();
+				sendBuffer = sendBuffer.Concat(buffer).ToArray();
 
 				var packet = new PeerWirePacket
 				{
@@ -122,7 +122,7 @@ namespace bzTorrent.ProtocolExtensions
 				};
 
 				peerWireClient.SendPacket(packet);
-			}            
-        }
-    }
+			}
+		}
+	}
 }

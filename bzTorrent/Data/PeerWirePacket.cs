@@ -67,7 +67,7 @@ namespace bzTorrent.Data
 
 		public byte[] GetBytes()
 		{
-			if(Command == PeerClientCommands.KeepAlive)
+			if (Command == PeerClientCommands.KeepAlive)
 			{
 				return new byte[1] { 0 };
 			}

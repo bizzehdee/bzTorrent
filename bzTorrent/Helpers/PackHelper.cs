@@ -33,17 +33,17 @@ using System.Net;
 
 namespace bzTorrent.Helpers
 {
-    public static class PackHelper
-    {
-        public enum Endianness
-        {
-            Machine,
-            Big,
-            Little
-        }
+	public static class PackHelper
+	{
+		public enum Endianness
+		{
+			Machine,
+			Big,
+			Little
+		}
 
-        private static bool NeedsFlipping(Endianness e)
-        {
+		private static bool NeedsFlipping(Endianness e)
+		{
 			switch (e)
 			{
 				case Endianness.Big:
@@ -58,78 +58,78 @@ namespace bzTorrent.Helpers
 		}
 
 		public static byte[] Int16(short i)
-        {
-            return BitConverter.GetBytes(IPAddress.HostToNetworkOrder(i));
-        }
+		{
+			return BitConverter.GetBytes(IPAddress.HostToNetworkOrder(i));
+		}
 
-        public static byte[] Int32(int i)
-        {
-            return BitConverter.GetBytes(IPAddress.HostToNetworkOrder(i));
-        }
+		public static byte[] Int32(int i)
+		{
+			return BitConverter.GetBytes(IPAddress.HostToNetworkOrder(i));
+		}
 
-        public static byte[] Int64(long i)
-        {
-            return BitConverter.GetBytes(IPAddress.HostToNetworkOrder(i));
-        }
+		public static byte[] Int64(long i)
+		{
+			return BitConverter.GetBytes(IPAddress.HostToNetworkOrder(i));
+		}
 
-        public static byte[] UInt16(ushort value)
-        {
-            var bytes = BitConverter.GetBytes(value);
+		public static byte[] UInt16(ushort value)
+		{
+			var bytes = BitConverter.GetBytes(value);
 
-            var byteMarker = bytes.Length;
-            ushort result = 0;
-            for (var i = 0; i < bytes.Length; i++)
-            {
-                byteMarker--;
-                result = (ushort)(result | bytes[i] << (byteMarker * 8));
-            }
+			var byteMarker = bytes.Length;
+			ushort result = 0;
+			for (var i = 0; i < bytes.Length; i++)
+			{
+				byteMarker--;
+				result = (ushort)(result | bytes[i] << (byteMarker * 8));
+			}
 
-            return BitConverter.GetBytes(result);
-        }
+			return BitConverter.GetBytes(result);
+		}
 
-        public static byte[] UInt32(uint value)
-        {
-            var byte1 = (value >> 0) & 0xff;
-            var byte2 = (value >> 8) & 0xff;
-            var byte3 = (value >> 16) & 0xff;
-            var byte4 = (value >> 24) & 0xff;
+		public static byte[] UInt32(uint value)
+		{
+			var byte1 = (value >> 0) & 0xff;
+			var byte2 = (value >> 8) & 0xff;
+			var byte3 = (value >> 16) & 0xff;
+			var byte4 = (value >> 24) & 0xff;
 
-            return BitConverter.GetBytes(byte1 << 24 | byte2 << 16 | byte3 << 8 | byte4 << 0);
-        }
+			return BitConverter.GetBytes(byte1 << 24 | byte2 << 16 | byte3 << 8 | byte4 << 0);
+		}
 
-        public static byte[] UInt64(ulong value)
-        {
-            var byte1 = (value >> 0) & 0xff;
-            var byte2 = (value >> 8) & 0xff;
-            var byte3 = (value >> 16) & 0xff;
-            var byte4 = (value >> 24) & 0xff;
-            var byte5 = (value >> 32) & 0xff;
-            var byte6 = (value >> 40) & 0xff;
-            var byte7 = (value >> 48) & 0xff;
-            var byte8 = (value >> 56) & 0xff;
+		public static byte[] UInt64(ulong value)
+		{
+			var byte1 = (value >> 0) & 0xff;
+			var byte2 = (value >> 8) & 0xff;
+			var byte3 = (value >> 16) & 0xff;
+			var byte4 = (value >> 24) & 0xff;
+			var byte5 = (value >> 32) & 0xff;
+			var byte6 = (value >> 40) & 0xff;
+			var byte7 = (value >> 48) & 0xff;
+			var byte8 = (value >> 56) & 0xff;
 
-            return BitConverter.GetBytes(byte1 << 56 | byte2 << 48 | byte3 << 40 | byte4 << 32 | byte5 << 24 | byte6 << 16 | byte7 << 8 | byte8 << 0);
-        }
+			return BitConverter.GetBytes(byte1 << 56 | byte2 << 48 | byte3 << 40 | byte4 << 32 | byte5 << 24 | byte6 << 16 | byte7 << 8 | byte8 << 0);
+		}
 
-        // No refs
-        public static byte[] Float(float f, Endianness e = Endianness.Machine)
-        {
-            return BitConverter.GetBytes(f);
-        }
+		// No refs
+		public static byte[] Float(float f, Endianness e = Endianness.Machine)
+		{
+			return BitConverter.GetBytes(f);
+		}
 
-        // No refs
-        public static byte[] Double(double f, Endianness e = Endianness.Machine)
-        {
-            return BitConverter.GetBytes(f);
-        }
+		// No refs
+		public static byte[] Double(double f, Endianness e = Endianness.Machine)
+		{
+			return BitConverter.GetBytes(f);
+		}
 
-        // All refs specify machine
-        public static byte[] Hex(string str, Endianness e = Endianness.Machine)
-        {
-            if ((str.Length % 2) == 1)
-            {
-                str += '0';
-            }
+		// All refs specify machine
+		public static byte[] Hex(string str, Endianness e = Endianness.Machine)
+		{
+			if ((str.Length % 2) == 1)
+			{
+				str += '0';
+			}
 
 			var bytes = new byte[str.Length / 2];
 			for (var i = 0; i < str.Length; i += 2)
@@ -138,6 +138,6 @@ namespace bzTorrent.Helpers
 			}
 
 			return bytes;
-        }
+		}
 	}
 }

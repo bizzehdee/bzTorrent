@@ -32,14 +32,14 @@ using bzTorrent.Helpers;
 
 namespace bzTorrent.Data
 {
-    public class MetadataPieceInfo
-    {
-        public long Id { get; set; }
-        public byte[] PieceHash { get; set; }
+	public class MetadataPieceInfo
+	{
+		public long Id { get; set; }
+		public byte[] PieceHash { get; set; }
 
-        public override string ToString()
-        {
-            return UnpackHelper.Hex(PieceHash);
-        }
-    }
+		public override string ToString()
+		{
+			return UnpackHelper.Hex(PieceHash);
+		}
+	}
 }

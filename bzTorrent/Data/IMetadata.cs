@@ -35,29 +35,29 @@ using System.IO;
 
 namespace bzTorrent.Data
 {
-    public interface IMetadata : IHashProvider
-    {
-        public string Announce { get; }
+	public interface IMetadata : IHashProvider
+	{
+		public string Announce { get; }
 
-        public ICollection<string> AnnounceList { get; }
+		public ICollection<string> AnnounceList { get; }
 
-        public string Comment { get; }
+		public string Comment { get; }
 
-        public string CreatedBy { get; }
+		public string CreatedBy { get; }
 
-        public DateTime CreationDate { get; }
+		public DateTime CreationDate { get; }
 
-        public ICollection<byte[]> PieceHashes { get; }
+		public ICollection<byte[]> PieceHashes { get; }
 
-        public long PieceSize { get; }
+		public long PieceSize { get; }
 
-        public bool Private { get; }
+		public bool Private { get; }
 
-        public IReadOnlyCollection<string> GetFiles();
-        public IReadOnlyCollection<MetadataFileInfo> GetFileInfos();
+		public IReadOnlyCollection<string> GetFiles();
+		public IReadOnlyCollection<MetadataFileInfo> GetFileInfos();
 
-        public bool Load(MagnetLink magnetLink);
+		public bool Load(MagnetLink magnetLink);
 
-        public bool Load(Stream stream);
-    }
+		public bool Load(Stream stream);
+	}
 }

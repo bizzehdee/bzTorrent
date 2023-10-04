@@ -38,96 +38,96 @@ using System.Net;
 
 namespace bzTorrent
 {
-    public class PeerWireClient : IPeerWireClient
-    {
-        private bool _asyncContinue = true;
+	public class PeerWireClient : IPeerWireClient
+	{
+		private bool _asyncContinue = true;
 		private bool receivedHandshake = false;
 		private DateTime lastKeepAliveSent;
 
 		private readonly IPeerConnection peerConnection;
-        private readonly List<IProtocolExtension> _btProtocolExtensions;        
+		private readonly List<IProtocolExtension> _btProtocolExtensions;
 
-        public int Timeout { get => peerConnection.Timeout; }
-        public bool[] PeerBitField { get; set; }
-        public bool KeepConnectionAlive { get; set; }
-        
-        public string LocalPeerID { get; set; }
-        public string RemotePeerID { get; private set; }
-        public string Hash { get; set; }
+		public int Timeout { get => peerConnection.Timeout; }
+		public bool[] PeerBitField { get; set; }
+		public bool KeepConnectionAlive { get; set; }
 
-        public event Action<IPeerWireClient> DroppedConnection;
-        public event Action<IPeerWireClient> NoData;
-        public event Action<IPeerWireClient> HandshakeComplete;
-        public event Action<IPeerWireClient> KeepAlive;
-        public event Action<IPeerWireClient> Choke;
-        public event Action<IPeerWireClient> UnChoke;
-        public event Action<IPeerWireClient> Interested;
-        public event Action<IPeerWireClient> NotInterested;
-        public event Action<IPeerWireClient, int> Have;
-        public event Action<IPeerWireClient, int, bool[]> BitField;
-        public event Action<IPeerWireClient, int, int, int> Request;
-        public event Action<IPeerWireClient, int, int, byte[]> Piece;
-        public event Action<IPeerWireClient, int, int, int> Cancel;
-        
+		public string LocalPeerID { get; set; }
+		public string RemotePeerID { get; private set; }
+		public string Hash { get; set; }
 
-        public PeerWireClient(IPeerConnection io)
-        {
+		public event Action<IPeerWireClient> DroppedConnection;
+		public event Action<IPeerWireClient> NoData;
+		public event Action<IPeerWireClient> HandshakeComplete;
+		public event Action<IPeerWireClient> KeepAlive;
+		public event Action<IPeerWireClient> Choke;
+		public event Action<IPeerWireClient> UnChoke;
+		public event Action<IPeerWireClient> Interested;
+		public event Action<IPeerWireClient> NotInterested;
+		public event Action<IPeerWireClient, int> Have;
+		public event Action<IPeerWireClient, int, bool[]> BitField;
+		public event Action<IPeerWireClient, int, int, int> Request;
+		public event Action<IPeerWireClient, int, int, byte[]> Piece;
+		public event Action<IPeerWireClient, int, int, int> Cancel;
+
+
+		public PeerWireClient(IPeerConnection io)
+		{
 			peerConnection = io;
-            _btProtocolExtensions = new List<IProtocolExtension>();
-        }
+			_btProtocolExtensions = new List<IProtocolExtension>();
+		}
 
-        public void Connect(IPEndPoint endPoint)
-        {
+		public void Connect(IPEndPoint endPoint)
+		{
 			peerConnection.Connect(endPoint);
-        }
+		}
 
-        public void Connect(string ipHost, int port)
-        {
+		public void Connect(string ipHost, int port)
+		{
 			peerConnection.Connect(new IPEndPoint(IPAddress.Parse(ipHost), port));
-        }
+		}
 
-        public void Disconnect()
-        {
+		public void Disconnect()
+		{
 			peerConnection.Disconnect();
-        }
+		}
 
-        public bool Handshake()
-        {
-            return Handshake(Hash, LocalPeerID);
-        }
+		public bool Handshake()
+		{
+			return Handshake(Hash, LocalPeerID);
+		}
 
 
-        public bool Handshake(string hash, string peerId)
-        {
-            if (hash == null)
-            {
-                throw new ArgumentNullException("hash", "Hash cannot be null");
-            }
+		public bool Handshake(string hash, string peerId)
+		{
+			if (hash == null)
+			{
+				throw new ArgumentNullException("hash", "Hash cannot be null");
+			}
 
-            if (peerId == null)
-            {
-                throw new ArgumentNullException("peerId", "Peer ID cannot be null");
-            }
+			if (peerId == null)
+			{
+				throw new ArgumentNullException("peerId", "Peer ID cannot be null");
+			}
 
-            if (hash.Length != 40)
-            {
-                throw new ArgumentOutOfRangeException("hash", "hash must be 20 bytes exactly");
-            }
+			if (hash.Length != 40)
+			{
+				throw new ArgumentOutOfRangeException("hash", "hash must be 20 bytes exactly");
+			}
 
-            if (peerId.Length != 20)
-            {
-                throw new ArgumentOutOfRangeException("peerId", "Peer ID must be 20 bytes exactly");
-            }
+			if (peerId.Length != 20)
+			{
+				throw new ArgumentOutOfRangeException("peerId", "Peer ID must be 20 bytes exactly");
+			}
 
-            byte[] reservedBytes = {0, 0, 0, 0, 0, 0, 0, 0};
+			byte[] reservedBytes = { 0, 0, 0, 0, 0, 0, 0, 0 };
 
-            foreach (var extension in _btProtocolExtensions)
-            {
-                for (var x = 0; x < 8; x++)
-                {
-                    reservedBytes[x] |= extension.ByteMask[x];
-                }
-            }
+			foreach (var extension in _btProtocolExtensions)
+			{
+				for (var x = 0; x < 8; x++)
+				{
+					reservedBytes[x] |= extension.ByteMask[x];
+				}
+			}
 
 			var handshake = new PeerClientHandshake
 			{
@@ -139,49 +139,48 @@ namespace bzTorrent
 			peerConnection.Handshake(handshake);
 
 			foreach (var extension in _btProtocolExtensions)
-            {
-                extension.OnHandshake(this);
-            }
+			{
+				extension.OnHandshake(this);
+			}
 
-            return true;
-        }
+			return true;
+		}
 
-        public void ProcessAsync()
-        {
-            _asyncContinue = true;
+		public void ProcessAsync()
+		{
+			_asyncContinue = true;
 
-            (new Thread(o =>
-            {
-                var client = (PeerWireClient) o;
-                while (client.Process() && _asyncContinue)
-                {
-                    Thread.Sleep(10);
-                }
-            })).Start(this);
-        }
+			(new Thread(o => {
+				var client = (PeerWireClient)o;
+				while (client.Process() && _asyncContinue)
+				{
+					Thread.Sleep(10);
+				}
+			})).Start(this);
+		}
 
-        public void StopProcessAsync()
-        {
-            _asyncContinue = false;
-        }
+		public void StopProcessAsync()
+		{
+			_asyncContinue = false;
+		}
 
-        public bool Process()
-        {
-            var returnVal = InternalProcess();
+		public bool Process()
+		{
+			var returnVal = InternalProcess();
 
-            if (returnVal)
-            {
-                return true;
-            }
+			if (returnVal)
+			{
+				return true;
+			}
 
-            DroppedConnection?.Invoke(this);
+			DroppedConnection?.Invoke(this);
 
-            return false;
-        }
+			return false;
+		}
 
-        private bool InternalProcess()
-        {
-			if((lastKeepAliveSent == null || lastKeepAliveSent < DateTime.UtcNow.AddMinutes(-1)) && receivedHandshake)
+		private bool InternalProcess()
+		{
+			if ((lastKeepAliveSent == null || lastKeepAliveSent < DateTime.UtcNow.AddMinutes(-1)) && receivedHandshake)
 			{
 				lastKeepAliveSent = DateTime.UtcNow;
 				peerConnection.Send(new PeerWirePacket { Command = PeerClientCommands.KeepAlive });
@@ -189,7 +188,7 @@ namespace bzTorrent
 
 			peerConnection.Process();
 
-			if(receivedHandshake == false && peerConnection.RemoteHandshake != null)
+			if (receivedHandshake == false && peerConnection.RemoteHandshake != null)
 			{
 				receivedHandshake = true;
 
@@ -201,339 +200,339 @@ namespace bzTorrent
 			var command = peerConnection.Receive();
 
 			if (command == null)
-            {
-                OnNoData();
+			{
+				OnNoData();
 
-                return peerConnection.Connected;
-            }
+				return peerConnection.Connected;
+			}
 
-            if (command.Command == PeerClientCommands.KeepAlive)
-            {
-                OnKeepAlive();
+			if (command.Command == PeerClientCommands.KeepAlive)
+			{
+				OnKeepAlive();
 
-                return peerConnection.Connected;
-            }
+				return peerConnection.Connected;
+			}
 
-            switch (command.Command)
-            {
-                case PeerClientCommands.Choke:
-                    //choke
-                    OnChoke();
-                    break;
-                case PeerClientCommands.Unchoke:
-                    //unchoke
-                    OnUnChoke();
-                    break;
-                case PeerClientCommands.Interested:
-                    //interested
-                    OnInterested();
-                    break;
-                case PeerClientCommands.NotInterested:
-                    //not interested
-                    OnNotInterested();
-                    break;
-                case PeerClientCommands.Have:
-                    //have
-                    ProcessHave(command);
-                    break;
-                case PeerClientCommands.Bitfield:
-                    //bitfield
-                    ProcessBitfield(command);
-                    break;
-                case PeerClientCommands.Request:
-                    //request
-                    ProcessRequest(command, false);
-                    break;
-                case PeerClientCommands.Piece:
-                    //piece
-                    ProcessPiece(command);
-                    break;
-                case PeerClientCommands.Cancel:
-                    //cancel
-                    ProcessRequest(command, true);
-                    break;
-                default:
-                {
-                    foreach (var extension in _btProtocolExtensions)
-                    {
-                        if (!extension.CommandIDs.Contains(b => b == (byte)command.Command))
-                        {
-                            continue;
-                        }
+			switch (command.Command)
+			{
+				case PeerClientCommands.Choke:
+					//choke
+					OnChoke();
+					break;
+				case PeerClientCommands.Unchoke:
+					//unchoke
+					OnUnChoke();
+					break;
+				case PeerClientCommands.Interested:
+					//interested
+					OnInterested();
+					break;
+				case PeerClientCommands.NotInterested:
+					//not interested
+					OnNotInterested();
+					break;
+				case PeerClientCommands.Have:
+					//have
+					ProcessHave(command);
+					break;
+				case PeerClientCommands.Bitfield:
+					//bitfield
+					ProcessBitfield(command);
+					break;
+				case PeerClientCommands.Request:
+					//request
+					ProcessRequest(command, false);
+					break;
+				case PeerClientCommands.Piece:
+					//piece
+					ProcessPiece(command);
+					break;
+				case PeerClientCommands.Cancel:
+					//cancel
+					ProcessRequest(command, true);
+					break;
+				default:
+					{
+						foreach (var extension in _btProtocolExtensions)
+						{
+							if (!extension.CommandIDs.Contains(b => b == (byte)command.Command))
+							{
+								continue;
+							}
 
-                        if (extension.OnCommand(this, (int)command.CommandLength, (byte)command.Command, command.Payload))
-                        {
-                            break;
-                        }
-                    }
-                }
-                break;
-            }
+							if (extension.OnCommand(this, (int)command.CommandLength, (byte)command.Command, command.Payload))
+							{
+								break;
+							}
+						}
+					}
+					break;
+			}
 
-            return peerConnection.Connected;
-        }
+			return peerConnection.Connected;
+		}
 
-        public bool SendKeepAlive()
-        {
-            peerConnection.Send(new PeerMessageBuilder(128).Message());
+		public bool SendKeepAlive()
+		{
+			peerConnection.Send(new PeerMessageBuilder(128).Message());
 
-            return true;
-        }
+			return true;
+		}
 
-        public bool SendChoke()
-        {
-            peerConnection.Send(new PeerMessageBuilder(0).Message());
+		public bool SendChoke()
+		{
+			peerConnection.Send(new PeerMessageBuilder(0).Message());
 
-            return true;
-        }
+			return true;
+		}
 
-        public bool SendUnChoke()
-        {
+		public bool SendUnChoke()
+		{
 			peerConnection.Send(new PeerMessageBuilder(1).Message());
 
 			return true;
 		}
 
-        public bool SendInterested()
-        {
+		public bool SendInterested()
+		{
 			peerConnection.Send(new PeerMessageBuilder(2).Message());
 
 			return true;
 		}
 
-        public bool SendNotInterested()
-        {
+		public bool SendNotInterested()
+		{
 			peerConnection.Send(new PeerMessageBuilder(3).Message());
 
 			return true;
 		}
 
-        public bool SendHave(uint index)
-        {
+		public bool SendHave(uint index)
+		{
 			peerConnection.Send(new PeerMessageBuilder(4).Add(index).Message());
 
 			return true;
 		}
 
-        public void SendBitField(bool[] bitField)
-        {
-            SendBitField(bitField, false);
-        }
+		public void SendBitField(bool[] bitField)
+		{
+			SendBitField(bitField, false);
+		}
 
-        public bool SendBitField(bool[] bitField, bool obsf)
-        {
-            var obsfIDs = new uint[0];
+		public bool SendBitField(bool[] bitField, bool obsf)
+		{
+			var obsfIDs = new uint[0];
 
-            if (obsf && bitField.Length > 32)
-            {
-                var rand = new Random();
-                var obsfCount = (uint)Math.Min(16, bitField.Length / 16);
-                var distObsf = 0;
-                obsfIDs = new uint[obsfCount];
+			if (obsf && bitField.Length > 32)
+			{
+				var rand = new Random();
+				var obsfCount = (uint)Math.Min(16, bitField.Length / 16);
+				var distObsf = 0;
+				obsfIDs = new uint[obsfCount];
 
-                while (distObsf < obsfCount)
-                {
-                    var piece = (uint)rand.Next(0, bitField.Length);
-                    if (obsfIDs.Contains(piece))
-                    {
-                        continue;
-                    }
+				while (distObsf < obsfCount)
+				{
+					var piece = (uint)rand.Next(0, bitField.Length);
+					if (obsfIDs.Contains(piece))
+					{
+						continue;
+					}
 
-                    obsfIDs[distObsf] = piece;
-                    distObsf++;
-                }
-            }
+					obsfIDs[distObsf] = piece;
+					distObsf++;
+				}
+			}
 
-            var bytes = new byte[bitField.Length / 8];
+			var bytes = new byte[bitField.Length / 8];
 
-            for (uint i = 0; i < bitField.Length; i++)
-            {
-                if (obsfIDs.Contains(i))
-                {
-                    continue;
-                }
+			for (uint i = 0; i < bitField.Length; i++)
+			{
+				if (obsfIDs.Contains(i))
+				{
+					continue;
+				}
 
-                var x = (int)Math.Floor((double)i / 8);
-                var p = (ushort)(i % 8);
+				var x = (int)Math.Floor((double)i / 8);
+				var p = (ushort)(i % 8);
 
-                if (bitField[i])
-                {
-                    bytes[x] = bytes[x].SetBit(p);
-                }
-            }
+				if (bitField[i])
+				{
+					bytes[x] = bytes[x].SetBit(p);
+				}
+			}
 
 			peerConnection.Send(new PeerMessageBuilder(5).Add(bytes).Message());
 
-            if (obsfIDs.Length > 0)
-            {
-                foreach (var obsfID in obsfIDs)
-                {
-                    SendHave(obsfID);
-                }
-            }
+			if (obsfIDs.Length > 0)
+			{
+				foreach (var obsfID in obsfIDs)
+				{
+					SendHave(obsfID);
+				}
+			}
 
 			return true;
 		}
 
-        public bool SendRequest(uint index, uint start, uint length)
-        {
+		public bool SendRequest(uint index, uint start, uint length)
+		{
 			peerConnection.Send(new PeerMessageBuilder(6).Add(index).Add(start).Add(length).Message());
 
-            return true;
-        }
+			return true;
+		}
 
-        public bool SendPiece(uint index, uint start, byte[] data)
-        {
+		public bool SendPiece(uint index, uint start, byte[] data)
+		{
 			peerConnection.Send(new PeerMessageBuilder(7).Add(index).Add(start).Add(data).Message());
 
-            return true;
-        }
+			return true;
+		}
 
-        public bool SendCancel(uint index, uint start, uint length)
-        {
+		public bool SendCancel(uint index, uint start, uint length)
+		{
 			peerConnection.Send(new PeerMessageBuilder(8).Add(index).Add(start).Add(length).Message());
 
-            return true;
-        }
+			return true;
+		}
 
-        #region Processors
-        private void ProcessHave(PeerWirePacket packet)
-        {
-            var pieceIndex = UnpackHelper.Int32(packet.Payload, 0, UnpackHelper.Endianness.Big);
+		#region Processors
+		private void ProcessHave(PeerWirePacket packet)
+		{
+			var pieceIndex = UnpackHelper.Int32(packet.Payload, 0, UnpackHelper.Endianness.Big);
 
-            OnHave(pieceIndex);
-        }
+			OnHave(pieceIndex);
+		}
 
-        private void ProcessBitfield(PeerWirePacket packet)
-        {
-            if (packet.Payload.Length < packet.CommandLength)
-            {
-                //not sent entire bitfield, kill the connection
-                Disconnect();
-                return;
-            }
+		private void ProcessBitfield(PeerWirePacket packet)
+		{
+			if (packet.Payload.Length < packet.CommandLength)
+			{
+				//not sent entire bitfield, kill the connection
+				Disconnect();
+				return;
+			}
 
 			var bitfieldLength = packet.Payload.Length;
 
 			PeerBitField = new bool[bitfieldLength * 8];
-            for (var i = 0; i < bitfieldLength; i++)
-            {
-                var b = packet.Payload[i];
+			for (var i = 0; i < bitfieldLength; i++)
+			{
+				var b = packet.Payload[i];
 
-                PeerBitField[(i * 8) + 0] = b.GetBit(0);
-                PeerBitField[(i * 8) + 1] = b.GetBit(1);
-                PeerBitField[(i * 8) + 2] = b.GetBit(2);
-                PeerBitField[(i * 8) + 3] = b.GetBit(3);
-                PeerBitField[(i * 8) + 4] = b.GetBit(4);
-                PeerBitField[(i * 8) + 5] = b.GetBit(5);
-                PeerBitField[(i * 8) + 6] = b.GetBit(6);
-                PeerBitField[(i * 8) + 7] = b.GetBit(7);
-            }
+				PeerBitField[(i * 8) + 0] = b.GetBit(0);
+				PeerBitField[(i * 8) + 1] = b.GetBit(1);
+				PeerBitField[(i * 8) + 2] = b.GetBit(2);
+				PeerBitField[(i * 8) + 3] = b.GetBit(3);
+				PeerBitField[(i * 8) + 4] = b.GetBit(4);
+				PeerBitField[(i * 8) + 5] = b.GetBit(5);
+				PeerBitField[(i * 8) + 6] = b.GetBit(6);
+				PeerBitField[(i * 8) + 7] = b.GetBit(7);
+			}
 
-            OnBitField(bitfieldLength * 8, PeerBitField);
-        }
+			OnBitField(bitfieldLength * 8, PeerBitField);
+		}
 
 
-        private void ProcessRequest(PeerWirePacket packet, bool cancel)
-        {
-            var index = UnpackHelper.Int32(packet.Payload, 0, UnpackHelper.Endianness.Big);
-            var begin = UnpackHelper.Int32(packet.Payload, 4, UnpackHelper.Endianness.Big);
-            var length = UnpackHelper.Int32(packet.Payload, 8, UnpackHelper.Endianness.Big);
-
-            if (!cancel)
-            {
-                OnRequest(index, begin, length);
-            }
-            else
-            {
-                OnCancel(index, begin, length);
-            }
-        }
-
-        private void ProcessPiece(PeerWirePacket packet)
-        {
+		private void ProcessRequest(PeerWirePacket packet, bool cancel)
+		{
 			var index = UnpackHelper.Int32(packet.Payload, 0, UnpackHelper.Endianness.Big);
-            var begin = UnpackHelper.Int32(packet.Payload, 4, UnpackHelper.Endianness.Big);
+			var begin = UnpackHelper.Int32(packet.Payload, 4, UnpackHelper.Endianness.Big);
+			var length = UnpackHelper.Int32(packet.Payload, 8, UnpackHelper.Endianness.Big);
 
-            var buffer = packet.Payload.GetBytes(8);
+			if (!cancel)
+			{
+				OnRequest(index, begin, length);
+			}
+			else
+			{
+				OnCancel(index, begin, length);
+			}
+		}
 
-            OnPiece(index, begin, buffer);
-        }
-        #endregion
+		private void ProcessPiece(PeerWirePacket packet)
+		{
+			var index = UnpackHelper.Int32(packet.Payload, 0, UnpackHelper.Endianness.Big);
+			var begin = UnpackHelper.Int32(packet.Payload, 4, UnpackHelper.Endianness.Big);
 
-        #region Event Dispatchers
+			var buffer = packet.Payload.GetBytes(8);
 
-        private void OnNoData()
-        {
-            NoData?.Invoke(this);
-        }
+			OnPiece(index, begin, buffer);
+		}
+		#endregion
 
-        private void OnHandshake()
-        {
-            HandshakeComplete?.Invoke(this);
-        }
+		#region Event Dispatchers
 
-        private void OnKeepAlive()
-        {
-            KeepAlive?.Invoke(this);
-        }
+		private void OnNoData()
+		{
+			NoData?.Invoke(this);
+		}
 
-        private void OnChoke()
-        {
-            Choke?.Invoke(this);
-        }
+		private void OnHandshake()
+		{
+			HandshakeComplete?.Invoke(this);
+		}
 
-        private void OnUnChoke()
-        {
-            UnChoke?.Invoke(this);
-        }
+		private void OnKeepAlive()
+		{
+			KeepAlive?.Invoke(this);
+		}
 
-        private void OnInterested()
-        {
-            Interested?.Invoke(this);
-        }
+		private void OnChoke()
+		{
+			Choke?.Invoke(this);
+		}
 
-        private void OnNotInterested()
-        {
-            NotInterested?.Invoke(this);
-        }
+		private void OnUnChoke()
+		{
+			UnChoke?.Invoke(this);
+		}
 
-        private void OnHave(int pieceIndex)
-        {
-            Have?.Invoke(this, pieceIndex);
-        }
+		private void OnInterested()
+		{
+			Interested?.Invoke(this);
+		}
 
-        private void OnBitField(int size, bool[] bitField)
-        {
-            BitField?.Invoke(this, size, bitField);
-        }
+		private void OnNotInterested()
+		{
+			NotInterested?.Invoke(this);
+		}
 
-        private void OnRequest(int index, int begin, int length)
-        {
-            Request?.Invoke(this, index, begin, length);
-        }
+		private void OnHave(int pieceIndex)
+		{
+			Have?.Invoke(this, pieceIndex);
+		}
 
-        private void OnPiece(int index, int begin, byte[] bytes)
-        {
-            Piece?.Invoke(this, index, begin, bytes);
-        }
+		private void OnBitField(int size, bool[] bitField)
+		{
+			BitField?.Invoke(this, size, bitField);
+		}
 
-        private void OnCancel(int index, int begin, int length)
-        {
-            Cancel?.Invoke(this, index, begin, length);
-        }
+		private void OnRequest(int index, int begin, int length)
+		{
+			Request?.Invoke(this, index, begin, length);
+		}
 
-        #endregion
+		private void OnPiece(int index, int begin, byte[] bytes)
+		{
+			Piece?.Invoke(this, index, begin, bytes);
+		}
 
-        public void RegisterBTExtension(IProtocolExtension extension)
-        {
-            _btProtocolExtensions.Add(extension);
-        }
+		private void OnCancel(int index, int begin, int length)
+		{
+			Cancel?.Invoke(this, index, begin, length);
+		}
 
-        public void UnregisterBTExtension(IProtocolExtension extension)
-        {
-            _btProtocolExtensions.Remove(extension);
-        }
+		#endregion
+
+		public void RegisterBTExtension(IProtocolExtension extension)
+		{
+			_btProtocolExtensions.Add(extension);
+		}
+
+		public void UnregisterBTExtension(IProtocolExtension extension)
+		{
+			_btProtocolExtensions.Remove(extension);
+		}
 
 		public bool SendPacket(PeerWirePacket packet)
 		{

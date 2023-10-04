@@ -30,12 +30,12 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 namespace bzTorrent.Data
 {
-    public interface IHashProvider
-    {
-        public byte[] Hash { get; }
+	public interface IHashProvider
+	{
+		public byte[] Hash { get; }
 
-        public string HashString { get; }
+		public string HashString { get; }
 
-        public string Name { get; }
-    }
+		public string Name { get; }
+	}
 }

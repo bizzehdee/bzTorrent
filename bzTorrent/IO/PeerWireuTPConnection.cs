@@ -183,7 +183,7 @@ namespace bzTorrent.IO
 		{
 			if (receiving == false)
 			{
-				var ep = (EndPoint)new IPEndPoint(0,0);
+				var ep = (EndPoint)new IPEndPoint(0, 0);
 				receiving = true;
 				socket.BeginReceiveFrom(socketBuffer, 0, socketBufferSize, SocketFlags.None, ref ep, PeerWireuTPConnection.ReceiveCallback, utp);
 			}
@@ -254,7 +254,7 @@ namespace bzTorrent.IO
 				isConnected = false;
 				return;
 			}
-			
+
 			if (typeRecvd != PacketType.STState)
 			{
 				//send ack
@@ -317,11 +317,11 @@ namespace bzTorrent.IO
 			var dataLength = socket.EndReceiveFrom(asyncResult, ref endPoint);
 			var socketBufferCopy = socketBuffer.GetBytes(0, dataLength);
 
-			if(uTPConnections.Keys.Contains(endPoint))
+			if (uTPConnections.Keys.Contains(endPoint))
 			{
 				var utpConnection = uTPConnections[endPoint];
 				utpConnection.ProcessReceivedData(socketBufferCopy, dataLength);
-			} 
+			}
 			else
 			{
 				//new peer

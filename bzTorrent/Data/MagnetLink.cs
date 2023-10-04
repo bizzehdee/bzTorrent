@@ -36,99 +36,99 @@ using System;
 
 namespace bzTorrent.Data
 {
-    public class MagnetLink : IMagnetLink
-    {
-        public string Name { get; private set; }
+	public class MagnetLink : IMagnetLink
+	{
+		public string Name { get; private set; }
 
-        public byte[] Hash { get; private set; }
+		public byte[] Hash { get; private set; }
 
-        public string HashString
-        {
-            get => UnpackHelper.Hex(Hash);
-            private set => Hash = PackHelper.Hex(value);
-        }
+		public string HashString
+		{
+			get => UnpackHelper.Hex(Hash);
+			private set => Hash = PackHelper.Hex(value);
+		}
 
-        public ICollection<string> Trackers { get; set; }
+		public ICollection<string> Trackers { get; set; }
 
-        public MagnetLink()
-        {
-            Trackers = new Collection<string>();
-        }
+		public MagnetLink()
+		{
+			Trackers = new Collection<string>();
+		}
 
-        public static MagnetLink Resolve(string magnetLink)
-        {
-            IEnumerable<KeyValuePair<string, string>> values = null;
+		public static MagnetLink Resolve(string magnetLink)
+		{
+			IEnumerable<KeyValuePair<string, string>> values = null;
 
-            if (IsMagnetLink(magnetLink))
-            {
-                values = SplitURLIntoParts(magnetLink.Substring(8));
-            }
+			if (IsMagnetLink(magnetLink))
+			{
+				values = SplitURLIntoParts(magnetLink.Substring(8));
+			}
 
-            if (values == null)
-            {
-                return null;
-            }
+			if (values == null)
+			{
+				return null;
+			}
 
-            var magnet = new MagnetLink();
+			var magnet = new MagnetLink();
 
-            foreach (var pair in values)
-            {
-                if (pair.Key == "xt")
-                {
-                    if (!IsXTValidHash(pair.Value))
-                    {
-                        continue;
-                    }
+			foreach (var pair in values)
+			{
+				if (pair.Key == "xt")
+				{
+					if (!IsXTValidHash(pair.Value))
+					{
+						continue;
+					}
 
-                    magnet.HashString = pair.Value.Substring(9);
-                }
+					magnet.HashString = pair.Value.Substring(9);
+				}
 
-                if (pair.Key == "dn")
-                {
-                    magnet.Name = pair.Value;
-                }
+				if (pair.Key == "dn")
+				{
+					magnet.Name = pair.Value;
+				}
 
-                if (pair.Key == "tr")
-                {
-                    magnet.Trackers.Add(pair.Value);
-                }
-            }
+				if (pair.Key == "tr")
+				{
+					magnet.Trackers.Add(pair.Value);
+				}
+			}
 
-            return magnet;
-        }
+			return magnet;
+		}
 
-        public static IMetadata ResolveToMetadata(string magnetLink)
-        {
-            return new Metadata(Resolve(magnetLink));
-        }
+		public static IMetadata ResolveToMetadata(string magnetLink)
+		{
+			return new Metadata(Resolve(magnetLink));
+		}
 
-        public static async Task<IMetadata> ResolveToMetadataAsync(string magnetLink)
-        {
-            return await Task.Run(() => new Metadata(Resolve(magnetLink)));
-        }
+		public static async Task<IMetadata> ResolveToMetadataAsync(string magnetLink)
+		{
+			return await Task.Run(() => new Metadata(Resolve(magnetLink)));
+		}
 
-        public static bool IsMagnetLink(string magnetLink)
-        {
-            return magnetLink.StartsWith("magnet:");
-        }
+		public static bool IsMagnetLink(string magnetLink)
+		{
+			return magnetLink.StartsWith("magnet:");
+		}
 
-        private static bool IsXTValidHash(string xt)
-        {
-            return xt.Length == 49 && xt.StartsWith("urn:btih:");
-        }
+		private static bool IsXTValidHash(string xt)
+		{
+			return xt.Length == 49 && xt.StartsWith("urn:btih:");
+		}
 
-        private static IEnumerable<KeyValuePair<string, string>> SplitURLIntoParts(string magnetLink)
-        {
-            var parts = magnetLink.Split('&');
-            var values = new Collection<KeyValuePair<string, string>>();
+		private static IEnumerable<KeyValuePair<string, string>> SplitURLIntoParts(string magnetLink)
+		{
+			var parts = magnetLink.Split('&');
+			var values = new Collection<KeyValuePair<string, string>>();
 
-            foreach (var str in parts)
-            {
-                var kv = str.Split('=');
-                values.Add(new KeyValuePair<string, string>(kv[0], Uri.UnescapeDataString(kv[1])));
-            }
+			foreach (var str in parts)
+			{
+				var kv = str.Split('=');
+				values.Add(new KeyValuePair<string, string>(kv[0], Uri.UnescapeDataString(kv[1])));
+			}
 
-            return values;
-        }
-    }
+			return values;
+		}
+	}
 }

@@ -119,7 +119,7 @@ namespace bzTorrent.IO
 
 		public IAsyncResult BeginAccept(AsyncCallback callback)
 		{
-			return socket.BeginAccept(callback,  null);
+			return socket.BeginAccept(callback, null);
 		}
 
 		public Socket EndAccept(IAsyncResult ar)
@@ -190,7 +190,7 @@ namespace bzTorrent.IO
 
 				var protocolStr = Encoding.ASCII.GetString(protocolStrBytes);
 
-				if(protocolStr != "BitTorrent protocol")
+				if (protocolStr != "BitTorrent protocol")
 				{
 					throw new Exception(string.Format("Unsupported protocol: '{0}'", protocolStr));
 				}

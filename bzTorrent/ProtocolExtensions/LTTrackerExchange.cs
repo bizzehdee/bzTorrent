@@ -35,46 +35,46 @@ using bzBencode;
 namespace bzTorrent.ProtocolExtensions
 {
 	public class LTTrackerExchange : IBTExtension
-    {
-        public event Action<IPeerWireClient, IBTExtension, string> TrackerAdded;
+	{
+		public event Action<IPeerWireClient, IBTExtension, string> TrackerAdded;
 
-        public string Protocol
+		public string Protocol
 		{
 			get => "lt_tex";
 		}
 
 		public void Init(ExtendedProtocolExtensions parent)
-        {
-            
-        }
+		{
 
-        public void Deinit()
-        {
-            
-        }
+		}
 
-        public void OnHandshake(IPeerWireClient peerWireClient, byte[] handshake)
-        {
-            var dict = (BDict)BencodingUtils.Decode(handshake);
-        }
+		public void Deinit()
+		{
 
-        public void OnExtendedMessage(IPeerWireClient peerWireClient, byte[] bytes)
-        {
-            var dict = (BDict)BencodingUtils.Decode(bytes);
-            if(dict.ContainsKey("added"))
-            {
-                var trackerList = (BList)dict["added"];
+		}
 
-                foreach (var tracker in trackerList)
-                {
-                    TrackerAdded?.Invoke(peerWireClient, this, tracker.ToString());
-                }
-            }
-        }
+		public void OnHandshake(IPeerWireClient peerWireClient, byte[] handshake)
+		{
+			var dict = (BDict)BencodingUtils.Decode(handshake);
+		}
 
-        public IDictionary<string, IBencodingType> GetAdditionalHandshake(IPeerWireClient peerWireClient)
-        {
-            return new Dictionary<string, IBencodingType> { { "tr", new BString(peerWireClient.Hash) } };
-        }
-    }
+		public void OnExtendedMessage(IPeerWireClient peerWireClient, byte[] bytes)
+		{
+			var dict = (BDict)BencodingUtils.Decode(bytes);
+			if (dict.ContainsKey("added"))
+			{
+				var trackerList = (BList)dict["added"];
+
+				foreach (var tracker in trackerList)
+				{
+					TrackerAdded?.Invoke(peerWireClient, this, tracker.ToString());
+				}
+			}
+		}
+
+		public IDictionary<string, IBencodingType> GetAdditionalHandshake(IPeerWireClient peerWireClient)
+		{
+			return new Dictionary<string, IBencodingType> { { "tr", new BString(peerWireClient.Hash) } };
+		}
+	}
 }

@@ -35,46 +35,46 @@ using bzTorrent.IO;
 
 namespace bzTorrent
 {
-    public class PeerWireListener<T> where T : IPeerConnection, new()
+	public class PeerWireListener<T> where T : IPeerConnection, new()
 	{
-		
-        private readonly T peerConnection;
-        private readonly int port;
-        private IAsyncResult asyncResult = null;
 
-        public event Action<PeerWireClient> NewPeer;
+		private readonly T peerConnection;
+		private readonly int port;
+		private IAsyncResult asyncResult = null;
 
-        public PeerWireListener(int port)
-        {
+		public event Action<PeerWireClient> NewPeer;
+
+		public PeerWireListener(int port)
+		{
 			this.port = port;
 			peerConnection = new T();
-        }
+		}
 
-        public void StartListening()
-        {
+		public void StartListening()
+		{
 			peerConnection.Listen(new IPEndPoint(IPAddress.Any, port));
 			asyncResult = peerConnection.BeginAccept(Callback);
-        }
+		}
 
 
-        public void StopListening()
-        {
-            if (asyncResult != null)
-            {
+		public void StopListening()
+		{
+			if (asyncResult != null)
+			{
 				peerConnection.EndAccept(asyncResult);
-            }
-        }
+			}
+		}
 
-        private void Callback(IAsyncResult ar)
-        {
-            var socket = peerConnection.EndAccept(ar);
+		private void Callback(IAsyncResult ar)
+		{
+			var socket = peerConnection.EndAccept(ar);
 
 			var constructorInfo = typeof(T).GetConstructor(new[] { typeof(Socket) });
 
 			NewPeer?.Invoke(new PeerWireClient((IPeerConnection)constructorInfo.Invoke(new object[] { socket })));
 
-            peerConnection.BeginAccept(Callback);
-        }
-		
-    }
+			peerConnection.BeginAccept(Callback);
+		}
+
+	}
 }

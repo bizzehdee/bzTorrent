@@ -32,89 +32,89 @@ using System;
 
 namespace bzTorrent.Helpers
 {
-    public static class UnpackHelper
-    {
-        public enum Endianness
-        {
-            Machine,
-            Big,
-            Little
-        }
+	public static class UnpackHelper
+	{
+		public enum Endianness
+		{
+			Machine,
+			Big,
+			Little
+		}
 
-        public static short Int16(byte[] bytes, int start, Endianness e = Endianness.Machine)
-        {
-            var intBytes = Utils.GetBytes(bytes, start, 2);
+		public static short Int16(byte[] bytes, int start, Endianness e = Endianness.Machine)
+		{
+			var intBytes = Utils.GetBytes(bytes, start, 2);
 
-            if (NeedsFlipping(e))
-            {
-                Array.Reverse(intBytes);
-            }
+			if (NeedsFlipping(e))
+			{
+				Array.Reverse(intBytes);
+			}
 
-            return BitConverter.ToInt16(intBytes, 0);
-        }
+			return BitConverter.ToInt16(intBytes, 0);
+		}
 
-        public static int Int32(byte[] bytes, int start, Endianness e = Endianness.Machine)
-        {
-            var intBytes = Utils.GetBytes(bytes, start, 4);
+		public static int Int32(byte[] bytes, int start, Endianness e = Endianness.Machine)
+		{
+			var intBytes = Utils.GetBytes(bytes, start, 4);
 
-            if (NeedsFlipping(e))
-            {
-                Array.Reverse(intBytes);
-            }
+			if (NeedsFlipping(e))
+			{
+				Array.Reverse(intBytes);
+			}
 
-            return BitConverter.ToInt32(intBytes, 0);
-        }
+			return BitConverter.ToInt32(intBytes, 0);
+		}
 
-        public static long Int64(byte[] bytes, int start, Endianness e = Endianness.Machine)
-        {
-            var intBytes = Utils.GetBytes(bytes, start, 8);
+		public static long Int64(byte[] bytes, int start, Endianness e = Endianness.Machine)
+		{
+			var intBytes = Utils.GetBytes(bytes, start, 8);
 
-            if (NeedsFlipping(e))
-            {
-                Array.Reverse(intBytes);
-            }
+			if (NeedsFlipping(e))
+			{
+				Array.Reverse(intBytes);
+			}
 
-            return BitConverter.ToInt64(intBytes, 0);
-        }
+			return BitConverter.ToInt64(intBytes, 0);
+		}
 
-        public static ushort UInt16(byte[] bytes, int start, Endianness e = Endianness.Machine)
-        {
-            var intBytes = Utils.GetBytes(bytes, start, 2);
+		public static ushort UInt16(byte[] bytes, int start, Endianness e = Endianness.Machine)
+		{
+			var intBytes = Utils.GetBytes(bytes, start, 2);
 
-            if (NeedsFlipping(e))
-            {
-                Array.Reverse(intBytes);
-            }
+			if (NeedsFlipping(e))
+			{
+				Array.Reverse(intBytes);
+			}
 
-            return BitConverter.ToUInt16(intBytes, 0);
-        }
+			return BitConverter.ToUInt16(intBytes, 0);
+		}
 
-        public static uint UInt32(byte[] bytes, int start, Endianness e = Endianness.Machine)
-        {
-            var intBytes = Utils.GetBytes(bytes, start, 4);
+		public static uint UInt32(byte[] bytes, int start, Endianness e = Endianness.Machine)
+		{
+			var intBytes = Utils.GetBytes(bytes, start, 4);
 
-            if (NeedsFlipping(e))
-            {
-                Array.Reverse(intBytes);
-            }
+			if (NeedsFlipping(e))
+			{
+				Array.Reverse(intBytes);
+			}
 
-            return BitConverter.ToUInt32(intBytes, 0);
-        }
+			return BitConverter.ToUInt32(intBytes, 0);
+		}
 
-        public static ulong UInt64(byte[] bytes, int start, Endianness e = Endianness.Machine)
-        {
-            var intBytes = Utils.GetBytes(bytes, start, 8);
+		public static ulong UInt64(byte[] bytes, int start, Endianness e = Endianness.Machine)
+		{
+			var intBytes = Utils.GetBytes(bytes, start, 8);
 
-            if (NeedsFlipping(e))
-            {
-                Array.Reverse(intBytes);
-            }
+			if (NeedsFlipping(e))
+			{
+				Array.Reverse(intBytes);
+			}
 
-            return BitConverter.ToUInt64(intBytes, 0);
-        }
+			return BitConverter.ToUInt64(intBytes, 0);
+		}
 
-        private static bool NeedsFlipping(Endianness e)
-        {
+		private static bool NeedsFlipping(Endianness e)
+		{
 			switch (e)
 			{
 				case Endianness.Big:
@@ -128,15 +128,15 @@ namespace bzTorrent.Helpers
 			return false;
 		}
 		public static string Hex(byte[] bytes, Endianness e = Endianness.Machine)
-        {
-            var str = "";
+		{
+			var str = "";
 
-            foreach (var b in bytes)
-            {
-                str += string.Format("{0:X2}", b);
-            }
+			foreach (var b in bytes)
+			{
+				str += string.Format("{0:X2}", b);
+			}
 
-            return str;
-        }
+			return str;
+		}
 	}
 }

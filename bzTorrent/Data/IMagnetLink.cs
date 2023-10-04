@@ -33,8 +33,8 @@ using System.Collections.Generic;
 
 namespace bzTorrent.Data
 {
-    public interface IMagnetLink : IHashProvider
-    {
-        public ICollection<string> Trackers { get; }
-    }
+	public interface IMagnetLink : IHashProvider
+	{
+		public ICollection<string> Trackers { get; }
+	}
 }

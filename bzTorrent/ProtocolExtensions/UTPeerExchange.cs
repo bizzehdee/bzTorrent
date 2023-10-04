@@ -36,103 +36,103 @@ using bzTorrent.Helpers;
 namespace bzTorrent.ProtocolExtensions
 {
 	public class UTPeerExchange : IBTExtension
-    {
-        private ExtendedProtocolExtensions _parent;
+	{
+		private ExtendedProtocolExtensions _parent;
 
-        public string Protocol
+		public string Protocol
 		{
 			get => "ut_pex";
 		}
 
 		public event Action<IPeerWireClient, IBTExtension, IPEndPoint, byte> Added;
-        public event Action<IPeerWireClient, IBTExtension, IPEndPoint> Dropped;
+		public event Action<IPeerWireClient, IBTExtension, IPEndPoint> Dropped;
 
-        public void Init(ExtendedProtocolExtensions parent)
-        {
-            _parent = parent;
-        }
+		public void Init(ExtendedProtocolExtensions parent)
+		{
+			_parent = parent;
+		}
 
-        public void Deinit()
-        {
+		public void Deinit()
+		{
 
-        }
+		}
 
-        public void OnHandshake(IPeerWireClient peerWireClient, byte[] handshake)
-        {
-            BencodingUtils.Decode(handshake);
-        }
+		public void OnHandshake(IPeerWireClient peerWireClient, byte[] handshake)
+		{
+			BencodingUtils.Decode(handshake);
+		}
 
-        public void OnExtendedMessage(IPeerWireClient peerWireClient, byte[] bytes)
-        {
-            var d = (BDict) BencodingUtils.Decode(bytes);
-            if (d.ContainsKey("added") && d.ContainsKey("added.f"))
-            {
-                var pexList = (BString)d["added"];
-                var pexFlags = (BString)d["added.f"];
+		public void OnExtendedMessage(IPeerWireClient peerWireClient, byte[] bytes)
+		{
+			var d = (BDict)BencodingUtils.Decode(bytes);
+			if (d.ContainsKey("added") && d.ContainsKey("added.f"))
+			{
+				var pexList = (BString)d["added"];
+				var pexFlags = (BString)d["added.f"];
 
-                for (var i = 0; i < pexList.ByteValue.Length/6; i++)
-                {
-                    var ip = UnpackHelper.UInt32(pexList.ByteValue, i * 6, UnpackHelper.Endianness.Little);
-                    var port = UnpackHelper.UInt16(pexList.ByteValue, (i * 6) + 4, UnpackHelper.Endianness.Big);
-                    var flags = pexFlags.ByteValue[i];
+				for (var i = 0; i < pexList.ByteValue.Length / 6; i++)
+				{
+					var ip = UnpackHelper.UInt32(pexList.ByteValue, i * 6, UnpackHelper.Endianness.Little);
+					var port = UnpackHelper.UInt16(pexList.ByteValue, (i * 6) + 4, UnpackHelper.Endianness.Big);
+					var flags = pexFlags.ByteValue[i];
 
-                    var ipAddr = new IPEndPoint(ip, port);
+					var ipAddr = new IPEndPoint(ip, port);
 
-                    Added?.Invoke(peerWireClient, this, ipAddr, flags);
-                }
-            }
+					Added?.Invoke(peerWireClient, this, ipAddr, flags);
+				}
+			}
 
-            if (d.ContainsKey("dropped"))
-            {
-                var pexList = (BString)d["dropped"];
+			if (d.ContainsKey("dropped"))
+			{
+				var pexList = (BString)d["dropped"];
 
-                for (var i = 0; i < pexList.ByteValue.Length / 6; i++)
-                {
-                    var ip = UnpackHelper.UInt32(pexList.ByteValue, i * 6, UnpackHelper.Endianness.Little);
-                    var port = UnpackHelper.UInt16(pexList.ByteValue, (i * 6) + 4, UnpackHelper.Endianness.Big);
+				for (var i = 0; i < pexList.ByteValue.Length / 6; i++)
+				{
+					var ip = UnpackHelper.UInt32(pexList.ByteValue, i * 6, UnpackHelper.Endianness.Little);
+					var port = UnpackHelper.UInt16(pexList.ByteValue, (i * 6) + 4, UnpackHelper.Endianness.Big);
 
-                    var ipAddr = new IPEndPoint(ip, port);
+					var ipAddr = new IPEndPoint(ip, port);
 
-                    Dropped?.Invoke(peerWireClient, this, ipAddr);
-                }
-            }
-        }
+					Dropped?.Invoke(peerWireClient, this, ipAddr);
+				}
+			}
+		}
 
-        public void SendMessage(IPeerWireClient peerWireClient, IPEndPoint[] addedEndPoints, byte[] flags, IPEndPoint[] droppedEndPoints)
-        {
-            if (addedEndPoints == null && droppedEndPoints == null)
-            {
-                return;
-            }
+		public void SendMessage(IPeerWireClient peerWireClient, IPEndPoint[] addedEndPoints, byte[] flags, IPEndPoint[] droppedEndPoints)
+		{
+			if (addedEndPoints == null && droppedEndPoints == null)
+			{
+				return;
+			}
 
-            var d = new BDict();
+			var d = new BDict();
 
-            if (addedEndPoints != null)
-            {
-                var added = new byte[addedEndPoints.Length * 6];
-                for (var x = 0; x < addedEndPoints.Length; x++)
-                {
-                    addedEndPoints[x].Address.GetAddressBytes().CopyTo(added, x * 6);
-                    BitConverter.GetBytes((ushort)addedEndPoints[x].Port).CopyTo(added, (x * 6)+4);
-                }
+			if (addedEndPoints != null)
+			{
+				var added = new byte[addedEndPoints.Length * 6];
+				for (var x = 0; x < addedEndPoints.Length; x++)
+				{
+					addedEndPoints[x].Address.GetAddressBytes().CopyTo(added, x * 6);
+					BitConverter.GetBytes((ushort)addedEndPoints[x].Port).CopyTo(added, (x * 6) + 4);
+				}
 
-                d.Add("added", new BString { ByteValue = added });
-            }
+				d.Add("added", new BString { ByteValue = added });
+			}
 
-            if (droppedEndPoints != null)
-            {
-                var dropped = new byte[droppedEndPoints.Length * 6];
-                for (var x = 0; x < droppedEndPoints.Length; x++)
-                {
-                    droppedEndPoints[x].Address.GetAddressBytes().CopyTo(dropped, x * 6);
+			if (droppedEndPoints != null)
+			{
+				var dropped = new byte[droppedEndPoints.Length * 6];
+				for (var x = 0; x < droppedEndPoints.Length; x++)
+				{
+					droppedEndPoints[x].Address.GetAddressBytes().CopyTo(dropped, x * 6);
 
-                    dropped.SetValue((ushort)droppedEndPoints[x].Port, (x * 6) + 2);
-                }
+					dropped.SetValue((ushort)droppedEndPoints[x].Port, (x * 6) + 2);
+				}
 
-                d.Add("dropped", new BString { ByteValue = dropped });
-            }
+				d.Add("dropped", new BString { ByteValue = dropped });
+			}
 
-            _parent.SendExtended(peerWireClient, _parent.GetIncomingMessageID(peerWireClient, this), BencodingUtils.EncodeBytes(d));
-        }
-    }
+			_parent.SendExtended(peerWireClient, _parent.GetIncomingMessageID(peerWireClient, this), BencodingUtils.EncodeBytes(d));
+		}
+	}
 }

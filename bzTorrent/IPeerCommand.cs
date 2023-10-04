@@ -30,10 +30,10 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 namespace bzTorrent
 {
-    public interface IPeerCommand
-    {
-        int Length { get; set; }
-        byte CommandID { get; set; }
-        byte[] Payload { get; set; }
-    }
+	public interface IPeerCommand
+	{
+		int Length { get; set; }
+		byte CommandID { get; set; }
+		byte[] Payload { get; set; }
+	}
 }

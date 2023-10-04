@@ -34,56 +34,56 @@ using bzTorrent.Data;
 
 namespace bzTorrent
 {
-    public interface IPeerWireClient
-    {
-        int Timeout { get; }
-        bool[] PeerBitField { get; set; }
-        bool KeepConnectionAlive { get; set; }
-        
-        string LocalPeerID { get; set; }
-        string RemotePeerID { get; }
-        string Hash { get; set; }
+	public interface IPeerWireClient
+	{
+		int Timeout { get; }
+		bool[] PeerBitField { get; set; }
+		bool KeepConnectionAlive { get; set; }
 
-        event Action<IPeerWireClient> DroppedConnection;
-        event Action<IPeerWireClient> NoData;
-        event Action<IPeerWireClient> HandshakeComplete;
-        event Action<IPeerWireClient> KeepAlive;
-        event Action<IPeerWireClient> Choke;
-        event Action<IPeerWireClient> UnChoke;
-        event Action<IPeerWireClient> Interested;
-        event Action<IPeerWireClient> NotInterested;
-        event Action<IPeerWireClient, int> Have;
-        event Action<IPeerWireClient, int, bool[]> BitField;
-        event Action<IPeerWireClient, int, int, int> Request;
-        event Action<IPeerWireClient, int, int, byte[]> Piece;
-        event Action<IPeerWireClient, int, int, int> Cancel;
+		string LocalPeerID { get; set; }
+		string RemotePeerID { get; }
+		string Hash { get; set; }
 
-        void Connect(IPEndPoint endPoint);
-        void Connect(string ipHost, int port);
-        void Disconnect();
+		event Action<IPeerWireClient> DroppedConnection;
+		event Action<IPeerWireClient> NoData;
+		event Action<IPeerWireClient> HandshakeComplete;
+		event Action<IPeerWireClient> KeepAlive;
+		event Action<IPeerWireClient> Choke;
+		event Action<IPeerWireClient> UnChoke;
+		event Action<IPeerWireClient> Interested;
+		event Action<IPeerWireClient> NotInterested;
+		event Action<IPeerWireClient, int> Have;
+		event Action<IPeerWireClient, int, bool[]> BitField;
+		event Action<IPeerWireClient, int, int, int> Request;
+		event Action<IPeerWireClient, int, int, byte[]> Piece;
+		event Action<IPeerWireClient, int, int, int> Cancel;
 
-        bool Handshake();
-        bool Handshake(string hash, string peerId);
+		void Connect(IPEndPoint endPoint);
+		void Connect(string ipHost, int port);
+		void Disconnect();
 
-        void ProcessAsync();
-        void StopProcessAsync();
-        bool Process();
+		bool Handshake();
+		bool Handshake(string hash, string peerId);
 
-        bool SendKeepAlive();
-        bool SendChoke();
-        bool SendUnChoke();
-        bool SendInterested();
-        bool SendNotInterested();
-        bool SendHave(uint index);
-        void SendBitField(bool[] bitField);
-        bool SendBitField(bool[] bitField, bool obsf);
-        bool SendRequest(uint index, uint start, uint length);
-        bool SendPiece(uint index, uint start, byte[] data);
-        bool SendCancel(uint index, uint start, uint length);
+		void ProcessAsync();
+		void StopProcessAsync();
+		bool Process();
 
-        bool SendPacket(PeerWirePacket packet);
+		bool SendKeepAlive();
+		bool SendChoke();
+		bool SendUnChoke();
+		bool SendInterested();
+		bool SendNotInterested();
+		bool SendHave(uint index);
+		void SendBitField(bool[] bitField);
+		bool SendBitField(bool[] bitField, bool obsf);
+		bool SendRequest(uint index, uint start, uint length);
+		bool SendPiece(uint index, uint start, byte[] data);
+		bool SendCancel(uint index, uint start, uint length);
 
-        void RegisterBTExtension(IProtocolExtension extension);
-        void UnregisterBTExtension(IProtocolExtension extension);
-    }
+		bool SendPacket(PeerWirePacket packet);
+
+		void RegisterBTExtension(IProtocolExtension extension);
+		void UnregisterBTExtension(IProtocolExtension extension);
+	}
 }

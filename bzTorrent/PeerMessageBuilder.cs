@@ -35,46 +35,46 @@ using bzTorrent.Helpers;
 
 namespace bzTorrent
 {
-    public class PeerMessageBuilder : IDisposable
-    {
-        public uint PacketLength { get => (uint)(5 + MessagePayload.Count); }
-        public uint MessageLength { get => (uint)(1 + MessagePayload.Count); }
-        public byte MessageID { get; private set; }
-        public List<byte> MessagePayload { get; private set; }
+	public class PeerMessageBuilder : IDisposable
+	{
+		public uint PacketLength { get => (uint)(5 + MessagePayload.Count); }
+		public uint MessageLength { get => (uint)(1 + MessagePayload.Count); }
+		public byte MessageID { get; private set; }
+		public List<byte> MessagePayload { get; private set; }
 
-        public PeerMessageBuilder(byte msgId)
-        {
-            MessageID = msgId;
+		public PeerMessageBuilder(byte msgId)
+		{
+			MessageID = msgId;
 
-            MessagePayload = new List<byte>();
-        }
+			MessagePayload = new List<byte>();
+		}
 
-        public PeerMessageBuilder Add(byte b)
-        {
-            MessagePayload.Add(b);
+		public PeerMessageBuilder Add(byte b)
+		{
+			MessagePayload.Add(b);
 
-            return this;
-        }
+			return this;
+		}
 
-        public PeerMessageBuilder Add(byte[] bytes)
-        {
-            MessagePayload.AddRange(bytes);
+		public PeerMessageBuilder Add(byte[] bytes)
+		{
+			MessagePayload.AddRange(bytes);
 
-            return this;
-        }
+			return this;
+		}
 
-        public PeerMessageBuilder Add(uint n, PackHelper.Endianness endianness = PackHelper.Endianness.Big)
-        {
-            MessagePayload.AddRange(PackHelper.UInt32(n));
+		public PeerMessageBuilder Add(uint n, PackHelper.Endianness endianness = PackHelper.Endianness.Big)
+		{
+			MessagePayload.AddRange(PackHelper.UInt32(n));
 
-            return this;
-        }
+			return this;
+		}
 
-        public PeerMessageBuilder Add(string str)
-        {
-            MessagePayload.AddRange(PackHelper.Hex(str));
+		public PeerMessageBuilder Add(string str)
+		{
+			MessagePayload.AddRange(PackHelper.Hex(str));
 
-            return this;
+			return this;
 		}
 
 		public PeerWirePacket Message()
@@ -90,8 +90,8 @@ namespace bzTorrent
 		}
 
 		public void Dispose()
-        {
-            MessagePayload.Clear();
-        }
-    }
+		{
+			MessagePayload.Clear();
+		}
+	}
 }

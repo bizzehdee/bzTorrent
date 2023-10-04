@@ -33,12 +33,12 @@ using bzTorrent.Helpers;
 
 namespace bzTorrent.ProtocolExtensions
 {
-    public class DHTPortExtension : IProtocolExtension
-    {
-        public event Action<IPeerWireClient, ushort> Port;
-        public bool RemoteUsesDHT { get; private set; }
+	public class DHTPortExtension : IProtocolExtension
+	{
+		public event Action<IPeerWireClient, ushort> Port;
+		public bool RemoteUsesDHT { get; private set; }
 
-        public byte[] ByteMask
+		public byte[] ByteMask
 		{
 			get => new byte[] { 0, 0, 0, 0, 0, 0, 0, 0x1 };
 		}
@@ -49,26 +49,26 @@ namespace bzTorrent.ProtocolExtensions
 		}
 
 		public bool OnHandshake(IPeerWireClient client)
-        {
-            return false;
-        }
+		{
+			return false;
+		}
 
-        public bool OnCommand(IPeerWireClient client, int commandLength, byte commandId, byte[] payload)
-        {
-            if (commandId == 9)
-            {
-                var port = UnpackHelper.UInt16(payload, 0, UnpackHelper.Endianness.Big);
+		public bool OnCommand(IPeerWireClient client, int commandLength, byte commandId, byte[] payload)
+		{
+			if (commandId == 9)
+			{
+				var port = UnpackHelper.UInt16(payload, 0, UnpackHelper.Endianness.Big);
 
-                OnPort(client, port);
-                return true;
-            }
+				OnPort(client, port);
+				return true;
+			}
 
-            return false;
-        }
+			return false;
+		}
 
-        private void OnPort(IPeerWireClient client, ushort port)
-        {
-            Port?.Invoke(client, port);
-        }
-    }
+		private void OnPort(IPeerWireClient client, ushort port)
+		{
+			Port?.Invoke(client, port);
+		}
+	}
 }

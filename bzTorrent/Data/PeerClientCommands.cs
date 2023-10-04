@@ -48,9 +48,9 @@ namespace bzTorrent.Data
 
 		SuggestPiece = 13,
 		HaveAll = 14,
-        HaveNone = 15,
-        Reject = 16,
-        AllowedFast = 17,
+		HaveNone = 15,
+		Reject = 16,
+		AllowedFast = 17,
 
 		ExtendedProtocol = 20,
 
