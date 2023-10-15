@@ -51,7 +51,7 @@ namespace bzTorrent
 		{
 			for (var i = 0; i < peerData.Length; i += 6)
 			{
-				long addr = UnpackHelper.UInt32(peerData, i, UnpackHelper.Endianness.Big);
+				long addr = UnpackHelper.UInt32(peerData, i, UnpackHelper.Endianness.Little);
 				var port = UnpackHelper.UInt16(peerData, i + 4, UnpackHelper.Endianness.Big);
 
 				yield return new IPEndPoint(addr, port);
