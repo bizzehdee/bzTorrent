@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net5.0</TargetFramework>
+    <TargetFramework>net7.0</TargetFramework>
     <StartupObject>Demo.Program</StartupObject>
   </PropertyGroup>
 
@@ -16,6 +16,9 @@
 
   <ItemGroup>
     <None Update="TestTorrents\ubuntu-20.04.3-desktop-amd64.iso.torrent">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="TestTorrents\ubuntu-23.10-live-server-amd64.iso.torrent">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
   </ItemGroup>

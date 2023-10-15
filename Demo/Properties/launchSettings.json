@@ -2,7 +2,7 @@
   "profiles": {
     "Demo": {
       "commandName": "Project",
-      "commandLineArgs": "-file \"TestTorrents/ubuntu-20.04.3-desktop-amd64.iso.torrent\" -output ."
+      "commandLineArgs": "-file \"TestTorrents/ubuntu-23.10-live-server-amd64.iso.torrent\" -output ."
     }
   }
 }
