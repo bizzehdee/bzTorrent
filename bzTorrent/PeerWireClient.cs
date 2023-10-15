@@ -197,24 +197,31 @@ namespace bzTorrent
 				OnHandshake();
 			}
 
-			var command = peerConnection.Receive();
 
-			if (command == null)
+			if (peerConnection.HasPackets() == false)
 			{
 				OnNoData();
-
-				return peerConnection.Connected;
 			}
-
-			if (command.Command == PeerClientCommands.KeepAlive)
+			else
 			{
-				OnKeepAlive();
-
-				return peerConnection.Connected;
+				while (peerConnection.HasPackets())
+				{
+					var command = peerConnection.Receive();
+					ProcessCommand(command);
+				}
 			}
+
+			return peerConnection.Connected;
+		}
+
+		private void ProcessCommand(PeerWirePacket command)
+		{
 
 			switch (command.Command)
 			{
+				case PeerClientCommands.KeepAlive:
+					OnKeepAlive();
+					break;
 				case PeerClientCommands.Choke:
 					//choke
 					OnChoke();
@@ -268,8 +275,6 @@ namespace bzTorrent
 					}
 					break;
 			}
-
-			return peerConnection.Connected;
 		}
 
 		public bool SendKeepAlive()

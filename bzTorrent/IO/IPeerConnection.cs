@@ -51,6 +51,7 @@ namespace bzTorrent.IO
 
 		void Handshake(PeerClientHandshake handshake);
 
+		bool HasPackets();
 		PeerWirePacket Receive();
 		void Send(PeerWirePacket packet);
 	}

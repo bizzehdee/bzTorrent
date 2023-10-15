@@ -173,7 +173,7 @@ namespace bzTorrent.IO
 		{
 			var dataLength = socket.EndReceive(asyncResult);
 
-			var socketBufferCopy = socketBuffer;
+			var socketBufferCopy = socketBuffer.GetBytes(0, dataLength);
 
 			if (incomingHandshake == null)
 			{
@@ -205,6 +205,7 @@ namespace bzTorrent.IO
 				};
 
 				socketBufferCopy = socketBufferCopy.GetBytes(protocolStrLen + 49);
+				dataLength -= (protocolStrLen + 49);
 			}
 
 			if (currentPacketBuffer == null)
@@ -214,7 +215,12 @@ namespace bzTorrent.IO
 
 			currentPacketBuffer = currentPacketBuffer.Cat(socketBufferCopy.GetBytes(0, dataLength));
 
-			ParsePackets(currentPacketBuffer);
+			if (dataLength > 0)
+			{
+				var parsedBytes = ParsePackets(currentPacketBuffer);
+
+				currentPacketBuffer = currentPacketBuffer.GetBytes((int)parsedBytes);
+			}
 
 			receiving = false;
 		}
@@ -249,6 +255,11 @@ namespace bzTorrent.IO
 			}
 
 			return null;
+		}
+
+		public bool HasPackets()
+		{
+			return receiveQueue.Count > 0;
 		}
 	}
 }

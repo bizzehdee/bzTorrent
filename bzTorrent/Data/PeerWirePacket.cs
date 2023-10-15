@@ -34,7 +34,7 @@ namespace bzTorrent.Data
 {
 	public class PeerWirePacket
 	{
-		public uint PacketByteLength => 5 + CommandLength;
+		public uint PacketByteLength => 4 + CommandLength;
 
 		public uint CommandLength { get; set; }
 		public PeerClientCommands Command { get; set; }
@@ -58,12 +58,26 @@ namespace bzTorrent.Data
 
 			CommandLength = commandLength;
 
-			Command = (PeerClientCommands)currentPacketBuffer[4];
+			if(CommandLength == 0)
+			{
+				Command = PeerClientCommands.KeepAlive;
+			}
 
-			Payload = currentPacketBuffer.GetBytes(5, (int)CommandLength);
+			if (CommandLength > 0)
+			{
+				Command = (PeerClientCommands)currentPacketBuffer[4];
+			}
+
+			if(CommandLength > 1)
+			{
+				Payload = currentPacketBuffer.GetBytes(5, (int)CommandLength - 1);
+			}
+			
 
 			return true;
 		}
+
+		public override string ToString() { return Command.ToString(); }
 
 		public byte[] GetBytes()
 		{
@@ -72,7 +86,7 @@ namespace bzTorrent.Data
 				return new byte[1] { 0 };
 			}
 
-			var messageBytes = new byte[5 + Payload.Length];
+			var messageBytes = new byte[PacketByteLength];
 			var lengthBytes = PackHelper.UInt32((uint)(1 + Payload.Length));
 
 			lengthBytes.CopyTo(messageBytes, 0);

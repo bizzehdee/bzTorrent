@@ -46,6 +46,8 @@ namespace bzTorrent.Helpers
 
 		public static byte[] GetBytes(this byte[] bytes, int start, int length = -1)
 		{
+			if(length == 0) { return Array.Empty<byte>(); }
+
 			var l = length;
 			if (l == -1)
 			{

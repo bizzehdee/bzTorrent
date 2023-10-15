@@ -181,7 +181,7 @@ namespace bzTorrent.IO
 		{
 			if (receiving == false)
 			{
-				var ep = (EndPoint)new IPEndPoint(0, 0);
+				var ep = (EndPoint)new IPEndPoint(IPAddress.Any, 0);
 				receiving = true;
 				socket.BeginReceiveFrom(socketBuffer, 0, socketBufferSize, SocketFlags.None, ref ep, PeerWireuTPConnection.ReceiveCallback, utp);
 			}
@@ -298,9 +298,11 @@ namespace bzTorrent.IO
 
 			currentPacketBuffer = currentPacketBuffer.Cat(socketBufferCopy.GetBytes(0, dataLength));
 
-			if (currentPacketBuffer.Length > 0)
+			if (dataLength > 0)
 			{
-				ParsePackets(currentPacketBuffer);
+				var parsedBytes = ParsePackets(currentPacketBuffer);
+
+				currentPacketBuffer = currentPacketBuffer.GetBytes((int)parsedBytes);
 			}
 		}
 
@@ -393,6 +395,11 @@ namespace bzTorrent.IO
 		private static uint TimestampMicro()
 		{
 			return (uint)(DateTime.UtcNow.Ticks / (TimeSpan.TicksPerMillisecond / 1000));
+		}
+
+		public bool HasPackets()
+		{
+			return receiveQueue.Count > 0;
 		}
 	}
 }
