@@ -64,11 +64,6 @@ namespace bzTorrent.Data
 				values = SplitURLIntoParts(magnetLink.Substring(8));
 			}
 
-			if (values == null)
-			{
-				return null;
-			}
-
 			var magnet = new MagnetLink();
 
 			foreach (var pair in values)
@@ -114,7 +109,7 @@ namespace bzTorrent.Data
 
 		private static bool IsXTValidHash(string xt)
 		{
-			return xt.Length == 49 && xt.StartsWith("urn:btih:");
+			return (xt.Length == 49) && xt.StartsWith("urn:btih:");
 		}
 
 		private static IEnumerable<KeyValuePair<string, string>> SplitURLIntoParts(string magnetLink)
@@ -125,7 +120,10 @@ namespace bzTorrent.Data
 			foreach (var str in parts)
 			{
 				var kv = str.Split('=');
-				values.Add(new KeyValuePair<string, string>(kv[0], Uri.UnescapeDataString(kv[1])));
+				if (kv.Length == 2)
+				{
+					values.Add(new KeyValuePair<string, string>(kv[0], Uri.UnescapeDataString(kv[1])));
+				}
 			}
 
 			return values;

@@ -49,6 +49,16 @@ namespace bzTorrent.Tests.Data
         }
 
         [Fact]
+        public void KeepAliveGetBytesShouldMatchOutput()
+        {
+            var inputOutput = new byte[] { 0, 0, 0, 0 };
+            var pwp = new PeerWirePacket();
+            pwp.Parse(inputOutput).Should().BeTrue();
+
+            pwp.GetBytes().Should().BeEquivalentTo(inputOutput);
+        }
+
+        [Fact]
         public void CommandPacketShouldBe5Bytes()
         {
             var pwp = new PeerWirePacket();

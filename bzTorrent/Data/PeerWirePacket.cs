@@ -77,7 +77,7 @@ namespace bzTorrent.Data
 		{
 			if (Command == PeerClientCommands.KeepAlive)
 			{
-				return new byte[1] { 0 };
+				return new byte[4] { 0, 0, 0, 0 };
 			}
 
 			var messageBytes = new byte[PacketByteLength];
