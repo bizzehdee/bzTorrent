@@ -43,24 +43,19 @@ namespace bzTorrent.Data
 		public bool Parse(byte[] currentPacketBuffer)
 		{
 			var commandLength = UnpackHelper.UInt32(currentPacketBuffer, 0, UnpackHelper.Endianness.Big);
-			if (commandLength == 0)
+			CommandLength = commandLength;
+
+			if (CommandLength == 0)
 			{
 				//keep-alive message
 				Command = PeerClientCommands.KeepAlive;
 				return true;
 			}
 
-			if (commandLength > (currentPacketBuffer.Length - 4))
+			if (CommandLength > (currentPacketBuffer.Length - 4))
 			{
 				//need more data first
 				return false;
-			}
-
-			CommandLength = commandLength;
-
-			if(CommandLength == 0)
-			{
-				Command = PeerClientCommands.KeepAlive;
 			}
 
 			if (CommandLength > 0)
@@ -71,8 +66,7 @@ namespace bzTorrent.Data
 			if(CommandLength > 1)
 			{
 				Payload = currentPacketBuffer.GetBytes(5, (int)CommandLength - 1);
-			}
-			
+			}		
 
 			return true;
 		}
