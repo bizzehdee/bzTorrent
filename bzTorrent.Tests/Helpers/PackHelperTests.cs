@@ -91,5 +91,17 @@
             // Assert
             result.Should().ContainInOrder(BitConverter.GetBytes(expectedResult));
         }
+
+        [Theory]
+        [InlineData("ABCD", new byte[] { 0xAB, 0xCD })]
+        [InlineData("ABC", new byte[] { 0xAB, 0xC0 })]
+        public void Hex_ToBytes_ReturnsExpectedValue(string input, byte[] expectedResult)
+        {
+            // Act
+            var result = PackHelper.Hex(input);
+
+            // Assert
+            result.Should().ContainInOrder(expectedResult);
+        }
     }
 }

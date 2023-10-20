@@ -47,6 +47,8 @@ namespace bzTorrent
 		private readonly IPeerConnection peerConnection;
 		private readonly List<IProtocolExtension> _btProtocolExtensions;
 
+		private Thread _asyncThread = null;
+
 		public int Timeout { get => peerConnection.Timeout; }
 		public bool[] PeerBitField { get; set; }
 		public bool KeepConnectionAlive { get; set; }
@@ -111,7 +113,7 @@ namespace bzTorrent
 
 			if (hash.Length != 40)
 			{
-				throw new ArgumentOutOfRangeException(nameof(hash), "hash must be 20 bytes exactly");
+				throw new ArgumentOutOfRangeException(nameof(hash), "hash must be 40 bytes exactly");
 			}
 
 			if (peerId.Length != 20)
@@ -150,18 +152,21 @@ namespace bzTorrent
 		{
 			_asyncContinue = true;
 
-			(new Thread(o => {
+			_asyncThread = new Thread(o => {
 				var client = (PeerWireClient)o;
 				while (client.Process() && _asyncContinue)
 				{
 					Thread.Sleep(10);
 				}
-			})).Start(this);
+			});
+
+			_asyncThread.Start();
 		}
 
 		public void StopProcessAsync()
 		{
 			_asyncContinue = false;
+			_asyncThread.Join();
 		}
 
 		public bool Process()
