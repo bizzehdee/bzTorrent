@@ -35,6 +35,7 @@ using bzTorrent.Helpers;
 using System.Text;
 using System;
 using System.Net;
+using System.Collections.Concurrent;
 
 namespace bzTorrent.IO
 {
@@ -45,8 +46,8 @@ namespace bzTorrent.IO
 		private byte[] currentPacketBuffer = null;
 		private const int socketBufferSize = 16 * 1024;
 		private readonly byte[] socketBuffer = new byte[socketBufferSize];
-		private readonly Queue<PeerWirePacket> receiveQueue = new();
-		private readonly Queue<PeerWirePacket> sendQueue = new();
+		private readonly ConcurrentQueue<PeerWirePacket> receiveQueue = new();
+		private readonly ConcurrentQueue<PeerWirePacket> sendQueue = new();
 		private PeerClientHandshake incomingHandshake = null;
 
 		public int Timeout
@@ -135,10 +136,12 @@ namespace bzTorrent.IO
 				socket.BeginReceive(socketBuffer, 0, socketBufferSize, SocketFlags.None, ReceiveCallback, this);
 			}
 
-			while(sendQueue.Count > 0)
+			while (sendQueue.Count > 0)
 			{
-				var packet = sendQueue.Dequeue();
-				socket.Send(packet.GetBytes());
+				if (sendQueue.TryDequeue(out var packet)) 
+				{
+					socket.Send(packet.GetBytes());
+				}
 			}
 
 			return Connected;
@@ -151,9 +154,9 @@ namespace bzTorrent.IO
 
 		public PeerWirePacket Receive()
 		{
-			if (receiveQueue.Count > 0)
+			if (receiveQueue.Count > 0 && receiveQueue.TryDequeue(out var packet))
 			{
-				return receiveQueue.Dequeue();
+				return packet;
 			}
 
 			return null;
