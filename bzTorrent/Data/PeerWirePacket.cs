@@ -42,6 +42,11 @@ namespace bzTorrent.Data
 
 		public bool Parse(byte[] currentPacketBuffer)
 		{
+			if(currentPacketBuffer.Length < 4)
+			{
+				return false;
+			}
+
 			var commandLength = UnpackHelper.UInt32(currentPacketBuffer, 0, UnpackHelper.Endianness.Big);
 			CommandLength = commandLength;
 
