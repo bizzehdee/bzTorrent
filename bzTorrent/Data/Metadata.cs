@@ -97,6 +97,7 @@ namespace bzTorrent.Data
 			}
 
 			HashString = magnetLink.HashString;
+			Name = magnetLink.Name;
 
 			if (magnetLink.Trackers != null)
 			{
