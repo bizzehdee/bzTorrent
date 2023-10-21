@@ -47,7 +47,7 @@ namespace bzTorrent.Extensions
 		{
 			if (source.IsNullOrEmpty())
 			{
-				throw new ArgumentNullException("Enumerable cannot be null or empty", paramName);
+				throw new ArgumentNullException(paramName, "Cannot be null or empty");
 			}
 		}
 	}
