@@ -41,7 +41,7 @@ namespace bzTorrent
 	public class PeerWireClient : IPeerWireClient
 	{
 		private bool _asyncContinue = true;
-		private bool receivedHandshake = false;
+		public bool ReceivedHandshake { get; private set; } = false;
 		private DateTime lastKeepAliveSent;
 
 		private readonly IPeerConnection peerConnection;
@@ -80,11 +80,13 @@ namespace bzTorrent
 
 		public void Connect(IPEndPoint endPoint)
 		{
+			ReceivedHandshake = false;
 			peerConnection.Connect(endPoint);
 		}
 
 		public void Connect(string ipHost, int port)
 		{
+			ReceivedHandshake = false;
 			peerConnection.Connect(new IPEndPoint(IPAddress.Parse(ipHost), port));
 		}
 
@@ -185,17 +187,25 @@ namespace bzTorrent
 
 		private bool InternalProcess()
 		{
-			if ((lastKeepAliveSent == null || lastKeepAliveSent < DateTime.UtcNow.AddMinutes(-1)) && receivedHandshake)
+			if ((lastKeepAliveSent == null || lastKeepAliveSent < DateTime.UtcNow.AddMinutes(-1)) && ReceivedHandshake)
 			{
 				lastKeepAliveSent = DateTime.UtcNow;
 				peerConnection.Send(new PeerWirePacket { Command = PeerClientCommands.KeepAlive });
 			}
 
-			peerConnection.Process();
-
-			if (receivedHandshake == false && peerConnection.RemoteHandshake != null)
+			try
 			{
-				receivedHandshake = true;
+				peerConnection.Process();
+			}
+			catch
+			{
+				peerConnection.Disconnect();
+				return false;
+			}
+
+			if (ReceivedHandshake == false && peerConnection.RemoteHandshake != null)
+			{
+				ReceivedHandshake = true;
 
 				RemotePeerID = peerConnection.RemoteHandshake.PeerId;
 

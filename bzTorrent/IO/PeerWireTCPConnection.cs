@@ -41,7 +41,7 @@ namespace bzTorrent.IO
 {
 	public class PeerWireTCPConnection : IPeerConnection
 	{
-		private readonly Socket socket;
+		private Socket socket;
 		private bool receiving = false;
 		private byte[] currentPacketBuffer = null;
 		private const int socketBufferSize = 16 * 1024;
@@ -52,11 +52,8 @@ namespace bzTorrent.IO
 
 		public int Timeout
 		{
-			get => socket.ReceiveTimeout / 1000;
-			set {
-				socket.ReceiveTimeout = value * 1000;
-				socket.SendTimeout = value * 1000;
-			}
+			get;
+			set;
 		}
 
 		public bool Connected
@@ -68,13 +65,14 @@ namespace bzTorrent.IO
 
 		public PeerWireTCPConnection()
 		{
-			socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-			socket.NoDelay = true;
+
 		}
 
-		public PeerWireTCPConnection(Socket socket)
+		public PeerWireTCPConnection(Socket _socket)
 		{
-			this.socket = socket;
+			socket = _socket;
+			socket.ReceiveTimeout = Timeout * 1000;
+			socket.SendTimeout = Timeout * 1000;
 
 			if (socket.AddressFamily != AddressFamily.InterNetwork)
 			{
@@ -96,14 +94,23 @@ namespace bzTorrent.IO
 
 		public void Connect(IPEndPoint endPoint)
 		{
+			socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+			socket.NoDelay = true;
+			socket.ReceiveTimeout = Timeout * 1000;
+			socket.SendTimeout = Timeout * 1000;
+
+			incomingHandshake = null;
+
 			socket.Connect(endPoint);
 		}
 
 		public void Disconnect()
 		{
-			if (socket.Connected)
+			//if (socket.Connected)
 			{
 				socket.Disconnect(true);
+				socket = null;
+				receiving = false;
 			}
 		}
 
