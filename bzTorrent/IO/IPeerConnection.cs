@@ -31,6 +31,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 using System;
 using System.Net;
 using System.Net.Sockets;
+using System.Threading.Tasks;
 using bzTorrent.Data;
 
 namespace bzTorrent.IO
@@ -40,16 +41,14 @@ namespace bzTorrent.IO
 		bool Connected { get; }
 		int Timeout { get; set; }
 		public PeerClientHandshake RemoteHandshake { get; }
-		void Connect(IPEndPoint endPoint);
+		Task Connect(IPEndPoint endPoint);
 		void Disconnect();
 		void Listen(EndPoint ep);
-		IPeerConnection Accept();
-		IAsyncResult BeginAccept(AsyncCallback callback);
-		Socket EndAccept(IAsyncResult ar);
+		Task<IPeerConnection> Accept();
 
-		bool Process();
+		Task<bool> Process();
 
-		void Handshake(PeerClientHandshake handshake);
+		Task Handshake(PeerClientHandshake handshake);
 
 		bool HasPackets();
 		PeerWirePacket Receive();

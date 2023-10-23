@@ -31,23 +31,20 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 using System.Collections.Generic;
 using bzTorrent.IO;
 using bzTorrent.Helpers;
-using System.Threading;
 using bzTorrent.Data;
 using System;
 using System.Net;
+using System.Threading.Tasks;
 
 namespace bzTorrent
 {
 	public class PeerWireClient : IPeerWireClient
 	{
-		private bool _asyncContinue = true;
 		public bool ReceivedHandshake { get; private set; } = false;
 		private DateTime lastKeepAliveSent;
 
 		private readonly IPeerConnection peerConnection;
 		private readonly List<IProtocolExtension> _btProtocolExtensions;
-
-		private Thread _asyncThread = null;
 
 		public int Timeout { get => peerConnection.Timeout; }
 		public bool[] PeerBitField { get; set; }
@@ -78,16 +75,16 @@ namespace bzTorrent
 			_btProtocolExtensions = new List<IProtocolExtension>();
 		}
 
-		public void Connect(IPEndPoint endPoint)
+		public async Task Connect(IPEndPoint endPoint)
 		{
 			ReceivedHandshake = false;
-			peerConnection.Connect(endPoint);
+			await peerConnection.Connect(endPoint);
 		}
 
-		public void Connect(string ipHost, int port)
+		public async Task Connect(string ipHost, int port)
 		{
 			ReceivedHandshake = false;
-			peerConnection.Connect(new IPEndPoint(IPAddress.Parse(ipHost), port));
+			await peerConnection.Connect(new IPEndPoint(IPAddress.Parse(ipHost), port));
 		}
 
 		public void Disconnect()
@@ -95,13 +92,13 @@ namespace bzTorrent
 			peerConnection.Disconnect();
 		}
 
-		public bool Handshake()
+		public async Task<bool> Handshake()
 		{
-			return Handshake(Hash, LocalPeerID);
+			return await Handshake(Hash, LocalPeerID);
 		}
 
 
-		public bool Handshake(string hash, string peerId)
+		public async Task<bool> Handshake(string hash, string peerId)
 		{
 			if (hash == null)
 			{
@@ -140,7 +137,7 @@ namespace bzTorrent
 				ReservedBytes = reservedBytes
 			};
 
-			peerConnection.Handshake(handshake);
+			await peerConnection.Handshake(handshake);
 
 			foreach (var extension in _btProtocolExtensions)
 			{
@@ -150,30 +147,9 @@ namespace bzTorrent
 			return true;
 		}
 
-		public void ProcessAsync()
+		public async Task<bool> Process()
 		{
-			_asyncContinue = true;
-
-			_asyncThread = new Thread(o => {
-				var client = (PeerWireClient)o;
-				while (client.Process() && _asyncContinue)
-				{
-					Thread.Sleep(10);
-				}
-			});
-
-			_asyncThread.Start();
-		}
-
-		public void StopProcessAsync()
-		{
-			_asyncContinue = false;
-			_asyncThread.Join();
-		}
-
-		public bool Process()
-		{
-			var returnVal = InternalProcess();
+			var returnVal = await InternalProcess();
 
 			if (returnVal)
 			{
@@ -185,7 +161,7 @@ namespace bzTorrent
 			return false;
 		}
 
-		private bool InternalProcess()
+		private async Task<bool> InternalProcess()
 		{
 			if ((lastKeepAliveSent == null || lastKeepAliveSent < DateTime.UtcNow.AddMinutes(-1)) && ReceivedHandshake)
 			{
@@ -195,7 +171,7 @@ namespace bzTorrent
 
 			try
 			{
-				peerConnection.Process();
+				await peerConnection.Process();
 			}
 			catch
 			{

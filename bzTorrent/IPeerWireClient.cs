@@ -30,6 +30,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 using System;
 using System.Net;
+using System.Threading.Tasks;
 using bzTorrent.Data;
 
 namespace bzTorrent
@@ -58,16 +59,14 @@ namespace bzTorrent
 		event Action<IPeerWireClient, int, int, byte[]> Piece;
 		event Action<IPeerWireClient, int, int, int> Cancel;
 
-		void Connect(IPEndPoint endPoint);
-		void Connect(string ipHost, int port);
+		Task Connect(IPEndPoint endPoint);
+		Task Connect(string ipHost, int port);
 		void Disconnect();
 
-		bool Handshake();
-		bool Handshake(string hash, string peerId);
+		Task<bool> Handshake();
+		Task<bool> Handshake(string hash, string peerId);
 
-		void ProcessAsync();
-		void StopProcessAsync();
-		bool Process();
+		Task<bool> Process();
 
 		bool SendKeepAlive();
 		bool SendChoke();

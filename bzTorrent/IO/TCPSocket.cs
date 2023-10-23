@@ -1,5 +1,5 @@
 ﻿/*
-Copyright (c) 2013, Darren Horrocks
+Copyright (c) 2021, Darren Horrocks
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -29,52 +29,35 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 using System;
-using System.Net;
 using System.Net.Sockets;
-using bzTorrent.IO;
+using System.Threading.Tasks;
 
-namespace bzTorrent
+namespace bzTorrent.IO
 {
-	public class PeerWireListener<T> where T : IPeerConnection, new()
+	public class TCPSocket : BaseSocket, ISocket
 	{
-
-		private readonly T peerConnection;
-		private readonly int port;
-		private IAsyncResult asyncResult = null;
-
-		public event Action<PeerWireClient> NewPeer;
-
-		public PeerWireListener(int port)
+		public TCPSocket(Socket socket) : 
+			base(socket)
 		{
-			this.port = port;
-			peerConnection = new T();
+
 		}
 
-		public void StartListening()
+		public TCPSocket() :
+			base(new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp))
 		{
-			peerConnection.Listen(new IPEndPoint(IPAddress.Any, port));
-			//asyncResult = peerConnection.BeginAccept(Callback);
+
 		}
 
-
-		public void StopListening()
+		public override async Task<ISocket> Accept()
 		{
-			/*if (asyncResult != null)
+			try
 			{
-				peerConnection.EndAccept(asyncResult);
-			}*/
+				return new TCPSocket(await _socket.AcceptAsync());
+			}
+			catch (Exception)
+			{
+				return null;
+			}
 		}
-
-		private void Callback(IAsyncResult ar)
-		{
-			/*var socket = peerConnection.EndAccept(ar);
-
-			var constructorInfo = typeof(T).GetConstructor(new[] { typeof(ISocket) });
-
-			NewPeer?.Invoke(new PeerWireClient((IPeerConnection)constructorInfo.Invoke(new object[] { socket })));
-
-			peerConnection.BeginAccept(Callback);*/
-		}
-
 	}
 }

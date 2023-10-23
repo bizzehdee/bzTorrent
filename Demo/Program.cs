@@ -52,7 +52,7 @@ namespace Demo
             }
         }
 
-        static void Main(string[] args)
+        static async Task Main(string[] args)
         {
             var lpd = new LocalPeerDiscovery();
             lpd.NewPeer += Lpd_NewPeer;
@@ -155,7 +155,7 @@ namespace Demo
                 }
             }
 
-            var socket = new PeerWireTCPConnection
+            var socket = new PeerWireConnection<TCPSocket>
             {
                 Timeout = 5
             };
@@ -196,7 +196,7 @@ namespace Demo
                 try
                 {
                     Console.WriteLine("< Attempting to connect to {0}:{1}", peer.Address.ToString(), peer.Port);
-                    client.Connect(peer);
+                    await client.Connect(peer);
                     connectedDateTime = DateTime.UtcNow;
                 }
                 catch (Exception ex)
@@ -206,10 +206,11 @@ namespace Demo
                 }
 
                 Console.WriteLine("< Connected");
-                client.Handshake(downloadMetadata.HashString, peerId);
+                await client.Handshake(downloadMetadata.HashString, peerId);
                 Thread.Sleep(200);
+
                 int x = 0, i=0;
-                while (client.Process())
+                while (await client.Process())
                 {
                     if(connectedDateTime < DateTime.UtcNow.AddSeconds(-30) && client.ReceivedHandshake == false)
                     {

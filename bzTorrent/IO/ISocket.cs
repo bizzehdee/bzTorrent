@@ -1,5 +1,5 @@
 ﻿/*
-Copyright (c) 2013, Darren Horrocks
+Copyright (c) 2023, Darren Horrocks
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -31,50 +31,31 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 using System;
 using System.Net;
 using System.Net.Sockets;
-using bzTorrent.IO;
+using System.Threading.Tasks;
 
-namespace bzTorrent
+namespace bzTorrent.IO
 {
-	public class PeerWireListener<T> where T : IPeerConnection, new()
+	public interface ISocket : IDisposable
 	{
+		public bool Connected { get; }
+		public int ReceiveTimeout { get; set; }
+		public int SendTimeout { get; set; }
+		public bool NoDelay { get; set; }
 
-		private readonly T peerConnection;
-		private readonly int port;
-		private IAsyncResult asyncResult = null;
+		public Task Connect(EndPoint remoteEP);
+		public void Disconnect(bool reuseSocket);
 
-		public event Action<PeerWireClient> NewPeer;
+		public void Bind(EndPoint localEP);
+		public void Listen(int backlog);
+		public Task<ISocket> Accept();
+		Task<int> Receive(byte[] buffer);
 
-		public PeerWireListener(int port)
-		{
-			this.port = port;
-			peerConnection = new T();
-		}
+		public Task<int> Send(byte[] buffer);
+		public int SendTo(byte[] buffer, EndPoint remoteEP);
 
-		public void StartListening()
-		{
-			peerConnection.Listen(new IPEndPoint(IPAddress.Any, port));
-			//asyncResult = peerConnection.BeginAccept(Callback);
-		}
+		public void SetSocketOption(SocketOptionLevel optionLevel, SocketOptionName optionName, bool optionValue);
 
-
-		public void StopListening()
-		{
-			/*if (asyncResult != null)
-			{
-				peerConnection.EndAccept(asyncResult);
-			}*/
-		}
-
-		private void Callback(IAsyncResult ar)
-		{
-			/*var socket = peerConnection.EndAccept(ar);
-
-			var constructorInfo = typeof(T).GetConstructor(new[] { typeof(ISocket) });
-
-			NewPeer?.Invoke(new PeerWireClient((IPeerConnection)constructorInfo.Invoke(new object[] { socket })));
-
-			peerConnection.BeginAccept(Callback);*/
-		}
-
+		public IAsyncResult BeginReceiveFrom(byte[] buffer, int offset, int size, SocketFlags socketFlags, ref EndPoint remoteEP, AsyncCallback callback, object state);
+		public int EndReceiveFrom(IAsyncResult asyncResult, ref EndPoint endPoint);
 	}
 }

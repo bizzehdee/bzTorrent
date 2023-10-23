@@ -39,7 +39,7 @@ using System.Linq;
 
 namespace bzTorrent.IO
 {
-	public class PeerWireuTPConnection : IPeerConnection
+	/*public class PeerWireuTPConnection : IPeerConnection
 	{
 		private static Socket socket;
 		private static bool receiving = false;
@@ -401,5 +401,5 @@ namespace bzTorrent.IO
 		{
 			return receiveQueue.Count > 0;
 		}
-	}
+	}*/
 }
