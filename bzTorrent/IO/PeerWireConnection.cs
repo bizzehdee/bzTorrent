@@ -28,7 +28,6 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
 */
 
-using System.Net.Sockets;
 using bzTorrent.Data;
 using bzTorrent.Helpers;
 using System.Text;
@@ -69,7 +68,7 @@ namespace bzTorrent.IO
 
 			_socket.ReceiveTimeout = Timeout * 1000;
 			_socket.SendTimeout = Timeout * 1000;
-			_socket.NoDelay = true;
+			//_socket.NoDelay = true;
 
 			incomingHandshake = null;
 
@@ -103,7 +102,17 @@ namespace bzTorrent.IO
 		public async Task<bool> Process()
 		{
 			var dataLength = await _socket.Receive(socketBuffer);
-			ProcessData(dataLength);
+			
+			if(dataLength == -1)
+			{
+				//we got a state packet, go again
+				dataLength = await _socket.Receive(socketBuffer);
+			}
+
+			if (dataLength > 0)
+			{
+				ProcessData(dataLength);
+			}
 
 			while (!sendQueue.IsEmpty)
 			{

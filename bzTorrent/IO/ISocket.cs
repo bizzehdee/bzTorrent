@@ -43,7 +43,7 @@ namespace bzTorrent.IO
 		public bool NoDelay { get; set; }
 
 		public Task Connect(EndPoint remoteEP);
-		public void Disconnect(bool reuseSocket);
+		public Task Disconnect(bool reuseSocket);
 
 		public void Bind(EndPoint localEP);
 		public void Listen(int backlog);
@@ -51,11 +51,7 @@ namespace bzTorrent.IO
 		Task<int> Receive(byte[] buffer);
 
 		public Task<int> Send(byte[] buffer);
-		public int SendTo(byte[] buffer, EndPoint remoteEP);
 
 		public void SetSocketOption(SocketOptionLevel optionLevel, SocketOptionName optionName, bool optionValue);
-
-		public IAsyncResult BeginReceiveFrom(byte[] buffer, int offset, int size, SocketFlags socketFlags, ref EndPoint remoteEP, AsyncCallback callback, object state);
-		public int EndReceiveFrom(IAsyncResult asyncResult, ref EndPoint endPoint);
 	}
 }

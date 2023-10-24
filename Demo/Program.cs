@@ -155,7 +155,7 @@ namespace Demo
                 }
             }
 
-            var socket = new PeerWireConnection<TCPSocket>
+            var socket = new PeerWireConnection<UTPSocket>
             {
                 Timeout = 5
             };
@@ -190,8 +190,8 @@ namespace Demo
             client.NotInterested += Client_NotInterested;
             client.Request += Client_Request;
 
-            //var peer = new IPEndPoint(IPAddress.Parse("192.168.0.42"), 6881);
-            foreach (var peer in knownPeers)
+            var peer = new IPEndPoint(IPAddress.Parse("192.168.0.42"), 6881);
+            //foreach (var peer in knownPeers)
             {
                 try
                 {

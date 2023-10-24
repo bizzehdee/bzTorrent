@@ -29,6 +29,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 using System;
+using System.Net;
 using System.Net.Sockets;
 using System.Threading.Tasks;
 
@@ -36,6 +37,8 @@ namespace bzTorrent.IO
 {
 	public class UDPSocket : BaseSocket, ISocket
 	{
+		private EndPoint endPoint;
+
 		public UDPSocket(Socket socket) : 
 			base(socket)
 		{
@@ -47,10 +50,32 @@ namespace bzTorrent.IO
 		{
 
 		}
+		public override async Task Connect(EndPoint remoteEP)
+		{
+			endPoint = remoteEP;
+		}
+
+		public override async Task<int> Send(byte[] buffer)
+		{
+			return await _socket.SendToAsync(new ArraySegment<byte>(buffer), SocketFlags.None, endPoint);
+		}
+
+		public override async Task<int> Receive(byte[] buffer)
+		{
+			var result = await _socket.ReceiveFromAsync(new ArraySegment<byte>(buffer), SocketFlags.None, endPoint);
+			return result.ReceivedBytes;
+		}
 
 		public override async Task<ISocket> Accept()
 		{
-			return new UDPSocket(_socket.Accept());
+			try
+			{
+				return new UDPSocket(await _socket.AcceptAsync());
+			}
+			catch (Exception)
+			{
+				return null;
+			}
 		}
 	}
 }

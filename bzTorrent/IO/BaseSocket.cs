@@ -39,7 +39,7 @@ namespace bzTorrent.IO
 	{
 		protected Socket _socket;
 
-		public bool Connected { get => _socket.Connected; }
+		public virtual bool Connected { get => _socket.Connected; }
 		public int ReceiveTimeout { get => _socket.ReceiveTimeout; set => _socket.ReceiveTimeout = value; }
 		public int SendTimeout { get => _socket.SendTimeout; set => _socket.SendTimeout = value; }
 		public bool NoDelay { get => _socket.NoDelay; set => _socket.NoDelay = value; }
@@ -49,59 +49,39 @@ namespace bzTorrent.IO
 			_socket = socket;
 		}
 
-		public async Task<int> Receive(byte[] buffer)
+		public virtual async Task<int> Receive(byte[] buffer)
 		{
 			return await _socket.ReceiveAsync(new ArraySegment<byte>(buffer), SocketFlags.None);
 		}
 
-		public void Bind(EndPoint localEP)
+		public virtual void Bind(EndPoint localEP)
 		{
 			_socket.Bind(localEP);
 		}
 
-		public async Task Connect(EndPoint remoteEP)
+		public virtual async Task Connect(EndPoint remoteEP)
 		{
 			await _socket.ConnectAsync(remoteEP);
 		}
 
-		public void Disconnect(bool reuseSocket)
+		public virtual async Task Disconnect(bool reuseSocket)
 		{
 			_socket.Disconnect(reuseSocket);
 		}
 
-		public int EndReceive(IAsyncResult asyncResult)
-		{
-			return _socket.EndReceive(asyncResult);
-		}
-
-		public void Listen(int backlog)
+		public virtual void Listen(int backlog)
 		{
 			_socket.Listen(backlog);
 		}
 
-		public async Task<int> Send(byte[] buffer)
+		public virtual async Task<int> Send(byte[] buffer)
 		{
 			return await _socket.SendAsync(new ArraySegment<byte>(buffer), SocketFlags.None);
 		}
 
-		public int SendTo(byte[] buffer, EndPoint remoteEP)
-		{
-			return _socket.SendTo(buffer, remoteEP);
-		}
-
-		public void SetSocketOption(SocketOptionLevel optionLevel, SocketOptionName optionName, bool optionValue)
+		public virtual void SetSocketOption(SocketOptionLevel optionLevel, SocketOptionName optionName, bool optionValue)
 		{
 			_socket.SetSocketOption(optionLevel, optionName, optionValue);
-		}
-
-		public IAsyncResult BeginReceiveFrom(byte[] buffer, int offset, int size, SocketFlags socketFlags, ref EndPoint remoteEP, AsyncCallback callback, object state)
-		{
-			return _socket.BeginReceiveFrom(buffer, offset, size, socketFlags, ref remoteEP, callback, state);
-		}
-
-		public int EndReceiveFrom(IAsyncResult asyncResult, ref EndPoint endPoint)
-		{
-			return _socket.EndReceiveFrom(asyncResult, ref endPoint);
 		}
 
 		public void Dispose()
