@@ -155,14 +155,14 @@ namespace Demo
                 }
             }
 
-            var socket = new PeerWireConnection<UTPSocket>
+            var socket = new PeerWireConnection<TCPSocket>
             {
-                Timeout = 5
+                Timeout = 1
             };
 
             var client = new PeerWireClient(socket)
             {
-                KeepConnectionAlive = true
+                KeepConnectionAlive = false
             };
 
             var fastExt = new FastExtensions();
@@ -249,7 +249,7 @@ namespace Demo
                         //Console.WriteLine("< KeepAlive");
                     }
 
-                    Thread.Sleep(5);
+                    Thread.Sleep(10);
                 }
             }
         }
@@ -277,6 +277,8 @@ namespace Demo
         private static void FastExt_HaveAll(IPeerWireClient pwc)
         {
             Console.WriteLine("> HaveAll");
+
+            Console.WriteLine("< Interested");
             pwc.SendInterested();
         }
 

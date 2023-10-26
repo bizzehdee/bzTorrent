@@ -163,7 +163,7 @@ namespace bzTorrent
 
 		private async Task<bool> InternalProcess()
 		{
-			if ((lastKeepAliveSent == null || lastKeepAliveSent < DateTime.UtcNow.AddMinutes(-1)) && ReceivedHandshake)
+			if (((lastKeepAliveSent == null || lastKeepAliveSent < DateTime.UtcNow.AddMinutes(-1)) && ReceivedHandshake) && KeepConnectionAlive)
 			{
 				lastKeepAliveSent = DateTime.UtcNow;
 				peerConnection.Send(new PeerWirePacket { Command = PeerClientCommands.KeepAlive });

@@ -35,6 +35,7 @@ using System;
 using System.Net;
 using System.Collections.Concurrent;
 using System.Threading.Tasks;
+using System.Net.Sockets;
 
 namespace bzTorrent.IO
 {
@@ -68,7 +69,7 @@ namespace bzTorrent.IO
 
 			_socket.ReceiveTimeout = Timeout * 1000;
 			_socket.SendTimeout = Timeout * 1000;
-			//_socket.NoDelay = true;
+			_socket.NoDelay = true;
 
 			incomingHandshake = null;
 
@@ -101,6 +102,7 @@ namespace bzTorrent.IO
 
 		public async Task<bool> Process()
 		{
+			Array.Clear(socketBuffer, 0, socketBuffer.Length);
 			var dataLength = await _socket.Receive(socketBuffer);
 			
 			if(dataLength == -1)
@@ -114,12 +116,18 @@ namespace bzTorrent.IO
 				ProcessData(dataLength);
 			}
 
+			var outBuffer = new byte[0];
 			while (!sendQueue.IsEmpty)
 			{
 				if (sendQueue.TryDequeue(out var packet)) 
 				{
-					await _socket.Send(packet.GetBytes());
+					outBuffer = outBuffer.Cat(packet.GetBytes());
 				}
+			}
+
+			if (outBuffer.Length > 0)
+			{
+				await _socket.Send(outBuffer);
 			}
 
 			return Connected;
