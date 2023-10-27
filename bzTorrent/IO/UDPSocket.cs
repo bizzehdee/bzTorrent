@@ -31,28 +31,62 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 using System;
 using System.Net;
 using System.Net.Sockets;
-using bzTorrent.Data;
+using System.Threading.Tasks;
 
 namespace bzTorrent.IO
 {
-	public interface IPeerConnection
+	public class UDPSocket : BaseSocket, ISocket
 	{
-		bool Connected { get; }
-		int Timeout { get; set; }
-		public PeerClientHandshake RemoteHandshake { get; }
-		void Connect(IPEndPoint endPoint);
-		void Disconnect();
-		void Listen(EndPoint ep);
-		IPeerConnection Accept();
-		IAsyncResult BeginAccept(AsyncCallback callback);
-		ISocket EndAccept(IAsyncResult ar);
+		private EndPoint endPoint;
+		private bool isConnected = false;
 
-		bool Process();
+		public override bool Connected { get => isConnected; }
 
-		void Handshake(PeerClientHandshake handshake);
+		public UDPSocket(Socket socket) : 
+			base(socket)
+		{
 
-		bool HasPackets();
-		PeerWirePacket Receive();
-		void Send(PeerWirePacket packet);
+		}
+
+		public UDPSocket() :
+			base(new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp))
+		{
+
+		}
+
+		public override void Connect(EndPoint remoteEP)
+		{
+			isConnected = true;
+			endPoint = remoteEP;
+		}
+
+		public override void Disconnect(bool reuseSocket)
+		{
+			isConnected = false;
+		}
+
+		public override ISocket Accept()
+		{
+			try
+			{
+				return new UDPSocket(_socket.Accept());
+			}
+			catch (Exception)
+			{
+				return null;
+			}
+		}
+
+		public override ISocket EndAccept(IAsyncResult ar)
+		{
+			try
+			{
+				return new UDPSocket(_socket.EndAccept(ar));
+			}
+			catch (Exception)
+			{
+				return null;
+			}
+		}
 	}
 }

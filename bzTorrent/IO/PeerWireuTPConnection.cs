@@ -41,7 +41,7 @@ namespace bzTorrent.IO
 {
 	public class PeerWireuTPConnection : IPeerConnection
 	{
-		private static Socket socket;
+		private static ISocket socket;
 		private static bool receiving = false;
 		private byte[] currentPacketBuffer = null;
 		private const int socketBufferSize = 16 * 1024;
@@ -95,26 +95,11 @@ namespace bzTorrent.IO
 
 		public PeerWireuTPConnection()
 		{
-			socket ??= new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+			socket ??= new UDPSocket();
 		}
 
-		public PeerWireuTPConnection(Socket socket)
+		public PeerWireuTPConnection(ISocket socket)
 		{
-			if (socket.AddressFamily != AddressFamily.InterNetwork)
-			{
-				throw new ArgumentException("AddressFamily of socket must be InterNetwork");
-			}
-
-			if (socket.SocketType != SocketType.Dgram)
-			{
-				throw new ArgumentException("SocketType of socket must be StDgramream");
-			}
-
-			if (socket.ProtocolType != ProtocolType.Udp)
-			{
-				throw new ArgumentException("ProtocolType of socket must be Udp");
-			}
-
 			PeerWireuTPConnection.socket ??= socket;
 		}
 
@@ -155,7 +140,7 @@ namespace bzTorrent.IO
 			return null;
 		}
 
-		public Socket EndAccept(IAsyncResult ar)
+		public ISocket EndAccept(IAsyncResult ar)
 		{
 			return socket;
 		}
