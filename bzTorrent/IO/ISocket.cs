@@ -1,5 +1,5 @@
 ﻿/*
-Copyright (c) 2021, Darren Horrocks
+Copyright (c) 2023, Darren Horrocks
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -31,28 +31,34 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 using System;
 using System.Net;
 using System.Net.Sockets;
-using bzTorrent.Data;
 
 namespace bzTorrent.IO
 {
-	public interface IPeerConnection
+	public interface ISocket : IDisposable
 	{
-		bool Connected { get; }
-		int Timeout { get; set; }
-		public PeerClientHandshake RemoteHandshake { get; }
-		void Connect(IPEndPoint endPoint);
-		void Disconnect();
-		void Listen(EndPoint ep);
-		IPeerConnection Accept();
-		IAsyncResult BeginAccept(AsyncCallback callback);
+		public bool Connected { get; }
+		public int ReceiveTimeout { get; set; }
+		public int SendTimeout { get; set; }
+		public bool NoDelay { get; set; }
+
+		public void Connect(EndPoint remoteEP);
+		public void Bind(EndPoint localEP);
+		public void Listen(int backlog);
+		public void Disconnect(bool reuseSocket);
+
+		public ISocket Accept();
+		IAsyncResult BeginAccept(AsyncCallback callback, object state);
 		ISocket EndAccept(IAsyncResult ar);
 
-		bool Process();
+		int Receive(byte[] buffer);
+		IAsyncResult BeginReceive(byte[] buffer, int offset, int size, SocketFlags socketFlags, AsyncCallback callback, object state);
+		int EndReceive(IAsyncResult asyncResult);
+		IAsyncResult BeginReceiveFrom(byte[] buffer, int offset, int size, SocketFlags socketFlags, ref EndPoint remoteEP, AsyncCallback callback, object state);
+		int EndReceiveFrom(IAsyncResult asyncResult, ref EndPoint endPoint);
 
-		void Handshake(PeerClientHandshake handshake);
+		public int Send(byte[] buffer);
+		public int SendTo(byte[] buffer, EndPoint remoteEP);
 
-		bool HasPackets();
-		PeerWirePacket Receive();
-		void Send(PeerWirePacket packet);
+		public void SetSocketOption(SocketOptionLevel optionLevel, SocketOptionName optionName, bool optionValue);
 	}
 }

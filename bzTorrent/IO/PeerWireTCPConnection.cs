@@ -41,7 +41,7 @@ namespace bzTorrent.IO
 {
 	public class PeerWireTCPConnection : IPeerConnection
 	{
-		private Socket socket;
+		private ISocket socket;
 		private bool receiving = false;
 		private byte[] currentPacketBuffer = null;
 		private const int socketBufferSize = 16 * 1024;
@@ -65,36 +65,21 @@ namespace bzTorrent.IO
 
 		public PeerWireTCPConnection()
 		{
-
+			socket = new TCPSocket();
 		}
 
-		public PeerWireTCPConnection(Socket _socket)
+		public PeerWireTCPConnection(ISocket _socket)
 		{
 			socket = _socket;
 			socket.ReceiveTimeout = Timeout * 1000;
 			socket.SendTimeout = Timeout * 1000;
-
-			if (socket.AddressFamily != AddressFamily.InterNetwork)
-			{
-				throw new ArgumentException("AddressFamily of socket must be InterNetwork");
-			}
-
-			if (socket.SocketType != SocketType.Stream)
-			{
-				throw new ArgumentException("SocketType of socket must be Stream");
-			}
-
-			if (socket.ProtocolType != ProtocolType.Tcp)
-			{
-				throw new ArgumentException("ProtocolType of socket must be Tcp");
-			}
 
 			socket.NoDelay = true;
 		}
 
 		public void Connect(IPEndPoint endPoint)
 		{
-			socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+			socket = new TCPSocket();
 			socket.NoDelay = true;
 			socket.ReceiveTimeout = Timeout * 1000;
 			socket.SendTimeout = Timeout * 1000;
@@ -130,7 +115,7 @@ namespace bzTorrent.IO
 			return socket.BeginAccept(callback, null);
 		}
 
-		public Socket EndAccept(IAsyncResult ar)
+		public ISocket EndAccept(IAsyncResult ar)
 		{
 			return socket.EndAccept(ar);
 		}

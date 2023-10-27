@@ -29,30 +29,47 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 using System;
-using System.Net;
 using System.Net.Sockets;
-using bzTorrent.Data;
+using System.Threading.Tasks;
 
 namespace bzTorrent.IO
 {
-	public interface IPeerConnection
+	public class TCPSocket : BaseSocket, ISocket
 	{
-		bool Connected { get; }
-		int Timeout { get; set; }
-		public PeerClientHandshake RemoteHandshake { get; }
-		void Connect(IPEndPoint endPoint);
-		void Disconnect();
-		void Listen(EndPoint ep);
-		IPeerConnection Accept();
-		IAsyncResult BeginAccept(AsyncCallback callback);
-		ISocket EndAccept(IAsyncResult ar);
+		public TCPSocket(Socket socket) : 
+			base(socket)
+		{
 
-		bool Process();
+		}
 
-		void Handshake(PeerClientHandshake handshake);
+		public TCPSocket() :
+			base(new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp))
+		{
 
-		bool HasPackets();
-		PeerWirePacket Receive();
-		void Send(PeerWirePacket packet);
+		}
+
+		public override ISocket Accept()
+		{
+			try
+			{
+				return new TCPSocket(_socket.Accept());
+			}
+			catch (Exception)
+			{
+				return null;
+			}
+		}
+
+		public override ISocket EndAccept(IAsyncResult ar)
+		{
+			try
+			{
+				return new TCPSocket(_socket.EndAccept(ar));
+			}
+			catch (Exception)
+			{
+				return null;
+			}
+		}
 	}
 }
