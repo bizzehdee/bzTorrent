@@ -37,10 +37,41 @@ using bzTorrent.Helpers;
 
 namespace bzTorrent.IO
 {
-	/*
+	public class UTPPacketHeader
+	{
+		public byte Version { get; private set; }
+		public UTPSocket.PacketType PacketType { get; private set; }
+		public ushort ConnectionIdRecvd { get; private set; }
+		public uint TimestampRecvd { get; private set; }
+		public uint TimestampDiffRecvd { get; private set; }
+		public uint WndSizeRecvd { get; private set; }
+		public ushort SeqNumberRecvd { get; private set; }
+		public ushort AckNumberRecvd { get; private set; }
+
+		public void Parse(byte[] buffer)
+		{
+			Version = (byte)(buffer[0] & 0x0F);
+			PacketType = (UTPSocket.PacketType)((buffer[0] & 0xF0) >> 4);
+			ConnectionIdRecvd = UnpackHelper.UInt16(buffer, 2, UnpackHelper.Endianness.Big);
+			TimestampRecvd = UnpackHelper.UInt32(buffer, 4, UnpackHelper.Endianness.Big);
+			TimestampDiffRecvd = UnpackHelper.UInt32(buffer, 8, UnpackHelper.Endianness.Big);
+			WndSizeRecvd = UnpackHelper.UInt32(buffer, 12, UnpackHelper.Endianness.Big);
+			SeqNumberRecvd = UnpackHelper.UInt16(buffer, 16, UnpackHelper.Endianness.Big);
+			AckNumberRecvd = UnpackHelper.UInt16(buffer, 18, UnpackHelper.Endianness.Big);
+		}
+	}
+
 	public class UTPSocket : BaseSocket, ISocket
 	{
-		
+		public enum PacketType : byte
+		{
+			STData = 0,
+			STFin = 1,
+			STState = 2,
+			STReset = 3,
+			STSyn = 4
+		}
+
 		private readonly Random rng = new();
 		private const int socketBufferSize = 16 * 1024;
 		private static readonly byte[] socketBuffer = new byte[socketBufferSize];
@@ -61,15 +92,8 @@ namespace bzTorrent.IO
 		}
 
 		public override bool Connected { get => isConnected; }
+		public override bool NoDelay { get; set; }
 
-		public enum PacketType : byte
-		{
-			STData = 0,
-			STFin = 1,
-			STState = 2,
-			STReset = 3,
-			STSyn = 4
-		}
 
 		public UTPSocket(Socket socket) : 
 			base(socket)
@@ -82,22 +106,22 @@ namespace bzTorrent.IO
 		{
 
 		}
-		public override async Task Connect(EndPoint remoteEP)
+		public override void Connect(EndPoint remoteEP)
 		{
 			isConnected = true;
 			endPoint = remoteEP;
 
 			ConnectionIdLocal = (ushort)rng.Next(0, ushort.MaxValue);
 
-			await SenduTPData(PacketType.STSyn, null);
+			SenduTPData(PacketType.STSyn, null);
 
 			var tempBuffer = new byte[0];
-			await Receive(tempBuffer);
+			Receive(tempBuffer);
 		}
 
-		public override async Task Disconnect(bool reuseSocket)
+		public override void Disconnect(bool reuseSocket)
 		{
-			await SenduTPData(PacketType.STFin, null);
+			SenduTPData(PacketType.STFin, null);
 			isConnected = false;
 		}
 
@@ -107,17 +131,16 @@ namespace bzTorrent.IO
 			_socket.Bind(endPoint);
 		}
 
-		public override async Task<int> Send(byte[] buffer)
+		public override int Send(byte[] buffer)
 		{
-			return await SenduTPData(PacketType.STData, buffer);
+			return SenduTPData(PacketType.STData, buffer);
 		}
 
-		public override async Task<int> Receive(byte[] buffer)
+		public override int Receive(byte[] buffer)
 		{
 			var internalBuffer = new byte[buffer.Length + 20];
 
-			var result = await _socket.ReceiveFromAsync(new ArraySegment<byte>(internalBuffer), SocketFlags.None, endPoint);
-			var dataLength = result.ReceivedBytes;
+			var dataLength = _socket.ReceiveFrom(internalBuffer, SocketFlags.None, ref endPoint);
 
 			var timestampRecvd = TimestampMicro();
 
@@ -125,60 +148,56 @@ namespace bzTorrent.IO
 			{
 				//error
 			}
-			
-			var verRecvd = (byte)(internalBuffer[0] & 0x0F);
-			var typeRecvd = (PacketType)((internalBuffer[0] & 0xF0) >> 4);
-			var connectionIdRecvd = UnpackHelper.UInt16(internalBuffer, 2, UnpackHelper.Endianness.Big);
-			LastTimestampReceived = UnpackHelper.UInt32(internalBuffer, 4, UnpackHelper.Endianness.Big);
-			var timestampDiffRecvd = UnpackHelper.UInt32(internalBuffer, 8, UnpackHelper.Endianness.Big);
-			var wndSizeRecvd = UnpackHelper.UInt32(internalBuffer, 12, UnpackHelper.Endianness.Big);
-			var seqNumberRecvd = UnpackHelper.UInt16(internalBuffer, 16, UnpackHelper.Endianness.Big);
-			var ackNumberRecvd = UnpackHelper.UInt16(internalBuffer, 18, UnpackHelper.Endianness.Big);
-			
+
+			var currentPacketHeader = new UTPPacketHeader();
+			currentPacketHeader.Parse(internalBuffer);
+
+			LastTimestampReceived = currentPacketHeader.TimestampRecvd;
 			LastTimestampReceivedDiff = LastTimestampReceived - timestampRecvd;
 
+			/*
 			if (isFullyConnected == false)
 			{
 				//syn sent but not received status yet
-				if (typeRecvd == PacketType.STState && connectionIdRecvd == ConnectionIdLocal)
+				if (currentPacketHeader.PacketType == PacketType.STState && currentPacketHeader.ConnectionIdRecvd == ConnectionIdLocal)
 				{
 					isFullyConnected = true;
-					AckNumber = (ushort)(seqNumberRecvd - 1);
+					AckNumber = (ushort)(currentPacketHeader.SeqNumberRecvd - 1);
 				}
 			}
 			else
 			{
 
-				AckNumber = seqNumberRecvd;
+				AckNumber = currentPacketHeader.SeqNumberRecvd;
 
-				if (typeRecvd == PacketType.STState)
+				if (currentPacketHeader.PacketType == PacketType.STState)
 				{
 					return -1;
 				}
 
-				if (typeRecvd == PacketType.STFin)
+				if (currentPacketHeader.PacketType == PacketType.STFin)
 				{
 					isConnected = false;
 					return 0;
 				}
 
-				if (typeRecvd != PacketType.STState)
+				if (currentPacketHeader.PacketType != PacketType.STState)
 				{
 					//send ack
-					await SendAck();
+					SendAck();
 				}
 			}
 
 			Array.Copy(internalBuffer.GetBytes(20, dataLength-20), buffer, dataLength - 20);
-
+			*/
 			return dataLength - 20;
 		}
 
-		public override async Task<ISocket> Accept()
+		public override ISocket Accept()
 		{
 			try
 			{
-				return new UTPSocket(await _socket.AcceptAsync());
+				return new UTPSocket(_socket.Accept());
 			}
 			catch (Exception)
 			{
@@ -191,7 +210,7 @@ namespace bzTorrent.IO
 			return (uint)(DateTime.UtcNow.Ticks / (TimeSpan.TicksPerMillisecond / 1000));
 		}
 
-		private async Task<int> SenduTPData(PacketType packetType, byte[] data)
+		private int SenduTPData(PacketType packetType, byte[] data)
 		{
 			if (packetType != PacketType.STState)
 			{
@@ -212,13 +231,99 @@ namespace bzTorrent.IO
 				.Cat(PackHelper.UInt16(SeqNumber)).Cat(PackHelper.UInt16(AckNumber));
 
 
-			return await _socket.SendToAsync(new ArraySegment<byte>(header.Cat(sendData)), SocketFlags.None, endPoint);
+			return _socket.SendTo(header.Cat(sendData), SocketFlags.None, endPoint);
 		}
 
-		private async Task SendAck()
+		private void SendAck()
 		{
-			await SenduTPData(PacketType.STState, null);
+			SenduTPData(PacketType.STState, null);
+		}
+
+		public override ISocket EndAccept(IAsyncResult ar)
+		{
+			try
+			{
+				return new UTPSocket(_socket.EndAccept(ar));
+			}
+			catch (Exception)
+			{
+				return null;
+			}
+		}
+
+		public override IAsyncResult BeginReceive(byte[] buffer, int offset, int size, SocketFlags socketFlags, AsyncCallback callback, object state)
+		{
+			return _socket.BeginReceiveFrom(buffer, offset, size, socketFlags, ref endPoint, (IAsyncResult ar) => {
+				var dataLength = EndReceiveInternal(ar);
+
+				var timestampRecvd = TimestampMicro();
+
+				if (dataLength < 20)
+				{
+					//error
+				}
+
+				var currentPacketHeader = new UTPPacketHeader();
+				currentPacketHeader.Parse(buffer);
+
+				/*
+				Console.WriteLine("Got UTP Packet: {0} - Size: {1} - Data Size: {2}", currentPacketHeader.PacketType.ToString(), dataLength, dataLength-20);
+
+				LastTimestampReceived = currentPacketHeader.TimestampRecvd;
+				LastTimestampReceivedDiff = LastTimestampReceived - timestampRecvd;
+
+				if (isFullyConnected == false)
+				{
+					//syn sent but not received status yet
+					if (currentPacketHeader.PacketType == PacketType.STState && currentPacketHeader.ConnectionIdRecvd == ConnectionIdLocal)
+					{
+						isFullyConnected = true;
+						AckNumber = (ushort)(currentPacketHeader.SeqNumberRecvd - 1);
+					}
+				}
+				else
+				{
+
+					AckNumber = currentPacketHeader.SeqNumberRecvd;
+
+					if (currentPacketHeader.PacketType == PacketType.STState)
+					{
+						Console.WriteLine(" >> IN >> ");
+						BeginReceive(buffer, offset, size, socketFlags, callback, state);
+						Console.WriteLine(" << OUT << ");
+						return;
+					}
+
+					if (currentPacketHeader.PacketType == PacketType.STFin)
+					{
+						isConnected = false;
+
+					}
+
+					if (currentPacketHeader.PacketType != PacketType.STState)
+					{
+						//send ack
+						SendAck();
+					}
+				}
+
+				var internalBuffer = new byte[dataLength - 20];
+				Array.Copy(buffer.GetBytes(20, dataLength - 20), internalBuffer, dataLength - 20);
+				Array.Clear(buffer, 0, buffer.Length);
+				Array.Copy(internalBuffer, buffer, dataLength - 20);
+				*/
+				callback(ar);
+			}, state);
+		}
+
+		private int EndReceiveInternal(IAsyncResult asyncResult)
+		{
+			return _socket.EndReceiveFrom(asyncResult, ref endPoint);
+		}
+
+		public override int EndReceive(IAsyncResult asyncResult)
+		{
+			return EndReceiveInternal(asyncResult)-20;
 		}
 	}
-	*/
 }

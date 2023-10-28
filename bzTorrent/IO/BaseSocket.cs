@@ -97,27 +97,27 @@ namespace bzTorrent.IO
 
 		public abstract ISocket EndAccept(IAsyncResult ar);
 
-		public IAsyncResult BeginReceive(byte[] buffer, int offset, int size, SocketFlags socketFlags, AsyncCallback callback, object state)
+		public virtual IAsyncResult BeginReceive(byte[] buffer, int offset, int size, SocketFlags socketFlags, AsyncCallback callback, object state)
 		{
 			return _socket.BeginReceive(buffer, offset, size, socketFlags, callback, state);
 		}
 
-		public int EndReceive(IAsyncResult asyncResult)
+		public virtual int EndReceive(IAsyncResult asyncResult)
 		{
 			return _socket.EndReceive(asyncResult);
 		}
 
-		public IAsyncResult BeginReceiveFrom(byte[] buffer, int offset, int size, SocketFlags socketFlags, ref EndPoint remoteEP, AsyncCallback callback, object state)
+		public virtual IAsyncResult BeginReceiveFrom(byte[] buffer, int offset, int size, SocketFlags socketFlags, ref EndPoint remoteEP, AsyncCallback callback, object state)
 		{
 			return _socket.BeginReceiveFrom(buffer, offset, size, socketFlags, ref remoteEP, callback, state);
 		}
 
-		public int EndReceiveFrom(IAsyncResult asyncResult, ref EndPoint endPoint)
+		public virtual int EndReceiveFrom(IAsyncResult asyncResult, ref EndPoint endPoint)
 		{
 			return _socket.EndReceiveFrom(asyncResult, ref endPoint);
 		}
 
-		public int SendTo(byte[] buffer, EndPoint remoteEP)
+		public virtual int SendTo(byte[] buffer, EndPoint remoteEP)
 		{
 			return _socket.SendTo(buffer, remoteEP);
 		}

@@ -41,6 +41,7 @@ namespace bzTorrent.IO
 		private bool isConnected = false;
 
 		public override bool Connected { get => isConnected; }
+		public override bool NoDelay { get; set; }
 
 		public UDPSocket(Socket socket) : 
 			base(socket)
