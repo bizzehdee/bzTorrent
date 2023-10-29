@@ -106,6 +106,7 @@ namespace bzTorrent.IO
 		{
 
 		}
+
 		public override void Connect(EndPoint remoteEP)
 		{
 			isConnected = true;
@@ -114,9 +115,6 @@ namespace bzTorrent.IO
 			ConnectionIdLocal = (ushort)rng.Next(0, ushort.MaxValue);
 
 			SenduTPData(PacketType.STSyn, null);
-
-			var tempBuffer = new byte[0];
-			Receive(tempBuffer);
 		}
 
 		public override void Disconnect(bool reuseSocket)
@@ -155,7 +153,6 @@ namespace bzTorrent.IO
 			LastTimestampReceived = currentPacketHeader.TimestampRecvd;
 			LastTimestampReceivedDiff = LastTimestampReceived - timestampRecvd;
 
-			/*
 			if (isFullyConnected == false)
 			{
 				//syn sent but not received status yet
@@ -167,12 +164,11 @@ namespace bzTorrent.IO
 			}
 			else
 			{
-
 				AckNumber = currentPacketHeader.SeqNumberRecvd;
 
 				if (currentPacketHeader.PacketType == PacketType.STState)
 				{
-					return -1;
+					return 0;
 				}
 
 				if (currentPacketHeader.PacketType == PacketType.STFin)
@@ -183,13 +179,13 @@ namespace bzTorrent.IO
 
 				if (currentPacketHeader.PacketType != PacketType.STState)
 				{
-					//send ack
 					SendAck();
 				}
 			}
 
-			Array.Copy(internalBuffer.GetBytes(20, dataLength-20), buffer, dataLength - 20);
-			*/
+			Array.Clear(buffer, 0, dataLength);
+			Array.Copy(internalBuffer.GetBytes(20, dataLength - 20), buffer, dataLength - 20);
+
 			return dataLength - 20;
 		}
 
@@ -210,7 +206,7 @@ namespace bzTorrent.IO
 			return (uint)(DateTime.UtcNow.Ticks / (TimeSpan.TicksPerMillisecond / 1000));
 		}
 
-		private int SenduTPData(PacketType packetType, byte[] data)
+		private int SenduTPData(PacketType packetType, byte[] data, bool expectState = true)
 		{
 			if (packetType != PacketType.STState)
 			{
@@ -230,13 +226,22 @@ namespace bzTorrent.IO
 				.Cat(PackHelper.UInt32(MaxWindow))
 				.Cat(PackHelper.UInt16(SeqNumber)).Cat(PackHelper.UInt16(AckNumber));
 
+			var sent = _socket.SendTo(header.Cat(sendData), SocketFlags.None, endPoint);
 
-			return _socket.SendTo(header.Cat(sendData), SocketFlags.None, endPoint);
+			if (expectState)
+			{
+				var internalBuffer = new byte[1024];
+
+				BeginReceive(internalBuffer, 0, 1024, SocketFlags.None, (IAsyncResult ar) => {
+				}, this);
+
+			}
+			return sent;
 		}
 
 		private void SendAck()
 		{
-			SenduTPData(PacketType.STState, null);
+			SenduTPData(PacketType.STState, null, false);
 		}
 
 		public override ISocket EndAccept(IAsyncResult ar)
@@ -256,6 +261,9 @@ namespace bzTorrent.IO
 			return _socket.BeginReceiveFrom(buffer, offset, size, socketFlags, ref endPoint, (IAsyncResult ar) => {
 				var dataLength = EndReceiveInternal(ar);
 
+				var internalBuffer = new byte[dataLength];
+				Array.Copy(buffer, internalBuffer, dataLength);
+
 				var timestampRecvd = TimestampMicro();
 
 				if (dataLength < 20)
@@ -264,10 +272,7 @@ namespace bzTorrent.IO
 				}
 
 				var currentPacketHeader = new UTPPacketHeader();
-				currentPacketHeader.Parse(buffer);
-
-				/*
-				Console.WriteLine("Got UTP Packet: {0} - Size: {1} - Data Size: {2}", currentPacketHeader.PacketType.ToString(), dataLength, dataLength-20);
+				currentPacketHeader.Parse(internalBuffer);
 
 				LastTimestampReceived = currentPacketHeader.TimestampRecvd;
 				LastTimestampReceivedDiff = LastTimestampReceived - timestampRecvd;
@@ -283,36 +288,29 @@ namespace bzTorrent.IO
 				}
 				else
 				{
-
 					AckNumber = currentPacketHeader.SeqNumberRecvd;
 
 					if (currentPacketHeader.PacketType == PacketType.STState)
 					{
-						Console.WriteLine(" >> IN >> ");
-						BeginReceive(buffer, offset, size, socketFlags, callback, state);
-						Console.WriteLine(" << OUT << ");
 						return;
 					}
 
 					if (currentPacketHeader.PacketType == PacketType.STFin)
 					{
 						isConnected = false;
-
+						return;
 					}
 
 					if (currentPacketHeader.PacketType != PacketType.STState)
 					{
-						//send ack
 						SendAck();
 					}
 				}
 
-				var internalBuffer = new byte[dataLength - 20];
-				Array.Copy(buffer.GetBytes(20, dataLength - 20), internalBuffer, dataLength - 20);
-				Array.Clear(buffer, 0, buffer.Length);
-				Array.Copy(internalBuffer, buffer, dataLength - 20);
-				*/
-				callback(ar);
+				Array.Clear(buffer, 0, dataLength);
+				Array.Copy(internalBuffer.GetBytes(20, dataLength - 20), buffer, dataLength - 20);
+				
+				callback?.Invoke(ar);
 			}, state);
 		}
 

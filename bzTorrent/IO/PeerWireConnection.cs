@@ -125,6 +125,7 @@ namespace bzTorrent.IO
 			if (receiving == false)
 			{
 				receiving = true;
+				Array.Clear(socketBuffer, 0, socketBufferSize);
 				socket.BeginReceive(socketBuffer, 0, socketBufferSize, SocketFlags.None, ReceiveCallback, this);
 			}
 

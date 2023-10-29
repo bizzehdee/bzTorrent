@@ -155,7 +155,7 @@ namespace Demo
                 }
             }
 
-            var socket = new PeerWireTCPConnection
+            var socket = new PeerWireConnection<UTPSocket>
             {
                 Timeout = 5
             };
@@ -244,8 +244,8 @@ namespace Demo
                     if(x++ > 1000)
                     {
                         x = 0;
-                        //client.SendKeepAlive();
-                        //Console.WriteLine("< KeepAlive");
+                        client.SendKeepAlive();
+                        Console.WriteLine("< KeepAlive");
                     }
 
                     Thread.Sleep(5);
