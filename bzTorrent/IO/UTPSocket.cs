@@ -134,61 +134,6 @@ namespace bzTorrent.IO
 			return SenduTPData(PacketType.STData, buffer);
 		}
 
-		public override int Receive(byte[] buffer)
-		{
-			var internalBuffer = new byte[buffer.Length + 20];
-
-			var dataLength = _socket.ReceiveFrom(internalBuffer, SocketFlags.None, ref endPoint);
-
-			var timestampRecvd = TimestampMicro();
-
-			if (dataLength < 20)
-			{
-				//error
-			}
-
-			var currentPacketHeader = new UTPPacketHeader();
-			currentPacketHeader.Parse(internalBuffer);
-
-			LastTimestampReceived = currentPacketHeader.TimestampRecvd;
-			LastTimestampReceivedDiff = LastTimestampReceived - timestampRecvd;
-
-			if (isFullyConnected == false)
-			{
-				//syn sent but not received status yet
-				if (currentPacketHeader.PacketType == PacketType.STState && currentPacketHeader.ConnectionIdRecvd == ConnectionIdLocal)
-				{
-					isFullyConnected = true;
-					AckNumber = (ushort)(currentPacketHeader.SeqNumberRecvd - 1);
-				}
-			}
-			else
-			{
-				AckNumber = currentPacketHeader.SeqNumberRecvd;
-
-				if (currentPacketHeader.PacketType == PacketType.STState)
-				{
-					return 0;
-				}
-
-				if (currentPacketHeader.PacketType == PacketType.STFin)
-				{
-					isConnected = false;
-					return 0;
-				}
-
-				if (currentPacketHeader.PacketType != PacketType.STState)
-				{
-					SendAck();
-				}
-			}
-
-			Array.Clear(buffer, 0, dataLength);
-			Array.Copy(internalBuffer.GetBytes(20, dataLength - 20), buffer, dataLength - 20);
-
-			return dataLength - 20;
-		}
-
 		public override ISocket Accept()
 		{
 			try
@@ -208,6 +153,8 @@ namespace bzTorrent.IO
 
 		private int SenduTPData(PacketType packetType, byte[] data, bool expectState = true)
 		{
+			Console.WriteLine("PACKET SENT: {0}", packetType.ToString());
+
 			if (packetType != PacketType.STState)
 			{
 				SeqNumber++;
@@ -274,6 +221,8 @@ namespace bzTorrent.IO
 				var currentPacketHeader = new UTPPacketHeader();
 				currentPacketHeader.Parse(internalBuffer);
 
+				Console.WriteLine("PACKET RECV: {0}", currentPacketHeader.PacketType.ToString());
+
 				LastTimestampReceived = currentPacketHeader.TimestampRecvd;
 				LastTimestampReceivedDiff = LastTimestampReceived - timestampRecvd;
 
@@ -290,15 +239,18 @@ namespace bzTorrent.IO
 				{
 					AckNumber = currentPacketHeader.SeqNumberRecvd;
 
-					if (currentPacketHeader.PacketType == PacketType.STState)
-					{
-						return;
-					}
-
 					if (currentPacketHeader.PacketType == PacketType.STFin)
 					{
 						isConnected = false;
 						return;
+					}
+
+					if (currentPacketHeader.PacketType == PacketType.STState)
+					{
+						if (dataLength > 20)
+						{
+							Console.WriteLine("Received state and {0} extra data", dataLength - 20);
+						}
 					}
 
 					if (currentPacketHeader.PacketType != PacketType.STState)

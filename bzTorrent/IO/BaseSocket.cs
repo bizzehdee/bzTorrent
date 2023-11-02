@@ -75,11 +75,6 @@ namespace bzTorrent.IO
 			_socket.Listen(backlog);
 		}
 
-		public virtual int Receive(byte[] buffer)
-		{
-			return _socket.Receive(buffer);
-		}
-
 		public virtual int Send(byte[] buffer)
 		{
 			return _socket.Send(buffer);
