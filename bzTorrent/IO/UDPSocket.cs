@@ -31,7 +31,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 using System;
 using System.Net;
 using System.Net.Sockets;
-using System.Threading.Tasks;
 
 namespace bzTorrent.IO
 {
@@ -41,6 +40,7 @@ namespace bzTorrent.IO
 		private bool isConnected = false;
 
 		public override bool Connected { get => isConnected; }
+		public override bool NoDelay { get; set; }
 
 		public UDPSocket(Socket socket) : 
 			base(socket)

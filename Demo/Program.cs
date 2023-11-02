@@ -155,7 +155,7 @@ namespace Demo
                 }
             }
 
-            var socket = new PeerWireTCPConnection
+            var socket = new PeerWireConnection<UTPSocket>
             {
                 Timeout = 5
             };
@@ -190,8 +190,8 @@ namespace Demo
             client.NotInterested += Client_NotInterested;
             client.Request += Client_Request;
 
-            //var peer = new IPEndPoint(IPAddress.Parse("192.168.0.42"), 6881);
-            foreach (var peer in knownPeers)
+            var peer = new IPEndPoint(IPAddress.Parse("192.168.0.42"), 6881);
+            //foreach (var peer in knownPeers)
             {
                 try
                 {
@@ -232,8 +232,8 @@ namespace Demo
                         else
                         {
 
-                            //RequestPieceInParts(client, currentPiece, maxRequest, downloadMetadata.PieceSize);
-                            //currentPiece++;
+                            RequestPieceInParts(client, currentPiece, maxRequest, downloadMetadata.PieceSize);
+                            currentPiece++;
                         }
                     }
                     else
@@ -244,11 +244,11 @@ namespace Demo
                     if(x++ > 1000)
                     {
                         x = 0;
-                        //client.SendKeepAlive();
-                        //Console.WriteLine("< KeepAlive");
+                        client.SendKeepAlive();
+                        Console.WriteLine("< KeepAlive");
                     }
 
-                    Thread.Sleep(5);
+                    Thread.Sleep(1);
                 }
             }
         }

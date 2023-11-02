@@ -39,7 +39,7 @@ using System.Collections.Concurrent;
 
 namespace bzTorrent.IO
 {
-	public class PeerWireTCPConnection : IPeerConnection
+	public class PeerWireConnection<T> : IPeerConnection where T : ISocket, new()
 	{
 		private ISocket socket;
 		private bool receiving = false;
@@ -63,12 +63,12 @@ namespace bzTorrent.IO
 
 		public PeerClientHandshake RemoteHandshake { get => incomingHandshake; }
 
-		public PeerWireTCPConnection()
+		public PeerWireConnection()
 		{
-			socket = new TCPSocket();
+
 		}
 
-		public PeerWireTCPConnection(ISocket _socket)
+		public PeerWireConnection(ISocket _socket)
 		{
 			socket = _socket;
 			socket.ReceiveTimeout = Timeout * 1000;
@@ -79,7 +79,7 @@ namespace bzTorrent.IO
 
 		public void Connect(IPEndPoint endPoint)
 		{
-			socket = new TCPSocket();
+			socket = new T();
 			socket.NoDelay = true;
 			socket.ReceiveTimeout = Timeout * 1000;
 			socket.SendTimeout = Timeout * 1000;
@@ -107,7 +107,7 @@ namespace bzTorrent.IO
 
 		public IPeerConnection Accept()
 		{
-			return new PeerWireTCPConnection(socket.Accept());
+			return new PeerWireConnection<T>(socket.Accept());
 		}
 
 		public IAsyncResult BeginAccept(AsyncCallback callback)
@@ -125,6 +125,7 @@ namespace bzTorrent.IO
 			if (receiving == false)
 			{
 				receiving = true;
+				Array.Clear(socketBuffer, 0, socketBufferSize);
 				socket.BeginReceive(socketBuffer, 0, socketBufferSize, SocketFlags.None, ReceiveCallback, this);
 			}
 
