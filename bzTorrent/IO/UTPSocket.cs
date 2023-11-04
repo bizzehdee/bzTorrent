@@ -61,6 +61,9 @@ namespace bzTorrent.IO
 		}
 	}
 
+	/// <summary>
+	/// WARNING, This is an incomplete implementation, and is quite buggy, and needs a lot of work to fix the issues. use the TCPSocket for a standard BT connection for now
+	/// </summary>
 	public class UTPSocket : BaseSocket, ISocket
 	{
 		public enum PacketType : byte
