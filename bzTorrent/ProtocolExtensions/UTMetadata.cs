@@ -49,7 +49,8 @@ namespace bzTorrent.ProtocolExtensions
 			get => "ut_metadata";
 		}
 
-		public event Action<IPeerWireClient, IBTExtension, BDict> MetaDataReceived;
+		public delegate void MetaDataReceivedDelegate(IPeerWireClient peerWireClient, IBTExtension extension, BDict metadata);
+		public event MetaDataReceivedDelegate MetaDataReceived;
 
 		public void Init(ExtendedProtocolExtensions parent)
 		{

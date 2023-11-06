@@ -35,11 +35,17 @@ namespace bzTorrent.ProtocolExtensions
 {
 	public class FastExtensions : IProtocolExtension
 	{
-		public event Action<IPeerWireClient, int> SuggestPiece;
-		public event Action<IPeerWireClient, int, int, int> Reject;
-		public event Action<IPeerWireClient> HaveAll;
-		public event Action<IPeerWireClient> HaveNone;
-		public event Action<IPeerWireClient, int> AllowedFast;
+		public delegate void SuggestPeiceDelegate(IPeerWireClient client, int pieceIdx);
+		public delegate void RejectDelegate(IPeerWireClient client, int pieceIdx, int start, int length);
+		public delegate void HaveAllDelegate(IPeerWireClient client);
+		public delegate void HaveNoneDelegate(IPeerWireClient client);
+		public delegate void AllowedFastDelegate(IPeerWireClient client, int pieceIdx);
+
+		public event SuggestPeiceDelegate SuggestPiece;
+		public event RejectDelegate Reject;
+		public event HaveAllDelegate HaveAll;
+		public event HaveNoneDelegate HaveNone;
+		public event AllowedFastDelegate AllowedFast;
 
 		public byte[] ByteMask
 		{

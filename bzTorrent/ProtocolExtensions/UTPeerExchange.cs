@@ -44,8 +44,11 @@ namespace bzTorrent.ProtocolExtensions
 			get => "ut_pex";
 		}
 
-		public event Action<IPeerWireClient, IBTExtension, IPEndPoint, byte> Added;
-		public event Action<IPeerWireClient, IBTExtension, IPEndPoint> Dropped;
+		public delegate void AddedDelegate(IPeerWireClient client, IBTExtension extension, IPEndPoint endpoint, byte flags);
+		public delegate void DroppedDelegate(IPeerWireClient client, IBTExtension extension, IPEndPoint endpoint);
+
+		public event AddedDelegate Added;
+		public event DroppedDelegate Dropped;
 
 		public void Init(ExtendedProtocolExtensions parent)
 		{

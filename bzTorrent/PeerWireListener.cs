@@ -41,8 +41,10 @@ namespace bzTorrent
 		private readonly T peerConnection;
 		private IAsyncResult asyncResult = null;
 
+		public delegate void NewPeerDelegate(IPeerWireClient peerWireClient);
+
 		public int Port { get; init; }
-		public event Action<PeerWireClient> NewPeer;
+		public event NewPeerDelegate NewPeer;
 
 		public PeerWireListener()
 		{

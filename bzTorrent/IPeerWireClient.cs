@@ -36,6 +36,20 @@ namespace bzTorrent
 {
 	public interface IPeerWireClient
 	{
+		public delegate void DroppedConnectionDelegate(IPeerWireClient client);
+		public delegate void NoDataDelegate(IPeerWireClient client);
+		public delegate void HandshakeCompleteDelegate(IPeerWireClient client);
+		public delegate void KeepAliveDelegate(IPeerWireClient client);
+		public delegate void ChokeDelegate(IPeerWireClient client);
+		public delegate void UnChokeDelegate(IPeerWireClient client);
+		public delegate void InterestedDelegate(IPeerWireClient client);
+		public delegate void NotInterestedDelegate(IPeerWireClient client);
+		public delegate void HaveDelegate(IPeerWireClient client, int pieceIdx);
+		public delegate void BitFieldDelegate(IPeerWireClient client, int size, bool[] bitfield);
+		public delegate void RequestDelegate(IPeerWireClient client, int pieceIdx, int start, int length);
+		public delegate void PieceDelegate(IPeerWireClient client, int pieceIdx, int start, byte[] buffer);
+		public delegate void CancelDelegate(IPeerWireClient client, int pieceIdx, int start, int length);
+
 		int Timeout { get; }
 		bool[] PeerBitField { get; set; }
 		bool KeepConnectionAlive { get; set; }
@@ -44,19 +58,19 @@ namespace bzTorrent
 		string RemotePeerID { get; }
 		string Hash { get; set; }
 
-		event Action<IPeerWireClient> DroppedConnection;
-		event Action<IPeerWireClient> NoData;
-		event Action<IPeerWireClient> HandshakeComplete;
-		event Action<IPeerWireClient> KeepAlive;
-		event Action<IPeerWireClient> Choke;
-		event Action<IPeerWireClient> UnChoke;
-		event Action<IPeerWireClient> Interested;
-		event Action<IPeerWireClient> NotInterested;
-		event Action<IPeerWireClient, int> Have;
-		event Action<IPeerWireClient, int, bool[]> BitField;
-		event Action<IPeerWireClient, int, int, int> Request;
-		event Action<IPeerWireClient, int, int, byte[]> Piece;
-		event Action<IPeerWireClient, int, int, int> Cancel;
+		event DroppedConnectionDelegate DroppedConnection;
+		event NoDataDelegate NoData;
+		event HandshakeCompleteDelegate HandshakeComplete;
+		event KeepAliveDelegate KeepAlive;
+		event ChokeDelegate Choke;
+		event UnChokeDelegate UnChoke;
+		event InterestedDelegate Interested;
+		event NotInterestedDelegate NotInterested;
+		event HaveDelegate Have;
+		event BitFieldDelegate BitField;
+		event RequestDelegate Request;
+		event PieceDelegate Piece;
+		event CancelDelegate Cancel;
 
 		void Connect(IPEndPoint endPoint);
 		void Connect(string ipHost, int port);

@@ -35,7 +35,10 @@ namespace bzTorrent.ProtocolExtensions
 {
 	public class DHTPortExtension : IProtocolExtension
 	{
-		public event Action<IPeerWireClient, ushort> Port;
+
+		public delegate void PortDelegate(IPeerWireClient peerWireClient, ushort port);
+		public event PortDelegate Port;
+
 		public bool RemoteUsesDHT { get; private set; }
 
 		public byte[] ByteMask

@@ -36,7 +36,8 @@ namespace bzTorrent.ProtocolExtensions
 {
 	public class LTTrackerExchange : IBTExtension
 	{
-		public event Action<IPeerWireClient, IBTExtension, string> TrackerAdded;
+		public delegate void TrackerAddedDelegate(IPeerWireClient client, IBTExtension extension, string newTracker);
+		public event TrackerAddedDelegate TrackerAdded;
 
 		public string Protocol
 		{

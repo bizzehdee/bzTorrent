@@ -35,6 +35,7 @@ using System.Threading;
 using bzTorrent.Data;
 using System;
 using System.Net;
+using static bzTorrent.IPeerWireClient;
 
 namespace bzTorrent
 {
@@ -57,20 +58,19 @@ namespace bzTorrent
 		public string RemotePeerID { get; private set; }
 		public string Hash { get; set; }
 
-		public event Action<IPeerWireClient> DroppedConnection;
-		public event Action<IPeerWireClient> NoData;
-		public event Action<IPeerWireClient> HandshakeComplete;
-		public event Action<IPeerWireClient> KeepAlive;
-		public event Action<IPeerWireClient> Choke;
-		public event Action<IPeerWireClient> UnChoke;
-		public event Action<IPeerWireClient> Interested;
-		public event Action<IPeerWireClient> NotInterested;
-		public event Action<IPeerWireClient, int> Have;
-		public event Action<IPeerWireClient, int, bool[]> BitField;
-		public event Action<IPeerWireClient, int, int, int> Request;
-		public event Action<IPeerWireClient, int, int, byte[]> Piece;
-		public event Action<IPeerWireClient, int, int, int> Cancel;
-
+		public event DroppedConnectionDelegate DroppedConnection;
+		public event NoDataDelegate NoData;
+		public event HandshakeCompleteDelegate HandshakeComplete;
+		public event KeepAliveDelegate KeepAlive;
+		public event ChokeDelegate Choke;
+		public event UnChokeDelegate UnChoke;
+		public event InterestedDelegate Interested;
+		public event NotInterestedDelegate NotInterested;
+		public event HaveDelegate Have;
+		public event BitFieldDelegate BitField;
+		public event RequestDelegate Request;
+		public event PieceDelegate Piece;
+		public event CancelDelegate Cancel;
 
 		public PeerWireClient(IPeerConnection io)
 		{
