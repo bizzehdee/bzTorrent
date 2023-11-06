@@ -54,7 +54,7 @@ namespace Demo
 
         static void Main(string[] args)
         {
-            var lpd = new LocalPeerDiscovery();
+            var lpd = new LocalPeerDiscovery<UDPSocket>();
             lpd.NewPeer += Lpd_NewPeer;
             lpd.Open();
 
@@ -190,8 +190,8 @@ namespace Demo
             client.NotInterested += Client_NotInterested;
             client.Request += Client_Request;
 
-            //var peer = new IPEndPoint(IPAddress.Parse("192.168.0.42"), 6881);
-            foreach (var peer in knownPeers)
+            var peer = new IPEndPoint(IPAddress.Parse("192.168.0.42"), 6881);
+            //foreach (var peer in knownPeers)
             {
                 try
                 {
@@ -245,7 +245,7 @@ namespace Demo
                     {
                         x = 0;
                         client.SendKeepAlive();
-                        Console.WriteLine("< KeepAlive");
+                        //Console.WriteLine("< KeepAlive");
                     }
 
                 }
@@ -352,7 +352,7 @@ namespace Demo
 
         private static void Client_NoData(IPeerWireClient pwc)
         {
-            Console.WriteLine("> NoData");
+            //Console.WriteLine("> NoData");
         }
 
         private static void GeneratePeerId()

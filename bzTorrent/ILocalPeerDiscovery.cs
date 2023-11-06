@@ -28,11 +28,13 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
 */
 
+using bzTorrent.IO;
+
 namespace bzTorrent
 {
-	public interface ILocalPeerDiscovery
+	public interface ILocalPeerDiscovery<T> where T : ISocket, new()
 	{
-		event LocalPeerDiscovery.NewPeerCB NewPeer;
+		event LocalPeerDiscovery<T>.NewPeerCB NewPeer;
 		int TTL { get; set; }
 		void Open();
 		void Close();

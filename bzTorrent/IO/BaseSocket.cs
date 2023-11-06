@@ -42,6 +42,7 @@ namespace bzTorrent.IO
 		public virtual int ReceiveTimeout { get => _socket.ReceiveTimeout; set => _socket.ReceiveTimeout = value; }
 		public virtual int SendTimeout { get => _socket.SendTimeout; set => _socket.SendTimeout = value; }
 		public virtual bool NoDelay { get => _socket.NoDelay; set => _socket.NoDelay = value; }
+		public virtual bool ExclusiveAddressUse { get => _socket.ExclusiveAddressUse; set => _socket.ExclusiveAddressUse = value; }
 
 		public BaseSocket(Socket socket)
 		{
@@ -85,6 +86,16 @@ namespace bzTorrent.IO
 			_socket.SetSocketOption(optionLevel, optionName, optionValue);
 		}
 
+		public virtual void SetSocketOption(SocketOptionLevel optionLevel, SocketOptionName optionName, int optionValue)
+		{
+			_socket.SetSocketOption(optionLevel, optionName, optionValue);
+		}
+
+		public virtual void SetSocketOption(SocketOptionLevel optionLevel, SocketOptionName optionName, object optionValue)
+		{
+			_socket.SetSocketOption(optionLevel, optionName, optionValue);
+		}
+
 		public IAsyncResult BeginAccept(AsyncCallback callback, object state)
 		{
 			return _socket.BeginAccept(callback, state);
@@ -115,6 +126,11 @@ namespace bzTorrent.IO
 		public virtual int SendTo(byte[] buffer, EndPoint remoteEP)
 		{
 			return _socket.SendTo(buffer, remoteEP);
+		}
+
+		public void Close()
+		{
+			_socket.Close();
 		}
 	}
 }

@@ -36,17 +36,18 @@ namespace bzTorrent.IO
 {
 	public interface ISocket : IDisposable
 	{
-		public bool Connected { get; }
-		public int ReceiveTimeout { get; set; }
-		public int SendTimeout { get; set; }
-		public bool NoDelay { get; set; }
+		bool Connected { get; }
+		int ReceiveTimeout { get; set; }
+		int SendTimeout { get; set; }
+		 bool NoDelay { get; set; }
+		bool ExclusiveAddressUse { get; set; }
 
-		public void Connect(EndPoint remoteEP);
-		public void Bind(EndPoint localEP);
-		public void Listen(int backlog);
-		public void Disconnect(bool reuseSocket);
+		void Connect(EndPoint remoteEP);
+		void Bind(EndPoint localEP);
+		void Listen(int backlog);
+		void Disconnect(bool reuseSocket);
 
-		public ISocket Accept();
+		ISocket Accept();
 		IAsyncResult BeginAccept(AsyncCallback callback, object state);
 		ISocket EndAccept(IAsyncResult ar);
 
@@ -55,9 +56,12 @@ namespace bzTorrent.IO
 		IAsyncResult BeginReceiveFrom(byte[] buffer, int offset, int size, SocketFlags socketFlags, ref EndPoint remoteEP, AsyncCallback callback, object state);
 		int EndReceiveFrom(IAsyncResult asyncResult, ref EndPoint endPoint);
 
-		public int Send(byte[] buffer);
-		public int SendTo(byte[] buffer, EndPoint remoteEP);
+		int Send(byte[] buffer);
+		int SendTo(byte[] buffer, EndPoint remoteEP);
 
-		public void SetSocketOption(SocketOptionLevel optionLevel, SocketOptionName optionName, bool optionValue);
+		void SetSocketOption(SocketOptionLevel optionLevel, SocketOptionName optionName, bool optionValue);
+		void SetSocketOption(SocketOptionLevel optionLevel, SocketOptionName optionName, int optionValue);
+		void SetSocketOption(SocketOptionLevel optionLevel, SocketOptionName optionName, object optionValue);
+		void Close();
 	}
 }

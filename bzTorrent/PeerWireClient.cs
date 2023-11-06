@@ -341,7 +341,7 @@ namespace bzTorrent
 
 		public bool SendBitField(bool[] bitField, bool obsf)
 		{
-			var obsfIDs = new uint[0];
+			var obsfIDs = Array.Empty<uint>();
 
 			if (obsf && bitField.Length > 32)
 			{

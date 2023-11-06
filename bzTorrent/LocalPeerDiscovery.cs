@@ -34,16 +34,18 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
+using bzTorrent.IO;
 
 namespace bzTorrent
 {
-	public class LocalPeerDiscovery : IDisposable, ILocalPeerDiscovery
+	public class LocalPeerDiscovery<T> : IDisposable, ILocalPeerDiscovery<T> where T : ISocket, new()
 	{
 		private const string lpdMulticastAddress = "239.192.152.143";
 		private const int lpdMulticastPort = 6771;
 
-		private readonly Socket udpReaderSocket;
-		private readonly Socket udpSenderSocket;
+		//TODO: replace with ISocket
+		private readonly ISocket udpReaderSocket;
+		private readonly ISocket udpSenderSocket;
 
 		private Thread thread;
 		private bool _killSwitch;
@@ -58,45 +60,20 @@ namespace bzTorrent
 			get => ttl;
 			set {
 				ttl = value;
-
-				udpSenderSocket.SetSocketOption(SocketOptionLevel.IP,
-				SocketOptionName.MulticastTimeToLive,
-				ttl);
+				udpSenderSocket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.MulticastTimeToLive, ttl);
 			}
 		}
 
 		public LocalPeerDiscovery()
 		{
-			udpReaderSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-			udpSenderSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+			udpReaderSocket = new T();
+			udpSenderSocket = new T();
 		}
 
-		public LocalPeerDiscovery(Socket receive, Socket send)
+		public LocalPeerDiscovery(ISocket receive, ISocket send)
 		{
-			ValidateSocket(receive, "receive");
-			ValidateSocket(send, "send");
-
 			udpReaderSocket = receive;
 			udpSenderSocket = send;
-		}
-
-		[DebuggerHidden, DebuggerStepThrough]
-		private void ValidateSocket(Socket socket, string name)
-		{
-			if (socket == null)
-			{
-				throw new ArgumentNullException(name);
-			}
-
-			if (socket.ProtocolType != ProtocolType.Udp)
-			{
-				throw new ArgumentException("socket must be a UDP socket", name);
-			}
-
-			if (socket.SocketType != SocketType.Dgram)
-			{
-				throw new ArgumentException("socket must be a datagram socket", name);
-			}
 		}
 
 		public void Open()
@@ -154,41 +131,57 @@ namespace bzTorrent
 
 		private void Process()
 		{
-			var buffer = new byte[200];
+			var isReceiving = false;
+
+			var buffer = new byte[16*1024];
 			while (!_killSwitch)
 			{
-				EndPoint endPoint = new IPEndPoint(0, 0);
-				udpReaderSocket.ReceiveFrom(buffer, ref endPoint);
-
-				var remoteAddress = ((IPEndPoint)endPoint).Address;
-				var remotePort = 0;
-				var remoteHash = "";
-
-				var packet = Encoding.ASCII.GetString(buffer).Trim();
-
-				if (!packet.StartsWith("BT-SEARCH"))
+				if (!isReceiving)
 				{
-					continue;
-				}
+					isReceiving = true;
 
-				var packetLines = packet.Split('\n');
+					EndPoint endPoint = new IPEndPoint(0, 0);
+					udpReaderSocket.BeginReceiveFrom(buffer, 0, buffer.Length, SocketFlags.None, ref endPoint, (cb) => {
+						EndPoint internalRemoteEP = new IPEndPoint(0, 0);
 
-				foreach (var line in packetLines)
-				{
-					if (line.StartsWith("Port:"))
-					{
-						var portStr = line.Substring(5).Trim();
-						int.TryParse(portStr, out remotePort);
-					}
-					if (line.StartsWith("Infohash:"))
-					{
-						remoteHash = line.Substring(10, 40);
-					}
-				}
+						var length = udpReaderSocket.EndReceiveFrom(cb, ref internalRemoteEP);
 
-				if (!string.IsNullOrEmpty(remoteHash) && remotePort != 0)
-				{
-					NewPeer?.Invoke(remoteAddress, remotePort, remoteHash);
+						if (length > 0)
+						{
+							var remoteAddress = ((IPEndPoint)endPoint).Address;
+							var remotePort = 0;
+							var remoteHash = "";
+
+							var packet = Encoding.ASCII.GetString(buffer).Trim();
+
+							if (!packet.StartsWith("BT-SEARCH"))
+							{
+								return;
+							}
+
+							var packetLines = packet.Split('\n');
+
+							foreach (var line in packetLines)
+							{
+								if (line.StartsWith("Port:"))
+								{
+									var portStr = line.Substring(5).Trim();
+									int.TryParse(portStr, out remotePort);
+								}
+								if (line.StartsWith("Infohash:"))
+								{
+									remoteHash = line.Substring(10, 40);
+								}
+							}
+
+							if (!string.IsNullOrEmpty(remoteHash) && remotePort != 0)
+							{
+								NewPeer?.Invoke(remoteAddress, remotePort, remoteHash);
+							}
+
+							isReceiving = false;
+						}
+					}, null);
 				}
 			}
 		}
@@ -213,6 +206,8 @@ namespace bzTorrent
 		private bool isDisposed;
 		public void Dispose()
 		{
+			GC.SuppressFinalize(this);
+
 			if (!isDisposed)
 			{
 				isDisposed = true;
@@ -220,6 +215,7 @@ namespace bzTorrent
 				try
 				{
 					Close();
+
 					udpReaderSocket.Dispose();
 					udpSenderSocket.Dispose();
 				}
