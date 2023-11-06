@@ -43,6 +43,12 @@ namespace bzTorrent
 	{
 		private byte[] _currentConnectionId;
 
+		public UDPTrackerClient()
+			: base()
+		{
+			_currentConnectionId = BaseCurrentConnectionId;
+		}
+
 		public UDPTrackerClient(int timeout)
 			: base(timeout)
 		{

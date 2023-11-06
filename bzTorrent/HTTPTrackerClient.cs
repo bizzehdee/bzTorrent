@@ -41,6 +41,12 @@ namespace bzTorrent
 {
 	public class HTTPTrackerClient : BaseScraper, ITrackerClient
 	{
+		public HTTPTrackerClient()
+			: base()
+		{ 
+
+		}
+
 		public HTTPTrackerClient(int timeout)
 			: base(timeout)
 		{

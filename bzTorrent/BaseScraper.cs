@@ -43,9 +43,14 @@ namespace bzTorrent
 		protected readonly byte[] BaseCurrentConnectionId = { 0x00, 0x00, 0x04, 0x17, 0x27, 0x10, 0x19, 0x80 };
 		protected readonly Random Random = new Random(DateTime.Now.Second);
 
-		public int Timeout { get; private set; }
+		public int Timeout { get; init; }
 		public string Tracker { get; private set; }
 		public int Port { get; private set; }
+
+		protected BaseScraper()
+		{
+
+		}
 
 		protected BaseScraper(int timeout)
 		{

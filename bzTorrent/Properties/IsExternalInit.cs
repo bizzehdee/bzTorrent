@@ -1,5 +1,5 @@
 ﻿/*
-Copyright (c) 2013, Darren Horrocks
+Copyright (c) 2023, Darren Horrocks
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -28,58 +28,14 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
 */
 
-using System;
-using System.Net;
-using System.Net.Sockets;
-using bzTorrent.IO;
+#if NETSTANDARD2_0 || NETSTANDARD2_1 || NETCOREAPP2_0 || NETCOREAPP2_1 || NETCOREAPP2_2 || NETCOREAPP3_0 || NETCOREAPP3_1 || NET45 || NET451 || NET452 || NET6 || NET461 || NET462 || NET47 || NET471 || NET472 || NET48
 
-namespace bzTorrent
+using System.ComponentModel;
+
+namespace System.Runtime.CompilerServices
 {
-	public class PeerWireListener<T> where T : IPeerConnection, new()
-	{
-
-		private readonly T peerConnection;
-		private IAsyncResult asyncResult = null;
-
-		public int Port { get; init; }
-		public event Action<PeerWireClient> NewPeer;
-
-		public PeerWireListener()
-		{
-			peerConnection = new T();
-		}
-
-		public PeerWireListener(int port)
-		{
-			Port = port;
-			peerConnection = new T();
-		}
-
-		public void StartListening()
-		{
-			peerConnection.Listen(new IPEndPoint(IPAddress.Any, Port));
-			asyncResult = peerConnection.BeginAccept(Callback);
-		}
-
-
-		public void StopListening()
-		{
-			if (asyncResult != null)
-			{
-				peerConnection.EndAccept(asyncResult);
-			}
-		}
-
-		private void Callback(IAsyncResult ar)
-		{
-			var socket = peerConnection.EndAccept(ar);
-
-			var constructorInfo = typeof(T).GetConstructor(new[] { typeof(ISocket) });
-
-			NewPeer?.Invoke(new PeerWireClient((IPeerConnection)constructorInfo.Invoke(new object[] { socket })));
-
-			peerConnection.BeginAccept(Callback);
-		}
-
-	}
+	[EditorBrowsable(EditorBrowsableState.Never)]
+	internal static class IsExternalInit { }
 }
+
+#endif
