@@ -31,7 +31,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 using System.Collections.Generic;
 using bzTorrent.IO;
 using bzTorrent.Helpers;
-using System.Threading;
 using bzTorrent.Data;
 using System;
 using System.Net;
@@ -41,14 +40,11 @@ namespace bzTorrent
 {
 	public class PeerWireClient : IPeerWireClient
 	{
-		private bool _asyncContinue = true;
 		public bool ReceivedHandshake { get; private set; } = false;
 		private DateTime lastKeepAliveSent;
 
 		private readonly IPeerConnection peerConnection;
 		private readonly List<IProtocolExtension> _btProtocolExtensions;
-
-		private Thread _asyncThread = null;
 
 		public int Timeout { get => peerConnection.Timeout; }
 		public bool[] PeerBitField { get; set; }
@@ -71,6 +67,10 @@ namespace bzTorrent
 		public event RequestDelegate Request;
 		public event PieceDelegate Piece;
 		public event CancelDelegate Cancel;
+		/// <summary>
+		/// Return true to stop built in processing of this command
+		/// </summary>
+		public event CommandDelegate Command;
 
 		public PeerWireClient(IPeerConnection io)
 		{
@@ -150,27 +150,6 @@ namespace bzTorrent
 			return true;
 		}
 
-		public void ProcessAsync()
-		{
-			_asyncContinue = true;
-
-			_asyncThread = new Thread(o => {
-				var client = (PeerWireClient)o;
-				while (client.Process() && _asyncContinue)
-				{
-					Thread.Sleep(10);
-				}
-			});
-
-			_asyncThread.Start();
-		}
-
-		public void StopProcessAsync()
-		{
-			_asyncContinue = false;
-			_asyncThread.Join();
-		}
-
 		public bool Process()
 		{
 			var returnVal = InternalProcess();
@@ -209,13 +188,13 @@ namespace bzTorrent
 
 				RemotePeerID = peerConnection.RemoteHandshake.PeerId;
 
-				OnHandshake();
+				HandshakeComplete?.Invoke(this);
 			}
 
 
 			if (peerConnection.HasPackets() == false)
 			{
-				OnNoData();
+				NoData?.Invoke(this);
 			}
 			else
 			{
@@ -231,27 +210,31 @@ namespace bzTorrent
 
 		private void ProcessCommand(PeerWirePacket command)
 		{
+			if (Command?.Invoke(this, (int)command.CommandLength, (byte)command.Command, command.Payload) ?? false)
+			{
+				return;
+			}
 
 			switch (command.Command)
 			{
 				case PeerClientCommands.KeepAlive:
-					OnKeepAlive();
+					KeepAlive?.Invoke(this);
 					break;
 				case PeerClientCommands.Choke:
 					//choke
-					OnChoke();
+					Choke?.Invoke(this);
 					break;
 				case PeerClientCommands.Unchoke:
 					//unchoke
-					OnUnChoke();
+					UnChoke?.Invoke(this);
 					break;
 				case PeerClientCommands.Interested:
 					//interested
-					OnInterested();
+					Interested?.Invoke(this);
 					break;
 				case PeerClientCommands.NotInterested:
 					//not interested
-					OnNotInterested();
+					NotInterested?.Invoke(this);
 					break;
 				case PeerClientCommands.Have:
 					//have
@@ -481,41 +464,6 @@ namespace bzTorrent
 		#endregion
 
 		#region Event Dispatchers
-
-		private void OnNoData()
-		{
-			NoData?.Invoke(this);
-		}
-
-		private void OnHandshake()
-		{
-			HandshakeComplete?.Invoke(this);
-		}
-
-		private void OnKeepAlive()
-		{
-			KeepAlive?.Invoke(this);
-		}
-
-		private void OnChoke()
-		{
-			Choke?.Invoke(this);
-		}
-
-		private void OnUnChoke()
-		{
-			UnChoke?.Invoke(this);
-		}
-
-		private void OnInterested()
-		{
-			Interested?.Invoke(this);
-		}
-
-		private void OnNotInterested()
-		{
-			NotInterested?.Invoke(this);
-		}
 
 		private void OnHave(int pieceIndex)
 		{

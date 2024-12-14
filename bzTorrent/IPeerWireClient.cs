@@ -49,6 +49,7 @@ namespace bzTorrent
 		public delegate void RequestDelegate(IPeerWireClient client, int pieceIdx, int start, int length);
 		public delegate void PieceDelegate(IPeerWireClient client, int pieceIdx, int start, byte[] buffer);
 		public delegate void CancelDelegate(IPeerWireClient client, int pieceIdx, int start, int length);
+		public delegate bool CommandDelegate(IPeerWireClient client, int commandLength, byte commandId, byte[] payload);
 
 		int Timeout { get; }
 		bool[] PeerBitField { get; set; }
@@ -79,8 +80,6 @@ namespace bzTorrent
 		bool Handshake();
 		bool Handshake(string hash, string peerId);
 
-		void ProcessAsync();
-		void StopProcessAsync();
 		bool Process();
 
 		bool SendKeepAlive();
