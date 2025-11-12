@@ -7,3 +7,6 @@ bin
 .vs
 *.nupkg
 *.dll
+TestResults
+*.DotSettings.user
+.idea/*
