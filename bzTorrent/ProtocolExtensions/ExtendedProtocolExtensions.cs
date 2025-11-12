@@ -101,13 +101,14 @@ namespace bzTorrent.ProtocolExtensions
 
 		public bool OnCommand(IPeerWireClient client, int commandLength, byte commandId, byte[] payload)
 		{
-			if (commandId == 20)
+			if (commandId != 20)
 			{
-				ProcessExtended(client, commandLength, payload);
-				return true;
+				return false;
 			}
 
-			return false;
+			ProcessExtended(client, commandLength, payload);
+			return true;
+
 		}
 
 		public void RegisterProtocolExtension(IPeerWireClient client, IBTExtension extension)

@@ -62,14 +62,16 @@ namespace bzTorrent.ProtocolExtensions
 		public void OnExtendedMessage(IPeerWireClient peerWireClient, byte[] bytes)
 		{
 			var dict = (BDict)BencodingUtils.Decode(bytes);
-			if (dict.ContainsKey("added"))
+			if (!dict.TryGetValue("added", out var value))
 			{
-				var trackerList = (BList)dict["added"];
+				return;
+			}
 
-				foreach (var tracker in trackerList)
-				{
-					TrackerAdded?.Invoke(peerWireClient, this, tracker.ToString());
-				}
+			var trackerList = (BList)value;
+
+			foreach (var tracker in trackerList)
+			{
+				TrackerAdded?.Invoke(peerWireClient, this, tracker.ToString());
 			}
 		}
 

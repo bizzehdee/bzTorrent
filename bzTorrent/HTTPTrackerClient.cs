@@ -85,13 +85,13 @@ namespace bzTorrent
 			var hashEncoded = "";
 			foreach (var b in hashBytes)
 			{
-				hashEncoded += string.Format("%{0:X2}", b);
+				hashEncoded += $"%{b:X2}";
 			}
 
 			var peerIdEncoded = "";
 			foreach (var b in peerIdBytes)
 			{
-				peerIdEncoded += string.Format("%{0:X2}", b);
+				peerIdEncoded += $"%{b:X2}";
 			}
 
 			realUrl += "info_hash=" + hashEncoded;
@@ -194,7 +194,7 @@ namespace bzTorrent
 			{
 				var hashBytes = PackHelper.Hex(hash);
 
-				hashEncoded = hashBytes.Aggregate(hashEncoded, (current, b) => current + string.Format("%{0:X2}", b));
+				hashEncoded = hashBytes.Aggregate(hashEncoded, (current, b) => current + $"%{b:X2}");
 
 				realUrl += "info_hash=" + hashEncoded + "&";
 			}
@@ -247,11 +247,13 @@ namespace bzTorrent
 			{
 				var d = (BDict)bDecoded[k];
 
-				if (d.ContainsKey("complete") && d.ContainsKey("downloaded") && d.ContainsKey("incomplete"))
+				if (!d.ContainsKey("complete") || !d.ContainsKey("downloaded") || !d.ContainsKey("incomplete"))
 				{
-					var rk = UnpackHelper.Hex(BencodingUtils.ExtendedASCIIEncoding.GetBytes(k));
-					returnVal.Add(rk, new ScrapeInfo((uint)((BInt)d["complete"]).Value, (uint)((BInt)d["downloaded"]).Value, (uint)((BInt)d["incomplete"]).Value, ScraperType.HTTP));
+					continue;
 				}
+
+				var rk = UnpackHelper.Hex(BencodingUtils.ExtendedASCIIEncoding.GetBytes(k));
+				returnVal.Add(rk, new ScrapeInfo((uint)((BInt)d["complete"]).Value, (uint)((BInt)d["downloaded"]).Value, (uint)((BInt)d["incomplete"]).Value, ScraperType.HTTP));
 			}
 
 			return returnVal;

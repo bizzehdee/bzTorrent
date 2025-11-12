@@ -66,9 +66,9 @@ namespace bzTorrent.ProtocolExtensions
 		public void OnHandshake(IPeerWireClient peerWireClient, byte[] handshake)
 		{
 			var dict = (BDict)BencodingUtils.Decode(handshake);
-			if (dict.ContainsKey("metadata_size"))
+			if (dict.TryGetValue("metadata_size", out var value))
 			{
-				var size = (BInt)dict["metadata_size"];
+				var size = (BInt)value;
 				_metadataSize = size;
 				_pieceCount = (long)Math.Ceiling((double)_metadataSize / 16384);
 			}

@@ -51,6 +51,7 @@ namespace bzTorrent.Helpers
 				case Endianness.Little:
 					return !BitConverter.IsLittleEndian;
 				case Endianness.Machine:
+				default:
 					break;
 			}
 

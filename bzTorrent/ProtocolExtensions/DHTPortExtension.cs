@@ -58,15 +58,16 @@ namespace bzTorrent.ProtocolExtensions
 
 		public bool OnCommand(IPeerWireClient client, int commandLength, byte commandId, byte[] payload)
 		{
-			if (commandId == 9)
+			if (commandId != 9)
 			{
-				var port = UnpackHelper.UInt16(payload, 0, UnpackHelper.Endianness.Big);
-
-				OnPort(client, port);
-				return true;
+				return false;
 			}
 
-			return false;
+			var port = UnpackHelper.UInt16(payload, 0, UnpackHelper.Endianness.Big);
+
+			OnPort(client, port);
+			return true;
+
 		}
 
 		private void OnPort(IPeerWireClient client, ushort port)

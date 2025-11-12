@@ -37,9 +37,9 @@ namespace bzTorrent
 {
 	public abstract class BaseScraper
 	{
-		protected readonly Regex HashRegex = new Regex("^[a-f0-9]{40}$", RegexOptions.ECMAScript | RegexOptions.IgnoreCase);
-		protected readonly Regex UDPRegex = new Regex("udp://([^:/]*)(?::([0-9]*))?(?:/)?", RegexOptions.ECMAScript | RegexOptions.IgnoreCase);
-		protected readonly Regex HTTPRegex = new Regex("(http://.*?/)announce?|scrape?([^/]*)$", RegexOptions.ECMAScript | RegexOptions.IgnoreCase);
+		private readonly Regex _hashRegex = new Regex("^[a-f0-9]{40}$", RegexOptions.ECMAScript | RegexOptions.IgnoreCase);
+		private readonly Regex _udpRegex = new Regex("udp://([^:/]*)(?::([0-9]*))?(?:/)?", RegexOptions.ECMAScript | RegexOptions.IgnoreCase);
+		private readonly Regex _httpRegex = new Regex("(http://.*?/)announce?|scrape?([^/]*)$", RegexOptions.ECMAScript | RegexOptions.IgnoreCase);
 		protected readonly byte[] BaseCurrentConnectionId = { 0x00, 0x00, 0x04, 0x17, 0x27, 0x10, 0x19, 0x80 };
 		protected readonly Random Random = new Random(DateTime.Now.Second);
 
@@ -77,7 +77,7 @@ namespace bzTorrent
 
 			foreach (var hash in hashes)
 			{
-				if (!HashRegex.IsMatch(hash))
+				if (!_hashRegex.IsMatch(hash))
 				{
 					throw new ArgumentOutOfRangeException(nameof(hashes), hash, "Hash is not valid");
 				}
@@ -85,7 +85,7 @@ namespace bzTorrent
 
 			if (type == ScraperType.UDP)
 			{
-				var match = UDPRegex.Match(url);
+				var match = _udpRegex.Match(url);
 
 				if (!match.Success)
 				{
@@ -97,7 +97,7 @@ namespace bzTorrent
 			}
 			else if (type == ScraperType.HTTP)
 			{
-				var match = HTTPRegex.Match(url);
+				var match = _httpRegex.Match(url);
 
 				if (!match.Success)
 				{

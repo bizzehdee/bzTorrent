@@ -43,7 +43,7 @@ namespace bzTorrent.Helpers
 
 		public static short Int16(byte[] bytes, int start, Endianness e = Endianness.Machine)
 		{
-			var intBytes = Utils.GetBytes(bytes, start, 2);
+			var intBytes = bytes.GetBytes(start, 2);
 
 			if (NeedsFlipping(e))
 			{
@@ -55,7 +55,7 @@ namespace bzTorrent.Helpers
 
 		public static int Int32(byte[] bytes, int start, Endianness e = Endianness.Machine)
 		{
-			var intBytes = Utils.GetBytes(bytes, start, 4);
+			var intBytes = bytes.GetBytes(start, 4);
 
 			if (NeedsFlipping(e))
 			{
@@ -67,7 +67,7 @@ namespace bzTorrent.Helpers
 
 		public static long Int64(byte[] bytes, int start, Endianness e = Endianness.Machine)
 		{
-			var intBytes = Utils.GetBytes(bytes, start, 8);
+			var intBytes = bytes.GetBytes(start, 8);
 
 			if (NeedsFlipping(e))
 			{
@@ -79,7 +79,7 @@ namespace bzTorrent.Helpers
 
 		public static ushort UInt16(byte[] bytes, int start, Endianness e = Endianness.Machine)
 		{
-			var intBytes = Utils.GetBytes(bytes, start, 2);
+			var intBytes = bytes.GetBytes(start, 2);
 
 			if (NeedsFlipping(e))
 			{
@@ -91,7 +91,7 @@ namespace bzTorrent.Helpers
 
 		public static uint UInt32(byte[] bytes, int start, Endianness e = Endianness.Machine)
 		{
-			var intBytes = Utils.GetBytes(bytes, start, 4);
+			var intBytes = bytes.GetBytes(start, 4);
 
 			if (NeedsFlipping(e))
 			{
@@ -103,7 +103,7 @@ namespace bzTorrent.Helpers
 
 		public static ulong UInt64(byte[] bytes, int start, Endianness e = Endianness.Machine)
 		{
-			var intBytes = Utils.GetBytes(bytes, start, 8);
+			var intBytes = bytes.GetBytes(start, 8);
 
 			if (NeedsFlipping(e))
 			{
@@ -133,7 +133,7 @@ namespace bzTorrent.Helpers
 
 			foreach (var b in bytes)
 			{
-				str += string.Format("{0:X2}", b);
+				str += $"{b:X2}";
 			}
 
 			return str;

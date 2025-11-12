@@ -166,7 +166,7 @@ namespace bzTorrent
 
 		private bool InternalProcess()
 		{
-			if ((lastKeepAliveSent == null || lastKeepAliveSent < DateTime.UtcNow.AddMinutes(-1)) && ReceivedHandshake)
+			if ((lastKeepAliveSent < DateTime.UtcNow.AddMinutes(-1)) && ReceivedHandshake)
 			{
 				lastKeepAliveSent = DateTime.UtcNow;
 				peerConnection.Send(new PeerWirePacket { Command = PeerClientCommands.KeepAlive });
@@ -366,12 +366,14 @@ namespace bzTorrent
 
 			peerConnection.Send(new PeerMessageBuilder(5).Add(bytes).Message());
 
-			if (obsfIDs.Length > 0)
+			if (obsfIDs.Length <= 0)
 			{
-				foreach (var obsfID in obsfIDs)
-				{
-					SendHave(obsfID);
-				}
+				return true;
+			}
+
+			foreach (var obsfID in obsfIDs)
+			{
+				SendHave(obsfID);
 			}
 
 			return true;

@@ -146,41 +146,43 @@ namespace bzTorrent
 
 						var length = udpReaderSocket.EndReceiveFrom(cb, ref internalRemoteEP);
 
-						if (length > 0)
+						if (length <= 0)
 						{
-							var remoteAddress = ((IPEndPoint)endPoint).Address;
-							var remotePort = 0;
-							var remoteHash = "";
-
-							var packet = Encoding.ASCII.GetString(buffer).Trim();
-
-							if (!packet.StartsWith("BT-SEARCH"))
-							{
-								return;
-							}
-
-							var packetLines = packet.Split('\n');
-
-							foreach (var line in packetLines)
-							{
-								if (line.StartsWith("Port:"))
-								{
-									var portStr = line.Substring(5).Trim();
-									int.TryParse(portStr, out remotePort);
-								}
-								if (line.StartsWith("Infohash:"))
-								{
-									remoteHash = line.Substring(10, 40);
-								}
-							}
-
-							if (!string.IsNullOrEmpty(remoteHash) && remotePort != 0)
-							{
-								NewPeer?.Invoke(remoteAddress, remotePort, remoteHash);
-							}
-
-							isReceiving = false;
+							return;
 						}
+
+						var remoteAddress = ((IPEndPoint)endPoint).Address;
+						var remotePort = 0;
+						var remoteHash = "";
+
+						var packet = Encoding.ASCII.GetString(buffer).Trim();
+
+						if (!packet.StartsWith("BT-SEARCH"))
+						{
+							return;
+						}
+
+						var packetLines = packet.Split('\n');
+
+						foreach (var line in packetLines)
+						{
+							if (line.StartsWith("Port:"))
+							{
+								var portStr = line.Substring(5).Trim();
+								int.TryParse(portStr, out remotePort);
+							}
+							if (line.StartsWith("Infohash:"))
+							{
+								remoteHash = line.Substring(10, 40);
+							}
+						}
+
+						if (!string.IsNullOrEmpty(remoteHash) && remotePort != 0)
+						{
+							NewPeer?.Invoke(remoteAddress, remotePort, remoteHash);
+						}
+
+						isReceiving = false;
 					}, null);
 				}
 			}
@@ -208,21 +210,23 @@ namespace bzTorrent
 		{
 			GC.SuppressFinalize(this);
 
-			if (!isDisposed)
+			if (isDisposed)
 			{
-				isDisposed = true;
+				return;
+			}
 
-				try
-				{
-					Close();
+			isDisposed = true;
 
-					udpReaderSocket.Dispose();
-					udpSenderSocket.Dispose();
-				}
-				catch (Exception)
-				{
+			try
+			{
+				Close();
 
-				}
+				udpReaderSocket.Dispose();
+				udpSenderSocket.Dispose();
+			}
+			catch (Exception)
+			{
+
 			}
 		}
 	}
