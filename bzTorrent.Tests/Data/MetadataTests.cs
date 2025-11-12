@@ -24,7 +24,7 @@ namespace bzTorrent.Tests.Data
         {
             var metadata = new Metadata();
 
-            var file = File.OpenRead("TestFiles\\ubuntu-23.10-live-server-amd64.iso.torrent");
+            var file = File.OpenRead("TestFiles//ubuntu-23.10-live-server-amd64.iso.torrent");
 
             metadata.Load(file).Should().BeTrue();
 
@@ -40,7 +40,7 @@ namespace bzTorrent.Tests.Data
         {
             var metadata = new Metadata();
 
-            var file = File.OpenRead("TestFiles\\InvalidTorrent.torrent");
+            var file = File.OpenRead("TestFiles//InvalidTorrent.torrent");
 
             metadata.Load(file).Should().BeFalse();
 
@@ -50,7 +50,7 @@ namespace bzTorrent.Tests.Data
         [Fact]
         public void ValidFileCreatesValidMetadata2()
         {
-            var file = File.OpenRead("TestFiles\\ubuntu-23.10-live-server-amd64.iso.torrent");
+            var file = File.OpenRead("TestFiles//ubuntu-23.10-live-server-amd64.iso.torrent");
 
             var metadata = new Metadata(file);
 
@@ -65,7 +65,7 @@ namespace bzTorrent.Tests.Data
         [Fact]
         public void PrivateTorrentShouldSetPrivateFlag()
         {
-            var file = File.OpenRead("TestFiles\\UbuntuTestTorrent.torrent");
+            var file = File.OpenRead("TestFiles//UbuntuTestTorrent.torrent");
 
             var metadata = new Metadata();
 
@@ -79,7 +79,7 @@ namespace bzTorrent.Tests.Data
         [Fact]
         public void TorrentWithCreatedByShouldBeParsed()
         {
-            var file = File.OpenRead("TestFiles\\UbuntuTestTorrent.torrent");
+            var file = File.OpenRead("TestFiles//UbuntuTestTorrent.torrent");
 
             var metadata = new Metadata();
 
@@ -93,7 +93,7 @@ namespace bzTorrent.Tests.Data
         [Fact]
         public void TorrentWithMultipleFilesShouldHaveMultipleFiles()
         {
-            var file = File.OpenRead("TestFiles\\UbuntuTestTorrent.torrent");
+            var file = File.OpenRead("TestFiles//UbuntuTestTorrent.torrent");
 
             var metadata = new Metadata();
 

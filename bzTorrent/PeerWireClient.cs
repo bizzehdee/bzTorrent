@@ -412,27 +412,14 @@ namespace bzTorrent
 		{
 			if (packet.Payload.Length < packet.CommandLength)
 			{
-				//not sent entire bitfield, kill the connection
+				// not sent entire bitfield, kill the connection
 				Disconnect();
 				return;
 			}
 
 			var bitfieldLength = packet.Payload.Length;
-
-			PeerBitField = new bool[bitfieldLength * 8];
-			for (var i = 0; i < bitfieldLength; i++)
-			{
-				var b = packet.Payload[i];
-
-				PeerBitField[(i * 8) + 0] = b.GetBit(0);
-				PeerBitField[(i * 8) + 1] = b.GetBit(1);
-				PeerBitField[(i * 8) + 2] = b.GetBit(2);
-				PeerBitField[(i * 8) + 3] = b.GetBit(3);
-				PeerBitField[(i * 8) + 4] = b.GetBit(4);
-				PeerBitField[(i * 8) + 5] = b.GetBit(5);
-				PeerBitField[(i * 8) + 6] = b.GetBit(6);
-				PeerBitField[(i * 8) + 7] = b.GetBit(7);
-			}
+			// Use helper to parse payload into bool[]; keeps parsing logic isolated and testable
+			PeerBitField = bzTorrent.Helpers.BitfieldParser.Parse(packet.Payload, bitfieldLength * 8);
 
 			OnBitField(bitfieldLength * 8, PeerBitField);
 		}
