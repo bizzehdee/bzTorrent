@@ -28,51 +28,45 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-using System;
+using bzTorrent.Data;
+using bzTorrent.Helpers;
 
-namespace bzTorrent.Helpers
+namespace bzTorrent.Protocol.Handlers
 {
     /// <summary>
-    /// Helper to parse a bitfield payload into a boolean array.
+    /// Handles Request and Cancel messages (peer requests or cancels a block).
     /// </summary>
-    public static class BitfieldParser
+    public class RequestHandler : IMessageHandler
     {
-        /// <summary>
-        /// Parse a bitfield payload where each bit represents the presence of a piece.
-        /// The returned array length will be payload.Length * 8. If expectedBits is supplied
-        /// and is less than that, the returned array will be trimmed to expectedBits.
-        /// </summary>
-        /// <param name="payload">Raw payload bytes from the peer.</param>
-        /// <param name="expectedBits">Optional expected number of bits (pieces).</param>
-        /// <returns>Boolean array where true indicates the peer has the piece.</returns>
-        public static bool[] Parse(byte[] payload, int expectedBits = -1)
+        private readonly bool _isCancel;
+
+        public RequestHandler(bool isCancel = false)
         {
-            if (payload == null)
+            _isCancel = isCancel;
+        }
+
+        public HandlerResult Handle(PeerWireClient client, PeerWirePacket packet)
+        {
+            if (packet.Payload.Length < 12)
             {
-                throw new ArgumentNullException(nameof(payload));
+                // Malformed: need 12 bytes (index, begin, length each 4 bytes)
+                return HandlerResult.CloseConnection;
             }
 
-            var totalBits = payload.Length * 8;
-            var bits = new bool[totalBits];
+            var index = UnpackHelper.Int32(packet.Payload, 0, UnpackHelper.Endianness.Big);
+            var begin = UnpackHelper.Int32(packet.Payload, 4, UnpackHelper.Endianness.Big);
+            var length = UnpackHelper.Int32(packet.Payload, 8, UnpackHelper.Endianness.Big);
 
-            for (int i = 0; i < payload.Length; i++)
+            if (_isCancel)
             {
-                var b = payload[i];
-                // original code used GetBit(0..7) with bit 0 being LSB; preserve that ordering
-                for (int bit = 0; bit < 8; bit++)
-                {
-                    bits[(i * 8) + bit] = (b & (1 << bit)) != 0;
-                }
+                client.RaiseCancel(index, begin, length);
+            }
+            else
+            {
+                client.RaiseRequest(index, begin, length);
             }
 
-            if (expectedBits > 0 && expectedBits < bits.Length)
-            {
-                var trimmed = new bool[expectedBits];
-                Array.Copy(bits, 0, trimmed, 0, expectedBits);
-                return trimmed;
-            }
-
-            return bits;
+            return HandlerResult.Handled;
         }
     }
 }

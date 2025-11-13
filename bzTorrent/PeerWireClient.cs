@@ -32,6 +32,7 @@ using System.Collections.Generic;
 using bzTorrent.IO;
 using bzTorrent.Helpers;
 using bzTorrent.Data;
+using bzTorrent.Protocol.Handlers;
 using System;
 using System.Net;
 using static bzTorrent.IPeerWireClient;
@@ -45,6 +46,7 @@ namespace bzTorrent
 
 		private readonly IPeerConnection peerConnection;
 		private readonly List<IProtocolExtension> _btProtocolExtensions;
+		private readonly MessageDispatcher _messageDispatcher;
 
 		public int Timeout { get => peerConnection.Timeout; }
 		public bool[] PeerBitField { get; set; }
@@ -76,7 +78,40 @@ namespace bzTorrent
 		{
 			peerConnection = io;
 			_btProtocolExtensions = new List<IProtocolExtension>();
+			_messageDispatcher = new MessageDispatcher();
 		}
+
+		#region Internal event raisers (for handlers)
+		/// <summary>Raise the Have event. Called by HaveHandler.</summary>
+		public void RaiseHave(int pieceIndex)
+		{
+			Have?.Invoke(this, pieceIndex);
+		}
+
+		/// <summary>Raise the BitField event. Called by BitfieldHandler.</summary>
+		public void RaiseBitField(int size, bool[] bitField)
+		{
+			BitField?.Invoke(this, size, bitField);
+		}
+
+		/// <summary>Raise the Request event. Called by RequestHandler.</summary>
+		public void RaiseRequest(int index, int begin, int length)
+		{
+			Request?.Invoke(this, index, begin, length);
+		}
+
+		/// <summary>Raise the Piece event. Called by PieceHandler.</summary>
+		public void RaisePiece(int index, int begin, byte[] bytes)
+		{
+			Piece?.Invoke(this, index, begin, bytes);
+		}
+
+		/// <summary>Raise the Cancel event. Called by RequestHandler.</summary>
+		public void RaiseCancel(int index, int begin, int length)
+		{
+			Cancel?.Invoke(this, index, begin, length);
+		}
+		#endregion
 
 		public void Connect(IPEndPoint endPoint)
 		{
@@ -221,54 +256,35 @@ namespace bzTorrent
 					KeepAlive?.Invoke(this);
 					break;
 				case PeerClientCommands.Choke:
-					//choke
 					Choke?.Invoke(this);
 					break;
 				case PeerClientCommands.Unchoke:
-					//unchoke
 					UnChoke?.Invoke(this);
 					break;
 				case PeerClientCommands.Interested:
-					//interested
 					Interested?.Invoke(this);
 					break;
 				case PeerClientCommands.NotInterested:
-					//not interested
 					NotInterested?.Invoke(this);
 					break;
-				case PeerClientCommands.Have:
-					//have
-					ProcessHave(command);
-					break;
-				case PeerClientCommands.Bitfield:
-					//bitfield
-					ProcessBitfield(command);
-					break;
-				case PeerClientCommands.Request:
-					//request
-					ProcessRequest(command, false);
-					break;
-				case PeerClientCommands.Piece:
-					//piece
-					ProcessPiece(command);
-					break;
-				case PeerClientCommands.Cancel:
-					//cancel
-					ProcessRequest(command, true);
-					break;
 				default:
+					// Try built-in handlers (Have, Bitfield, Request, Piece, Cancel)
+					if (_messageDispatcher.Dispatch(this, command))
 					{
-						foreach (var extension in _btProtocolExtensions)
-						{
-							if (!extension.CommandIDs.Contains(b => b == (byte)command.Command))
-							{
-								continue;
-							}
+						return;
+					}
 
-							if (extension.OnCommand(this, (int)command.CommandLength, (byte)command.Command, command.Payload))
-							{
-								break;
-							}
+					// Fall through to extension handlers
+					foreach (var extension in _btProtocolExtensions)
+					{
+						if (!extension.CommandIDs.Contains(b => b == (byte)command.Command))
+						{
+							continue;
+						}
+
+						if (extension.OnCommand(this, (int)command.CommandLength, (byte)command.Command, command.Payload))
+						{
+							break;
 						}
 					}
 					break;
@@ -401,84 +417,16 @@ namespace bzTorrent
 		}
 
 		#region Processors
-		private void ProcessHave(PeerWirePacket packet)
-		{
-			var pieceIndex = UnpackHelper.Int32(packet.Payload, 0, UnpackHelper.Endianness.Big);
-
-			OnHave(pieceIndex);
-		}
-
-		private void ProcessBitfield(PeerWirePacket packet)
-		{
-			if (packet.Payload.Length < packet.CommandLength)
-			{
-				// not sent entire bitfield, kill the connection
-				Disconnect();
-				return;
-			}
-
-			var bitfieldLength = packet.Payload.Length;
-			// Use helper to parse payload into bool[]; keeps parsing logic isolated and testable
-			PeerBitField = bzTorrent.Helpers.BitfieldParser.Parse(packet.Payload, bitfieldLength * 8);
-
-			OnBitField(bitfieldLength * 8, PeerBitField);
-		}
-
-
-		private void ProcessRequest(PeerWirePacket packet, bool cancel)
-		{
-			var index = UnpackHelper.Int32(packet.Payload, 0, UnpackHelper.Endianness.Big);
-			var begin = UnpackHelper.Int32(packet.Payload, 4, UnpackHelper.Endianness.Big);
-			var length = UnpackHelper.Int32(packet.Payload, 8, UnpackHelper.Endianness.Big);
-
-			if (!cancel)
-			{
-				OnRequest(index, begin, length);
-			}
-			else
-			{
-				OnCancel(index, begin, length);
-			}
-		}
-
-		private void ProcessPiece(PeerWirePacket packet)
-		{
-			var index = UnpackHelper.Int32(packet.Payload, 0, UnpackHelper.Endianness.Big);
-			var begin = UnpackHelper.Int32(packet.Payload, 4, UnpackHelper.Endianness.Big);
-
-			var buffer = packet.Payload.GetBytes(8);
-
-			OnPiece(index, begin, buffer);
-		}
+		// Processors moved to Protocol.Handlers.* classes
+		// - ProcessHave -> HaveHandler
+		// - ProcessBitfield -> BitfieldHandler
+		// - ProcessRequest -> RequestHandler
+		// - ProcessPiece -> PieceHandler
 		#endregion
 
 		#region Event Dispatchers
-
-		private void OnHave(int pieceIndex)
-		{
-			Have?.Invoke(this, pieceIndex);
-		}
-
-		private void OnBitField(int size, bool[] bitField)
-		{
-			BitField?.Invoke(this, size, bitField);
-		}
-
-		private void OnRequest(int index, int begin, int length)
-		{
-			Request?.Invoke(this, index, begin, length);
-		}
-
-		private void OnPiece(int index, int begin, byte[] bytes)
-		{
-			Piece?.Invoke(this, index, begin, bytes);
-		}
-
-		private void OnCancel(int index, int begin, int length)
-		{
-			Cancel?.Invoke(this, index, begin, length);
-		}
-
+		// Event dispatcher methods (OnHave, OnBitField, OnRequest, OnPiece, OnCancel) are no longer needed.
+		// Events are now invoked directly from the handler classes.
 		#endregion
 
 		public void RegisterBTExtension(IProtocolExtension extension)

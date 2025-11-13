@@ -20,7 +20,7 @@
       <AnalysisLevel>latest</AnalysisLevel>
     </PropertyGroup>
     <ItemGroup>
-      <PackageReference Include="bzBencode" Version="1.0.4" />
+      <PackageReference Include="bzBencode" Version="1.0.7" />
     </ItemGroup>
     <ItemGroup>
       <None Include="..\LICENSE">

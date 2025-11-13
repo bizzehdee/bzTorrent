@@ -81,7 +81,7 @@ namespace bzTorrent.Data
 
 		public Metadata(Stream stream)
 		{
-			Load(stream);
+			this.Load(stream);
 		}
 
 		public Metadata(MagnetLink magnetLink)
@@ -309,10 +309,12 @@ namespace bzTorrent.Data
 
 		public static IMetadata FromFile(string filename)
 		{
-			using (var fs = File.OpenRead(filename))
-			{
-				return new Metadata(fs);
-			}
+			var fs = File.Open(filename, FileMode.Open, FileAccess.Read, FileShare.Read);
+			var meta = new Metadata();
+			meta.Load(fs);
+			fs.Close();
+			return meta;
+
 		}
 		#endregion
 	}

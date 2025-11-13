@@ -62,7 +62,7 @@ namespace Demo
 
             GeneratePeerId();
 
-            Console.Title = "bzTorrent Demo";
+            //Console.Title = "bzTorrent Demo";
 
             for (var x = 0; x < args.Length; x++)
             {
@@ -91,7 +91,7 @@ namespace Demo
 
             downloadMetadata = Metadata.FromFile(inputFilename);
 
-            Console.Title = string.Format("bzTorrent Demo - {0}", downloadMetadata.Name);
+            //Console.Title = string.Format("bzTorrent Demo - {0}", downloadMetadata.Name);
 
             Console.WriteLine("Downloading: {0} to {1}", downloadMetadata.Name, downloadDirectory);
             Console.WriteLine("Hash: {0}", downloadMetadata.HashString);
@@ -190,8 +190,8 @@ namespace Demo
             client.NotInterested += Client_NotInterested;
             client.Request += Client_Request;
 
-            var peer = new IPEndPoint(IPAddress.Parse("192.168.0.42"), 6881);
-            //foreach (var peer in knownPeers)
+            //var peer = new IPEndPoint(IPAddress.Parse("192.168.0.42"), 6881);
+            foreach (var peer in knownPeers)
             {
                 try
                 {

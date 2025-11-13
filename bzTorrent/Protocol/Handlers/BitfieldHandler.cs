@@ -28,51 +28,37 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-using System;
+using bzTorrent.Data;
+using bzTorrent.Helpers;
 
-namespace bzTorrent.Helpers
+namespace bzTorrent.Protocol.Handlers
 {
     /// <summary>
-    /// Helper to parse a bitfield payload into a boolean array.
+    /// Handles Bitfield messages (peer announces its piece availability).
     /// </summary>
-    public static class BitfieldParser
+    public class BitfieldHandler : IMessageHandler
     {
-        /// <summary>
-        /// Parse a bitfield payload where each bit represents the presence of a piece.
-        /// The returned array length will be payload.Length * 8. If expectedBits is supplied
-        /// and is less than that, the returned array will be trimmed to expectedBits.
-        /// </summary>
-        /// <param name="payload">Raw payload bytes from the peer.</param>
-        /// <param name="expectedBits">Optional expected number of bits (pieces).</param>
-        /// <returns>Boolean array where true indicates the peer has the piece.</returns>
-        public static bool[] Parse(byte[] payload, int expectedBits = -1)
+        public HandlerResult Handle(PeerWireClient client, PeerWirePacket packet)
         {
-            if (payload == null)
+            if (packet.Payload.Length < packet.CommandLength)
             {
-                throw new ArgumentNullException(nameof(payload));
+                // Not sent entire bitfield; close connection per protocol
+                return HandlerResult.CloseConnection;
             }
 
-            var totalBits = payload.Length * 8;
-            var bits = new bool[totalBits];
-
-            for (int i = 0; i < payload.Length; i++)
+            var bitfieldLength = packet.Payload.Length;
+            try
             {
-                var b = payload[i];
-                // original code used GetBit(0..7) with bit 0 being LSB; preserve that ordering
-                for (int bit = 0; bit < 8; bit++)
-                {
-                    bits[(i * 8) + bit] = (b & (1 << bit)) != 0;
-                }
+                // Parse payload into bool[]; keeps parsing logic isolated and testable
+                var bitfield = BitfieldParser.Parse(packet.Payload, bitfieldLength * 8);
+                client.PeerBitField = bitfield;
+                client.RaiseBitField(bitfieldLength * 8, bitfield);
+                return HandlerResult.Handled;
             }
-
-            if (expectedBits > 0 && expectedBits < bits.Length)
+            catch
             {
-                var trimmed = new bool[expectedBits];
-                Array.Copy(bits, 0, trimmed, 0, expectedBits);
-                return trimmed;
+                return HandlerResult.CloseConnection;
             }
-
-            return bits;
         }
     }
 }
