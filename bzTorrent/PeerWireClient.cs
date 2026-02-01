@@ -42,13 +42,13 @@ namespace bzTorrent
 	public class PeerWireClient : IPeerWireClient
 	{
 		public bool ReceivedHandshake { get; private set; } = false;
-		private DateTime lastKeepAliveSent;
+		private DateTime _lastKeepAliveSent;
 
-		private readonly IPeerConnection peerConnection;
+		private readonly IPeerConnection _peerConnection;
 		private readonly List<IProtocolExtension> _btProtocolExtensions;
 		private readonly MessageDispatcher _messageDispatcher;
 
-		public int Timeout { get => peerConnection.Timeout; }
+		public int Timeout { get => _peerConnection.Timeout; }
 		public bool[] PeerBitField { get; set; }
 		public bool KeepConnectionAlive { get; set; }
 
@@ -76,8 +76,8 @@ namespace bzTorrent
 
 		public PeerWireClient(IPeerConnection io)
 		{
-			peerConnection = io;
-			_btProtocolExtensions = new List<IProtocolExtension>();
+			_peerConnection = io;
+			_btProtocolExtensions = [];
 			_messageDispatcher = new MessageDispatcher();
 		}
 
@@ -116,18 +116,18 @@ namespace bzTorrent
 		public void Connect(IPEndPoint endPoint)
 		{
 			ReceivedHandshake = false;
-			peerConnection.Connect(endPoint);
+			_peerConnection.Connect(endPoint);
 		}
 
 		public void Connect(string ipHost, int port)
 		{
 			ReceivedHandshake = false;
-			peerConnection.Connect(new IPEndPoint(IPAddress.Parse(ipHost), port));
+			_peerConnection.Connect(new IPEndPoint(IPAddress.Parse(ipHost), port));
 		}
 
 		public void Disconnect()
 		{
-			peerConnection.Disconnect();
+			_peerConnection.Disconnect();
 		}
 
 		public bool Handshake()
@@ -175,7 +175,7 @@ namespace bzTorrent
 				ReservedBytes = reservedBytes
 			};
 
-			peerConnection.Handshake(handshake);
+			_peerConnection.Handshake(handshake);
 
 			foreach (var extension in _btProtocolExtensions)
 			{
@@ -201,46 +201,46 @@ namespace bzTorrent
 
 		private bool InternalProcess()
 		{
-			if ((lastKeepAliveSent < DateTime.UtcNow.AddMinutes(-1)) && ReceivedHandshake)
+			if ((_lastKeepAliveSent < DateTime.UtcNow.AddMinutes(-1)) && ReceivedHandshake)
 			{
-				lastKeepAliveSent = DateTime.UtcNow;
-				peerConnection.Send(new PeerWirePacket { Command = PeerClientCommands.KeepAlive });
+				_lastKeepAliveSent = DateTime.UtcNow;
+				_peerConnection.Send(new PeerWirePacket { Command = PeerClientCommands.KeepAlive });
 			}
 
 			try
 			{
-				peerConnection.Process();
+				_peerConnection.Process();
 			}
 			catch
 			{
-				peerConnection.Disconnect();
+				_peerConnection.Disconnect();
 				return false;
 			}
 
-			if (ReceivedHandshake == false && peerConnection.RemoteHandshake != null)
+			if (!ReceivedHandshake && _peerConnection.RemoteHandshake != null)
 			{
 				ReceivedHandshake = true;
 
-				RemotePeerID = peerConnection.RemoteHandshake.PeerId;
+				RemotePeerID = _peerConnection.RemoteHandshake.PeerId;
 
 				HandshakeComplete?.Invoke(this);
 			}
 
 
-			if (peerConnection.HasPackets() == false)
+			if (!_peerConnection.HasPackets())
 			{
 				NoData?.Invoke(this);
 			}
 			else
 			{
-				while (peerConnection.HasPackets())
+				while (_peerConnection.HasPackets())
 				{
-					var command = peerConnection.Receive();
+					var command = _peerConnection.Receive();
 					ProcessCommand(command);
 				}
 			}
 
-			return peerConnection.Connected;
+			return _peerConnection.Connected;
 		}
 
 		private void ProcessCommand(PeerWirePacket command)
@@ -293,42 +293,42 @@ namespace bzTorrent
 
 		public bool SendKeepAlive()
 		{
-			peerConnection.Send(new PeerMessageBuilder(128).Message());
+			_peerConnection.Send(new PeerMessageBuilder(128).Message());
 
 			return true;
 		}
 
 		public bool SendChoke()
 		{
-			peerConnection.Send(new PeerMessageBuilder(0).Message());
+			_peerConnection.Send(new PeerMessageBuilder(0).Message());
 
 			return true;
 		}
 
 		public bool SendUnChoke()
 		{
-			peerConnection.Send(new PeerMessageBuilder(1).Message());
+			_peerConnection.Send(new PeerMessageBuilder(1).Message());
 
 			return true;
 		}
 
 		public bool SendInterested()
 		{
-			peerConnection.Send(new PeerMessageBuilder(2).Message());
+			_peerConnection.Send(new PeerMessageBuilder(2).Message());
 
 			return true;
 		}
 
 		public bool SendNotInterested()
 		{
-			peerConnection.Send(new PeerMessageBuilder(3).Message());
+			_peerConnection.Send(new PeerMessageBuilder(3).Message());
 
 			return true;
 		}
 
 		public bool SendHave(uint index)
 		{
-			peerConnection.Send(new PeerMessageBuilder(4).Add(index).Message());
+			_peerConnection.Send(new PeerMessageBuilder(4).Add(index).Message());
 
 			return true;
 		}
@@ -380,7 +380,7 @@ namespace bzTorrent
 				}
 			}
 
-			peerConnection.Send(new PeerMessageBuilder(5).Add(bytes).Message());
+			_peerConnection.Send(new PeerMessageBuilder(5).Add(bytes).Message());
 
 			if (obsfIDs.Length <= 0)
 			{
@@ -397,21 +397,21 @@ namespace bzTorrent
 
 		public bool SendRequest(uint index, uint start, uint length)
 		{
-			peerConnection.Send(new PeerMessageBuilder(6).Add(index).Add(start).Add(length).Message());
+			_peerConnection.Send(new PeerMessageBuilder(6).Add(index).Add(start).Add(length).Message());
 
 			return true;
 		}
 
 		public bool SendPiece(uint index, uint start, byte[] data)
 		{
-			peerConnection.Send(new PeerMessageBuilder(7).Add(index).Add(start).Add(data).Message());
+			_peerConnection.Send(new PeerMessageBuilder(7).Add(index).Add(start).Add(data).Message());
 
 			return true;
 		}
 
 		public bool SendCancel(uint index, uint start, uint length)
 		{
-			peerConnection.Send(new PeerMessageBuilder(8).Add(index).Add(start).Add(length).Message());
+			_peerConnection.Send(new PeerMessageBuilder(8).Add(index).Add(start).Add(length).Message());
 
 			return true;
 		}
@@ -441,7 +441,7 @@ namespace bzTorrent
 
 		public bool SendPacket(PeerWirePacket packet)
 		{
-			peerConnection.Send(packet);
+			_peerConnection.Send(packet);
 
 			return true;
 		}

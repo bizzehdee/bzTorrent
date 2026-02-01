@@ -75,18 +75,19 @@ namespace bzTorrent.Protocol.Handlers
         public bool Dispatch(PeerWireClient client, PeerWirePacket packet)
         {
             var commandId = (byte)packet.Command;
-            if (_handlers.TryGetValue(commandId, out var handler))
+            if (!_handlers.TryGetValue(commandId, out var handler))
             {
-                var result = handler.Handle(client, packet);
-                if (result == HandlerResult.CloseConnection)
-                {
-                    client.Disconnect();
-                    return true;
-                }
-                return result == HandlerResult.Handled;
+	            return false;
             }
 
-            return false;
+            var result = handler.Handle(client, packet);
+            if (result != HandlerResult.CloseConnection)
+            {
+	            return result == HandlerResult.Handled;
+            }
+
+            client.Disconnect();
+            return true;
         }
     }
 }
