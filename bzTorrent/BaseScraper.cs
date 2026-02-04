@@ -30,8 +30,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
+using System.Text;
 using System.Text.RegularExpressions;
+using bzTorrent.Helpers;
 
 namespace bzTorrent
 {
@@ -106,6 +109,33 @@ namespace bzTorrent
 
 				Tracker = match.Groups[0].Value;
 			}
+		}
+
+		/// <summary>
+		/// URL-encodes a byte array to a percent-encoded string.
+		/// </summary>
+		protected static string UrlEncodeBytes(byte[] bytes)
+		{
+			return bytes.Aggregate(new StringBuilder(), (sb, b) => sb.Append($"%{b:X2}"), sb => sb.ToString());
+		}
+
+		/// <summary>
+		/// Converts a hex string to its URL-encoded representation.
+		/// </summary>
+		protected static string UrlEncodeHexString(string hexString)
+		{
+			var bytes = PackHelper.Hex(hexString);
+			return UrlEncodeBytes(bytes);
+		}
+
+		/// <summary>
+		/// Copies a portion of a byte array.
+		/// </summary>
+		protected static byte[] CopyBytes(byte[] sourceArray, int startIndex, int length)
+		{
+			var result = new byte[length];
+			Array.Copy(sourceArray, startIndex, result, 0, length);
+			return result;
 		}
 
 		public class AnnounceInfo

@@ -31,16 +31,18 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using bzBencode;
-using bzTorrent.Helpers;
 using System.Text;
 using System.Net;
 using System;
+using bzBencode;
+using bzTorrent.Helpers;
 
 namespace bzTorrent
 {
 	public class HTTPTrackerClient : BaseScraper, ITrackerClient
 	{
+		private const string UserAgent = "bzTorrent";
+
 		public HTTPTrackerClient()
 			: base()
 		{ 
@@ -53,6 +55,60 @@ namespace bzTorrent
 
 		}
 
+		/// <summary>
+		/// Builds an announce URL with query parameters.
+		/// </summary>
+		private static string BuildAnnounceUrl(string url, string hash, string peerId, long bytesDownloaded, 
+			long bytesLeft, long bytesUploaded, int numWant, int listenPort)
+		{
+			var urlBuilder = new StringBuilder(url.Replace("scrape", "announce"));
+			urlBuilder.Append("?info_hash=");
+			urlBuilder.Append(UrlEncodeHexString(hash));
+			urlBuilder.Append("&peer_id=");
+			urlBuilder.Append(UrlEncodeBytes(Encoding.ASCII.GetBytes(peerId)));
+			urlBuilder.Append("&port=").Append(listenPort);
+			urlBuilder.Append("&uploaded=").Append(bytesUploaded);
+			urlBuilder.Append("&downloaded=").Append(bytesDownloaded);
+			urlBuilder.Append("&left=").Append(bytesLeft);
+			urlBuilder.Append("&numWant=").Append(numWant);
+			urlBuilder.Append("&event=started");
+			urlBuilder.Append("&compact=1");
+
+			return urlBuilder.ToString();
+		}
+
+		/// <summary>
+		/// Reads the complete response from an HTTP stream.
+		/// </summary>
+		private static byte[] ReadHttpResponse(Stream stream)
+		{
+			if (stream == null)
+			{
+				return null;
+			}
+
+			var bytes = new List<byte>();
+			using (var binaryReader = new BinaryReader(stream))
+			{
+				try
+				{
+					while (true)
+					{
+						bytes.Add(binaryReader.ReadByte());
+					}
+				}
+				catch (EndOfStreamException)
+				{
+					// Expected when stream ends
+				}
+			}
+
+			return bytes.ToArray();
+		}
+
+		/// <summary>
+		/// Extracts peer information from bencode response.
+		/// </summary>
 		private static IEnumerable<IPEndPoint> GetPeers(byte[] peerData)
 		{
 			for (var i = 0; i < peerData.Length; i += 6)
@@ -62,6 +118,64 @@ namespace bzTorrent
 
 				yield return new IPEndPoint(addr, port);
 			}
+		}
+
+		/// <summary>
+		/// Parses an announce response from bencode format.
+		/// </summary>
+		private static AnnounceInfo ParseAnnounceResponse(BDict decoded)
+		{
+			if (decoded?.Count == 0 || !decoded.ContainsKey("peers"))
+			{
+				return null;
+			}
+
+			if (!(decoded["peers"] is BString))
+			{
+				throw new NotSupportedException("Dictionary based peers not supported");
+			}
+
+			var waitTime = decoded.ContainsKey("interval") ? (int)(BInt)decoded["interval"] : 0;
+			var seeders = decoded.ContainsKey("complete") ? (int)(BInt)decoded["complete"] : 0;
+			var leechers = decoded.ContainsKey("incomplete") ? (int)(BInt)decoded["incomplete"] : 0;
+
+			var peerBinary = (BString)decoded["peers"];
+			return new AnnounceInfo(GetPeers(peerBinary.ByteValue), waitTime, seeders, leechers);
+		}
+
+		/// <summary>
+		/// Parses a scrape response from bencode format.
+		/// </summary>
+		private static Dictionary<string, ScrapeInfo> ParseScrapeResponse(BDict decoded)
+		{
+			var result = new Dictionary<string, ScrapeInfo>();
+
+			if (decoded?.Count == 0 || !decoded.ContainsKey("files"))
+			{
+				return result;
+			}
+
+			var filesDict = (BDict)decoded["files"];
+			foreach (var key in filesDict.Keys)
+			{
+				var fileInfo = (BDict)filesDict[key];
+
+				if (!fileInfo.ContainsKey("complete") || !fileInfo.ContainsKey("downloaded") || 
+					!fileInfo.ContainsKey("incomplete"))
+				{
+					continue;
+				}
+
+				var hash = UnpackHelper.Hex(BencodingUtils.ExtendedASCIIEncoding.GetBytes(key));
+				var scrapeInfo = new ScrapeInfo(
+					(uint)((BInt)fileInfo["complete"]).Value,
+					(uint)((BInt)fileInfo["downloaded"]).Value,
+					(uint)((BInt)fileInfo["incomplete"]).Value,
+					ScraperType.HTTP);
+				result.Add(hash, scrapeInfo);
+			}
+
+			return result;
 		}
 
 		public IDictionary<string, AnnounceInfo> Announce(string url, string[] hashes, string peerId)
@@ -74,189 +188,71 @@ namespace bzTorrent
 			return Announce(url, hash, peerId, 0, 0, 0, 2, 0, -1, 12345, 0);
 		}
 
-		public AnnounceInfo Announce(string url, string hash, string peerId, long bytesDownloaded, long bytesLeft, long bytesUploaded,
-			int eventTypeFilter, int ipAddress, int numWant, int listenPort, int extensions)
+		public AnnounceInfo Announce(string url, string hash, string peerId, long bytesDownloaded, 
+			long bytesLeft, long bytesUploaded, int eventTypeFilter, int ipAddress, int numWant, 
+			int listenPort, int extensions)
 		{
-			var hashBytes = PackHelper.Hex(hash);
-			var peerIdBytes = Encoding.ASCII.GetBytes(peerId);
-
-			var realUrl = url.Replace("scrape", "announce") + "?";
-
-			var hashEncoded = "";
-			foreach (var b in hashBytes)
-			{
-				hashEncoded += $"%{b:X2}";
-			}
-
-			var peerIdEncoded = "";
-			foreach (var b in peerIdBytes)
-			{
-				peerIdEncoded += $"%{b:X2}";
-			}
-
-			realUrl += "info_hash=" + hashEncoded;
-			realUrl += "&peer_id=" + peerIdEncoded;
-			realUrl += "&port=" + listenPort;
-			realUrl += "&uploaded=" + bytesUploaded;
-			realUrl += "&downloaded=" + bytesDownloaded;
-			realUrl += "&left=" + bytesLeft;
-			realUrl += "&numWant=" + numWant;
-			realUrl += "&event=started";
-			realUrl += "&compact=1";
-
-			var webRequest = (HttpWebRequest)WebRequest.Create(realUrl);
-			webRequest.Accept = "*/*";
-			webRequest.UserAgent = "bzTorrent";
-			HttpWebResponse webResponse;
+			var announceUrl = BuildAnnounceUrl(url, hash, peerId, bytesDownloaded, bytesLeft, 
+				bytesUploaded, numWant, listenPort);
 
 			try
 			{
-				webResponse = (HttpWebResponse)webRequest.GetResponse();
+				var webRequest = (HttpWebRequest)WebRequest.Create(announceUrl);
+				webRequest.Accept = "*/*";
+				webRequest.UserAgent = UserAgent;
+
+				using (var webResponse = (HttpWebResponse)webRequest.GetResponse())
+				using (var stream = webResponse.GetResponseStream())
+				{
+					var responseBytes = ReadHttpResponse(stream);
+					if (responseBytes == null || responseBytes.Length == 0)
+					{
+						return null;
+					}
+
+					var decoded = (BDict)BencodingUtils.Decode(responseBytes);
+					return ParseAnnounceResponse(decoded);
+				}
 			}
 			catch (Exception)
 			{
 				return null;
 			}
-
-			var stream = webResponse.GetResponseStream();
-
-			if (stream == null)
-			{
-				return null;
-			}
-
-			var binaryReader = new BinaryReader(stream);
-
-			var bytes = Array.Empty<byte>();
-
-			while (true)
-			{
-				try
-				{
-					var b = new byte[1];
-					b[0] = binaryReader.ReadByte();
-					bytes = bytes.Concat(b).ToArray();
-				}
-				catch (Exception)
-				{
-					break;
-				}
-			}
-
-			var decoded = (BDict)BencodingUtils.Decode(bytes);
-			if (decoded.Count == 0)
-			{
-				return null;
-			}
-
-			if (!decoded.ContainsKey("peers"))
-			{
-				return null;
-			}
-
-			if (!(decoded["peers"] is BString))
-			{
-				throw new NotSupportedException("Dictionary based peers not supported");
-			}
-
-			var waitTime = 0;
-			var seeders = 0;
-			var leechers = 0;
-
-			if (decoded.ContainsKey("interval"))
-			{
-				waitTime = (BInt)decoded["interval"];
-			}
-
-			if (decoded.ContainsKey("complete"))
-			{
-				seeders = (BInt)decoded["complete"];
-			}
-
-			if (decoded.ContainsKey("incomplete"))
-			{
-				leechers = (BInt)decoded["incomplete"];
-			}
-
-			var peerBinary = (BString)decoded["peers"];
-
-			return new AnnounceInfo(GetPeers(peerBinary.ByteValue), waitTime, seeders, leechers);
 		}
 
 		public IDictionary<string, ScrapeInfo> Scrape(string url, string[] hashes)
 		{
-			var returnVal = new Dictionary<string, ScrapeInfo>();
+			var scrapeUrl = new StringBuilder(url.Replace("announce", "scrape")).Append("?");
 
-			var realUrl = url.Replace("announce", "scrape") + "?";
-
-			var hashEncoded = "";
 			foreach (var hash in hashes)
 			{
-				var hashBytes = PackHelper.Hex(hash);
-
-				hashEncoded = hashBytes.Aggregate(hashEncoded, (current, b) => current + $"%{b:X2}");
-
-				realUrl += "info_hash=" + hashEncoded + "&";
+				scrapeUrl.Append("info_hash=").Append(UrlEncodeHexString(hash)).Append("&");
 			}
 
-			var webRequest = (HttpWebRequest)WebRequest.Create(realUrl);
-			webRequest.Accept = "*/*";
-			webRequest.UserAgent = "bzTorrent";
-			webRequest.Timeout = Timeout * 1000;
-			var webResponse = (HttpWebResponse)webRequest.GetResponse();
-
-			var stream = webResponse.GetResponseStream();
-
-			if (stream == null)
+			try
 			{
-				return null;
-			}
+				var webRequest = (HttpWebRequest)WebRequest.Create(scrapeUrl.ToString());
+				webRequest.Accept = "*/*";
+				webRequest.UserAgent = UserAgent;
+				webRequest.Timeout = Timeout * 1000;
 
-			var binaryReader = new BinaryReader(stream);
-
-			var bytes = Array.Empty<byte>();
-
-			while (true)
-			{
-				try
+				using (var webResponse = (HttpWebResponse)webRequest.GetResponse())
+				using (var stream = webResponse.GetResponseStream())
 				{
-					var b = new byte[1];
-					b[0] = binaryReader.ReadByte();
-					bytes = bytes.Concat(b).ToArray();
-				}
-				catch (Exception)
-				{
-					break;
+					var responseBytes = ReadHttpResponse(stream);
+					if (responseBytes == null || responseBytes.Length == 0)
+					{
+						return new Dictionary<string, ScrapeInfo>();
+					}
+
+					var decoded = (BDict)BencodingUtils.Decode(responseBytes);
+					return ParseScrapeResponse(decoded);
 				}
 			}
-
-			var decoded = (BDict)BencodingUtils.Decode(bytes);
-			if (decoded.Count == 0)
+			catch (Exception)
 			{
-				return null;
+				return new Dictionary<string, ScrapeInfo>();
 			}
-
-			if (!decoded.ContainsKey("files"))
-			{
-				return null;
-			}
-
-			var bDecoded = (BDict)decoded["files"];
-
-			foreach (var k in bDecoded.Keys)
-			{
-				var d = (BDict)bDecoded[k];
-
-				if (!d.ContainsKey("complete") || !d.ContainsKey("downloaded") || !d.ContainsKey("incomplete"))
-				{
-					continue;
-				}
-
-				var rk = UnpackHelper.Hex(BencodingUtils.ExtendedASCIIEncoding.GetBytes(k));
-				returnVal.Add(rk, new ScrapeInfo((uint)((BInt)d["complete"]).Value, (uint)((BInt)d["downloaded"]).Value, (uint)((BInt)d["incomplete"]).Value, ScraperType.HTTP));
-			}
-
-			return returnVal;
 		}
 	}
 }

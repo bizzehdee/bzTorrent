@@ -29,13 +29,12 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 using System.Collections.Generic;
-using System.Data;
 using System.Linq;
 using System.Net.Sockets;
-using bzTorrent.Helpers;
 using System.Text;
 using System.Net;
 using System;
+using bzTorrent.Helpers;
 
 namespace bzTorrent
 {
@@ -55,104 +54,148 @@ namespace bzTorrent
 			_currentConnectionId = BaseCurrentConnectionId;
 		}
 
-		public IDictionary<string, ScrapeInfo> Scrape(string url, string[] hashes)
+		/// <summary>
+		/// Creates and configures a UDP client with appropriate timeouts.
+		/// </summary>
+		private UdpClient CreateConfiguredUdpClient(bool dontFragment = false)
 		{
-			var returnVal = new Dictionary<string, ScrapeInfo>();
-
-			ValidateInput(url, hashes, ScraperType.UDP);
-
-			var transactionId = Random.Next(0, 65535);
-
 			var udpClient = new UdpClient(Tracker, Port)
 			{
+				DontFragment = dontFragment,
 				Client =
-						{
-							SendTimeout = Timeout*1000,
-							ReceiveTimeout = Timeout*1000
-						}
+				{
+					SendTimeout = Timeout * 1000,
+					ReceiveTimeout = Timeout * 1000
+				}
 			};
+			return udpClient;
+		}
 
-			var sendBuf = _currentConnectionId.Concat(PackHelper.Int32(0)).Concat(PackHelper.Int32(transactionId)).ToArray();
+		/// <summary>
+		/// Sends a connection request and returns the new connection ID.
+		/// </summary>
+		private byte[] EstablishConnection(UdpClient udpClient, int transactionId)
+		{
+			var sendBuf = _currentConnectionId
+				.Concat(PackHelper.Int32(0))  // action: connect
+				.Concat(PackHelper.Int32(transactionId))
+				.ToArray();
+
 			udpClient.Send(sendBuf, sendBuf.Length);
 
 			IPEndPoint endPoint = null;
 			var recBuf = udpClient.Receive(ref endPoint);
 
-			if (recBuf == null)
+			ValidateUdpResponse(recBuf, 0, transactionId);
+			return CopyBytes(recBuf, 8, 8);
+		}
+
+		/// <summary>
+		/// Validates a UDP response for action, transaction ID, and minimum length.
+		/// </summary>
+		private static void ValidateUdpResponse(byte[] response, uint expectedAction, int expectedTransactionId, int minLength = 16)
+		{
+			if (response == null)
 			{
-				throw new NoNullAllowedException("udpClient failed to receive");
+				throw new InvalidOperationException("UDP client failed to receive response");
 			}
 
-			if (recBuf.Length < 0)
+			if (response.Length < minLength)
 			{
-				throw new InvalidOperationException("udpClient received no response");
+				throw new InvalidOperationException("UDP client did not receive complete response");
 			}
 
-			if (recBuf.Length < 16)
+			var action = UnpackHelper.UInt32(response, 0, UnpackHelper.Endianness.Big);
+			var transactionId = UnpackHelper.UInt32(response, 4, UnpackHelper.Endianness.Big);
+
+			if (action != expectedAction || transactionId != expectedTransactionId)
 			{
-				throw new InvalidOperationException("udpClient did not receive entire response");
+				throw new InvalidOperationException("Invalid response from tracker");
 			}
+		}
 
-			var recAction = UnpackHelper.UInt32(recBuf, 0, UnpackHelper.Endianness.Big);
-			var recTrasactionId = UnpackHelper.UInt32(recBuf, 4, UnpackHelper.Endianness.Big);
+		/// <summary>
+		/// Parses scrape response data into ScrapeInfo objects.
+		/// </summary>
+		private static Dictionary<string, ScrapeInfo> ParseScrapeResponse(byte[] response, string[] hashes, int offset = 8)
+		{
+			var result = new Dictionary<string, ScrapeInfo>();
+			var startIndex = offset;
 
-			if (recAction != 0 || recTrasactionId != transactionId)
-			{
-				throw new Exception("Invalid response from tracker");
-			}
-
-			_currentConnectionId = CopyBytes(recBuf, 8, 8);
-
-			var hashBytes = Array.Empty<byte>();
-			hashBytes = hashes.Aggregate(hashBytes, (current, hash) => current.Concat(PackHelper.Hex(hash)).ToArray());
-
-			var expectedLength = 8 + (12 * hashes.Length);
-
-			sendBuf = _currentConnectionId.Concat(PackHelper.Int32(2)).Concat(PackHelper.Int32(transactionId)).Concat(hashBytes).ToArray();
-			udpClient.Send(sendBuf, sendBuf.Length);
-
-			recBuf = udpClient.Receive(ref endPoint);
-
-			if (recBuf == null)
-			{
-				throw new NoNullAllowedException("udpClient failed to receive");
-			}
-
-			if (recBuf.Length < 0)
-			{
-				throw new InvalidOperationException("udpClient received no response");
-			}
-
-			if (recBuf.Length < expectedLength)
-			{
-				throw new InvalidOperationException("udpClient did not receive entire response");
-			}
-
-			recAction = UnpackHelper.UInt32(recBuf, 0, UnpackHelper.Endianness.Big);
-			recTrasactionId = UnpackHelper.UInt32(recBuf, 4, UnpackHelper.Endianness.Big);
-
-			_currentConnectionId = CopyBytes(recBuf, 8, 8);
-
-			if (recAction != 2 || recTrasactionId != transactionId)
-			{
-				throw new Exception("Invalid response from tracker");
-			}
-
-			var startIndex = 8;
 			foreach (var hash in hashes)
 			{
-				var seeders = UnpackHelper.UInt32(recBuf, startIndex, UnpackHelper.Endianness.Big);
-				var completed = UnpackHelper.UInt32(recBuf, startIndex + 4, UnpackHelper.Endianness.Big);
-				var Leechers = UnpackHelper.UInt32(recBuf, startIndex + 8, UnpackHelper.Endianness.Big);
+				var seeders = UnpackHelper.UInt32(response, startIndex, UnpackHelper.Endianness.Big);
+				var completed = UnpackHelper.UInt32(response, startIndex + 4, UnpackHelper.Endianness.Big);
+				var leechers = UnpackHelper.UInt32(response, startIndex + 8, UnpackHelper.Endianness.Big);
 
-				returnVal.Add(hash, new ScrapeInfo(seeders, completed, Leechers, ScraperType.UDP));
-
+				result.Add(hash, new ScrapeInfo(seeders, completed, leechers, ScraperType.UDP));
 				startIndex += 12;
 			}
 
-			udpClient.Close();
+			return result;
+		}
 
-			return returnVal;
+		/// <summary>
+		/// Parses announce response data into peer list and statistics.
+		/// </summary>
+		private static List<IPEndPoint> ParseAnnouncePeers(byte[] response, out int waitTime, out int leechers, out int seeders)
+		{
+			var peers = new List<IPEndPoint>();
+			waitTime = (int)UnpackHelper.UInt32(response, 8, UnpackHelper.Endianness.Big);
+			leechers = (int)UnpackHelper.UInt32(response, 12, UnpackHelper.Endianness.Big);
+			seeders = (int)UnpackHelper.UInt32(response, 16, UnpackHelper.Endianness.Big);
+
+			for (var i = 20; i < response.Length; i += 6)
+			{
+				var ip = UnpackHelper.UInt32(response, i, UnpackHelper.Endianness.Little);
+				var port = UnpackHelper.UInt16(response, i + 4, UnpackHelper.Endianness.Big);
+				peers.Add(new IPEndPoint(ip, port));
+			}
+
+			return peers;
+		}
+
+		public IDictionary<string, ScrapeInfo> Scrape(string url, string[] hashes)
+		{
+			ValidateInput(url, hashes, ScraperType.UDP);
+
+			var transactionId = Random.Next(0, 65535);
+
+			try
+			{
+				using (var udpClient = CreateConfiguredUdpClient())
+				{
+					// Establish connection
+					_currentConnectionId = EstablishConnection(udpClient, transactionId);
+
+					// Build scrape request
+					var hashBytes = hashes.Aggregate(Array.Empty<byte>(), 
+						(current, hash) => current.Concat(PackHelper.Hex(hash)).ToArray());
+
+					var sendBuf = _currentConnectionId
+						.Concat(PackHelper.Int32(2))  // action: scrape
+						.Concat(PackHelper.Int32(transactionId))
+						.Concat(hashBytes)
+						.ToArray();
+
+					udpClient.Send(sendBuf, sendBuf.Length);
+
+					// Receive and validate response
+					IPEndPoint endPoint = null;
+					var recBuf = udpClient.Receive(ref endPoint);
+
+					var expectedLength = 8 + (12 * hashes.Length);
+					ValidateUdpResponse(recBuf, 2, transactionId, expectedLength);
+
+					_currentConnectionId = CopyBytes(recBuf, 8, 8);
+
+					return ParseScrapeResponse(recBuf, hashes);
+				}
+			}
+			catch (Exception)
+			{
+				return new Dictionary<string, ScrapeInfo>();
+			}
 		}
 
 		public AnnounceInfo Announce(string url, string hash, string peerId)
@@ -160,138 +203,63 @@ namespace bzTorrent
 			return Announce(url, hash, peerId, 0, 0, 0, 2, 0, -1, 12345, 0);
 		}
 
-		public AnnounceInfo Announce(string url, string hash, string peerId, long bytesDownloaded, long bytesLeft, long bytesUploaded,
-			int eventTypeFilter, int ipAddress, int numWant, int listenPort, int extensions)
+		public AnnounceInfo Announce(string url, string hash, string peerId, long bytesDownloaded, 
+			long bytesLeft, long bytesUploaded, int eventTypeFilter, int ipAddress, int numWant, 
+			int listenPort, int extensions)
 		{
-			var returnValue = new List<IPEndPoint>();
-
 			ValidateInput(url, new[] { hash }, ScraperType.UDP);
 
-			_currentConnectionId = BaseCurrentConnectionId;
-			var trasactionId = Random.Next(0, 65535);
-
-			var udpClient = new UdpClient(Tracker, Port)
-			{
-				DontFragment = true,
-				Client =
-						{
-							SendTimeout = Timeout*1000,
-							ReceiveTimeout = Timeout*1000
-						}
-			};
-
-			var sendBuf = _currentConnectionId.Concat(PackHelper.Int32(0)).Concat(PackHelper.Int32(trasactionId)).ToArray();
-			udpClient.Send(sendBuf, sendBuf.Length);
-
-			IPEndPoint endPoint = null;
-			byte[] recBuf;
+			var transactionId = Random.Next(0, 65535);
 
 			try
 			{
-				recBuf = udpClient.Receive(ref endPoint);
+				using (var udpClient = CreateConfiguredUdpClient(dontFragment: true))
+				{
+					// Establish connection
+					_currentConnectionId = EstablishConnection(udpClient, transactionId);
+
+					// Build announce request
+					var hashBytes = PackHelper.Hex(hash).ToArray();
+					var key = Random.Next(0, 65535);
+
+					var sendBuf = _currentConnectionId          /*connection id*/
+						.Concat(PackHelper.Int32(1))           /*action: announce*/
+						.Concat(PackHelper.Int32(transactionId)) /*transaction id*/
+						.Concat(hashBytes)                      /*info hash*/
+						.Concat(Encoding.ASCII.GetBytes(peerId)) /*peer id*/
+						.Concat(PackHelper.Int64(bytesDownloaded)) /*bytes downloaded*/
+						.Concat(PackHelper.Int64(bytesLeft))     /*bytes left*/
+						.Concat(PackHelper.Int64(bytesUploaded)) /*bytes uploaded*/
+						.Concat(PackHelper.Int32(eventTypeFilter)) /*event*/
+						.Concat(PackHelper.Int32(ipAddress))    /*ip address*/
+						.Concat(PackHelper.Int32(key))          /*key*/
+						.Concat(PackHelper.Int32(numWant))      /*num want*/
+						.Concat(PackHelper.Int32(listenPort))   /*port*/
+						.Concat(PackHelper.Int32(extensions))   /*extensions*/
+						.ToArray();
+
+					udpClient.Send(sendBuf, sendBuf.Length);
+
+					// Receive and validate response
+					IPEndPoint endPoint = null;
+					var recBuf = udpClient.Receive(ref endPoint);
+
+					ValidateUdpResponse(recBuf, 1, transactionId, 20);
+
+					var peers = ParseAnnouncePeers(recBuf, out int waitTime, out int leechers, out int seeders);
+					return new AnnounceInfo(peers, waitTime, seeders, leechers);
+				}
 			}
 			catch (Exception)
 			{
 				return null;
 			}
-
-			if (recBuf == null)
-			{
-				throw new NoNullAllowedException("udpClient failed to receive");
-			}
-
-			if (recBuf.Length < 0)
-			{
-				throw new InvalidOperationException("udpClient received no response");
-			}
-
-			if (recBuf.Length < 16)
-			{
-				throw new InvalidOperationException("udpClient did not receive entire response");
-			}
-
-			var recAction = UnpackHelper.UInt32(recBuf, 0, UnpackHelper.Endianness.Big);
-			var recTrasactionId = UnpackHelper.UInt32(recBuf, 4, UnpackHelper.Endianness.Big);
-
-			if (recAction != 0 || recTrasactionId != trasactionId)
-			{
-				throw new Exception("Invalid response from tracker");
-			}
-
-			_currentConnectionId = CopyBytes(recBuf, 8, 8);
-
-			var hashBytes = PackHelper.Hex(hash).ToArray();
-
-			var key = Random.Next(0, 65535);
-
-			sendBuf = _currentConnectionId. /*connection id*/
-				Concat(PackHelper.Int32(1)). /*action*/
-				Concat(PackHelper.Int32(trasactionId)). /*trasaction Id*/
-				Concat(hashBytes). /*hash*/
-				Concat(Encoding.ASCII.GetBytes(peerId)). /*my peer id*/
-				Concat(PackHelper.Int64(bytesDownloaded)). /*bytes downloaded*/
-				Concat(PackHelper.Int64(bytesLeft)). /*bytes left*/
-				Concat(PackHelper.Int64(bytesUploaded)). /*bytes uploaded*/
-				Concat(PackHelper.Int32(eventTypeFilter)). /*event, 0 for none, 2 for just started*/
-				Concat(PackHelper.Int32(ipAddress)). /*ip, 0 for this one*/
-				Concat(PackHelper.Int32(key)). /*unique key*/
-				Concat(PackHelper.Int32(numWant)). /*num want, -1 for as many as pos*/
-				Concat(PackHelper.Int32(listenPort)). /*listen port*/
-				Concat(PackHelper.Int32(extensions)).ToArray(); /*extensions*/
-			udpClient.Send(sendBuf, sendBuf.Length);
-
-			try
-			{
-				recBuf = udpClient.Receive(ref endPoint);
-			}
-			catch (Exception)
-			{
-				return null;
-			}
-
-			recAction = UnpackHelper.UInt32(recBuf, 0, UnpackHelper.Endianness.Big);
-			recTrasactionId = UnpackHelper.UInt32(recBuf, 4, UnpackHelper.Endianness.Big);
-
-			var waitTime = (int)UnpackHelper.UInt32(recBuf, 8, UnpackHelper.Endianness.Big);
-			var Leechers = (int)UnpackHelper.UInt32(recBuf, 12, UnpackHelper.Endianness.Big);
-			var seeders = (int)UnpackHelper.UInt32(recBuf, 16, UnpackHelper.Endianness.Big);
-
-			if (recAction != 1 || recTrasactionId != trasactionId)
-			{
-				throw new Exception("Invalid response from tracker");
-			}
-
-			for (var i = 20; i < recBuf.Length; i += 6)
-			{
-				var ip = UnpackHelper.UInt32(recBuf, i, UnpackHelper.Endianness.Little);
-				var port = UnpackHelper.UInt16(recBuf, i + 4, UnpackHelper.Endianness.Big);
-
-				returnValue.Add(new IPEndPoint(ip, port));
-			}
-
-			udpClient.Close();
-
-			return new AnnounceInfo(returnValue, waitTime, seeders, Leechers);
 		}
 
 		public IDictionary<string, AnnounceInfo> Announce(string url, string[] hashes, string peerId)
 		{
 			ValidateInput(url, hashes, ScraperType.UDP);
-
-			var returnVal = hashes.ToDictionary(hash => hash, hash => Announce(url, hash, peerId));
-
-			return returnVal;
-		}
-
-		private static byte[] CopyBytes(byte[] bytes, int start, int length)
-		{
-			var intBytes = new byte[length];
-			for (var i = 0; i < length; i++)
-			{
-				intBytes[i] = bytes[start + i];
-			}
-
-			return intBytes;
+			return hashes.ToDictionary(hash => hash, hash => Announce(url, hash, peerId));
 		}
 	}
 }
