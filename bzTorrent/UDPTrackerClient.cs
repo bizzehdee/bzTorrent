@@ -147,7 +147,7 @@ namespace bzTorrent
 
 			for (var i = 20; i < response.Length; i += 6)
 			{
-				var ip = UnpackHelper.UInt32(response, i, UnpackHelper.Endianness.Little);
+				var ip = UnpackHelper.UInt32(response, i, UnpackHelper.Endianness.Big);
 				var port = UnpackHelper.UInt16(response, i + 4, UnpackHelper.Endianness.Big);
 				peers.Add(new IPEndPoint(ip, port));
 			}
