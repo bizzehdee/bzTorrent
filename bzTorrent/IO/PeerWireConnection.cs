@@ -58,7 +58,7 @@ namespace bzTorrent.IO
 
 		public bool Connected
 		{
-			get => socket.Connected && incomingHandshake != null;
+			get => socket != null && socket.Connected && incomingHandshake != null;
 		}
 
 		public PeerClientHandshake RemoteHandshake { get => incomingHandshake; }
