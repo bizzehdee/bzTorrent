@@ -42,6 +42,7 @@ namespace bzTorrent.ProtocolExtensions
 		private long _pieceCount;
 		private long _piecesReceived;
 		private byte[] _metadataBuffer;
+		private bool[] _piecesWritten;
 		private ExtendedProtocolExtensions _parent;
 
 		public string Protocol
@@ -56,6 +57,7 @@ namespace bzTorrent.ProtocolExtensions
 		{
 			_parent = parent;
 			_metadataBuffer = Array.Empty<byte>();
+			_piecesWritten = Array.Empty<bool>();
 		}
 
 		public void Deinit()
@@ -71,6 +73,8 @@ namespace bzTorrent.ProtocolExtensions
 				var size = (BInt)value;
 				_metadataSize = size;
 				_pieceCount = (long)Math.Ceiling((double)_metadataSize / 16384);
+				_metadataBuffer = new byte[_metadataSize];
+				_piecesWritten = new bool[_pieceCount];
 			}
 
 			RequestMetaData(peerWireClient);
@@ -79,18 +83,25 @@ namespace bzTorrent.ProtocolExtensions
 		public void OnExtendedMessage(IPeerWireClient peerWireClient, byte[] bytes)
 		{
 			var startAt = 0;
-			BencodingUtils.Decode(bytes, ref startAt);
-			_piecesReceived += 1;
+			var header = (BDict)BencodingUtils.Decode(bytes, ref startAt);
 
-			if (_pieceCount >= _piecesReceived)
+			var pieceIndex = (long)(BInt)header["piece"];
+
+			if (pieceIndex < 0 || pieceIndex >= _pieceCount || _piecesWritten[pieceIndex])
 			{
-				_metadataBuffer = _metadataBuffer.Concat(bytes.Skip(startAt)).ToArray();
+				return;
 			}
 
-			if (_pieceCount == _piecesReceived)
+			var data = bytes.Skip(startAt).ToArray();
+			var offset = pieceIndex * 16384;
+			Array.Copy(data, 0, _metadataBuffer, offset, Math.Min(data.Length, _metadataBuffer.Length - offset));
+
+			_piecesWritten[pieceIndex] = true;
+			_piecesReceived += 1;
+
+			if (_piecesReceived == _pieceCount)
 			{
 				var metadata = (BDict)BencodingUtils.Decode(_metadataBuffer);
-
 				MetaDataReceived?.Invoke(peerWireClient, this, metadata);
 			}
 		}
