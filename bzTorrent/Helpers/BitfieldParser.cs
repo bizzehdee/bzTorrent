@@ -61,7 +61,7 @@ namespace bzTorrent.Helpers
                 // original code used GetBit(0..7) with bit 0 being LSB; preserve that ordering
                 for (int bit = 0; bit < 8; bit++)
                 {
-                    bits[(i * 8) + bit] = (b & (1 << bit)) != 0;
+                    bits[(i * 8) + bit] = (b & (1 << (7 - bit))) != 0;
                 }
             }
 

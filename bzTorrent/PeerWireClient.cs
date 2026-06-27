@@ -372,7 +372,7 @@ namespace bzTorrent
 				}
 
 				var x = (int)Math.Floor((double)i / 8);
-				var p = (ushort)(i % 8);
+				var p = (ushort)(7 - (i % 8));
 
 				if (bitField[i])
 				{
