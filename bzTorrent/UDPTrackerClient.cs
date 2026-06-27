@@ -187,8 +187,6 @@ namespace bzTorrent
 					var expectedLength = 8 + (12 * hashes.Length);
 					ValidateUdpResponse(recBuf, 2, transactionId, expectedLength);
 
-					_currentConnectionId = CopyBytes(recBuf, 8, 8);
-
 					return ParseScrapeResponse(recBuf, hashes);
 				}
 			}
