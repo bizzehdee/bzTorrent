@@ -96,7 +96,7 @@ namespace bzTorrent
 				}
 
 				Tracker = match.Groups[1].Value;
-				Port = match.Groups.Count == 3 ? Convert.ToInt32(match.Groups[2].Value) : 80;
+				Port = match.Groups[2].Success ? Convert.ToInt32(match.Groups[2].Value) : 80;
 			}
 			else if (type == ScraperType.HTTP)
 			{
