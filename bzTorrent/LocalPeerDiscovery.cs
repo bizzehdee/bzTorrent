@@ -151,7 +151,7 @@ namespace bzTorrent
 							return;
 						}
 
-						var remoteAddress = ((IPEndPoint)endPoint).Address;
+						var remoteAddress = ((IPEndPoint)internalRemoteEP).Address;
 						var remotePort = 0;
 						var remoteHash = "";
 
