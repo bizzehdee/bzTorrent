@@ -1,368 +1,488 @@
-﻿using System;
+using System;
 using bzTorrent;
 using bzTorrent.Data;
+using bzTorrent.DHT;
 using bzTorrent.IO;
 using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
 using System.IO;
 using System.Linq;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.Net;
+using System.Net.Sockets;
 using bzTorrent.ProtocolExtensions;
-using System.Reflection;
+using System.Threading.Tasks;
 
 namespace Demo
 {
-
     class Program
     {
-        static string peerId = "-bz2200-";
-        static string inputFilename;
-        static string downloadDirectory;
-        static IMetadata downloadMetadata;
-        static readonly List<IPEndPoint> knownPeers = new();
-        static bool choked = false;
-        static int maxRequest = 16 * 1024;
-        static DateTime connectedDateTime;
+        const int MaxConnections = 10;
+        const int MaxRequest = 16 * 1024;
+        const int MaxInflight = 10;
 
-        static Queue<int> PieceQueue = new Queue<int>();
+        static string peerId = "-bz2200-";
+        static string downloadDirectory;
+        static Metadata downloadMetadata;
+
+        static readonly ConcurrentQueue<IPEndPoint> peerQueue = new();
+        static readonly HashSet<string> seenPeers = new();
+        static readonly object seenPeersLock = new();
+        static readonly object metadataLock = new();
 
         static int currentPiece = 0;
-        static int inflightPieces = 0;
+        static int activeConnections = 0;
 
-        static void RequestPieceInParts(PeerWireClient client, int piece, int maxBufferSize, long pieceSize)
+        static long PieceSizeFor(int pieceIndex)
         {
-
-            var ceil = Math.Ceiling(pieceSize / (float)maxBufferSize);
-            for (int b = 0; b < ceil; b++)
+            var totalBytes = downloadMetadata.GetFileInfos().Sum(f => f.FileSize);
+            if (pieceIndex == downloadMetadata.PieceHashes.Count - 1)
             {
-                var n = b * maxBufferSize;
+                var remainder = totalBytes % downloadMetadata.PieceSize;
+                return remainder == 0 ? downloadMetadata.PieceSize : remainder;
+            }
+            return downloadMetadata.PieceSize;
+        }
 
-                var requesting = Math.Min(pieceSize - n, maxBufferSize);
+        static void WritePieceData(int pieceIndex, int offset, byte[] data)
+        {
+            var absoluteStart = (long)pieceIndex * downloadMetadata.PieceSize + offset;
+            var absoluteEnd = absoluteStart + data.Length;
 
-                var m = n + requesting;
+            foreach (var fileInfo in downloadMetadata.GetFileInfos())
+            {
+                var fileEnd = fileInfo.FileStartByte + fileInfo.FileSize;
+                if (absoluteEnd <= fileInfo.FileStartByte || absoluteStart >= fileEnd)
+                    continue;
 
-                Console.WriteLine($"< Request({piece}, {n}, {requesting})");
+                var fileOffset = Math.Max(absoluteStart - fileInfo.FileStartByte, 0);
+                var dataOffset = (int)Math.Max(fileInfo.FileStartByte - absoluteStart, 0);
+                var writeLength = (int)Math.Min(data.Length - dataOffset, fileInfo.FileSize - fileOffset);
 
-                client.SendRequest((uint)piece, (uint)n, (uint)requesting);
+                if (writeLength <= 0)
+                    continue;
 
-
-                inflightPieces++;
+                var fullPath = Path.GetFullPath(fileInfo.Filename, downloadDirectory);
+                using var fs = new FileStream(fullPath, FileMode.Open, FileAccess.Write, FileShare.ReadWrite);
+                fs.Seek(fileOffset, SeekOrigin.Begin);
+                fs.Write(data, dataOffset, writeLength);
             }
         }
 
-        static void Main(string[] args)
+        static void PreAllocateFiles()
         {
-            var lpd = new LocalPeerDiscovery<UDPSocket>();
-            lpd.NewPeer += Lpd_NewPeer;
-            lpd.Open();
-
-            Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
-
-            GeneratePeerId();
-
-            //Console.Title = "bzTorrent Demo";
-
-            for (var x = 0; x < args.Length; x++)
-            {
-                if (args[x] == "-file")
-                {
-                    x++;
-                    inputFilename = args[x];
-                }
-                else if (args[x] == "-output")
-                {
-                    x++;
-                    downloadDirectory = Path.GetFullPath(args[x]);
-                }
-            }
-
-            if (!File.Exists(inputFilename))
-            {
-                Console.WriteLine("{0} does not exist", inputFilename);
-                return;
-            }
-
-            if (!Directory.Exists(downloadDirectory))
-            {
-                Directory.CreateDirectory(downloadDirectory);
-            }
-
-            downloadMetadata = Metadata.FromFile(inputFilename);
-
-            //Console.Title = string.Format("bzTorrent Demo - {0}", downloadMetadata.Name);
-
-            Console.WriteLine("Downloading: {0} to {1}", downloadMetadata.Name, downloadDirectory);
-            Console.WriteLine("Hash: {0}", downloadMetadata.HashString);
-            Console.WriteLine("Pieces: {0} x {1} kb", downloadMetadata.PieceHashes.Count, downloadMetadata.PieceSize / 1024);
-
-            foreach (var tracker in downloadMetadata.AnnounceList)
-            {
-                Console.WriteLine("Requesting Peers from {0} for {1}", tracker, downloadMetadata.HashString);
-
-                ITrackerClient trackerClient = null;
-                if (tracker.StartsWith("http"))
-                {
-                    trackerClient = new HTTPTrackerClient(5);
-                }
-                else if (tracker.StartsWith("udp"))
-                {
-                    trackerClient = new UDPTrackerClient(5);
-                }
-
-                var announceInfo = trackerClient.Announce(tracker, downloadMetadata.HashString, peerId, 0, downloadMetadata.PieceHashes.Count * downloadMetadata.PieceSize, 0, 0, 0, 256, 12345, 0);
-                if (announceInfo == null)
-                {
-                    Console.WriteLine("Error announcing to {0}", tracker);
-                    continue;
-                }
-
-                var peerArray = announceInfo.Peers.ToArray();
-                knownPeers.AddRange(peerArray);
-
-                Console.WriteLine("Found {0} seeders, {1} leachers and {2} total peers", announceInfo.Seeders, announceInfo.Leechers, peerArray.Length);
-
-                if (knownPeers.Count >= 200)
-                {
-                    break;
-                }
-            }
-
-            if (knownPeers.Count == 0)
-            {
-                Console.WriteLine("No peers found on trackers");
-                return;
-            }
-
             foreach (var file in downloadMetadata.GetFileInfos())
             {
                 var fullFileName = Path.GetFullPath(file.Filename, downloadDirectory);
                 var fullPathName = Path.GetDirectoryName(fullFileName);
 
                 if (!Directory.Exists(fullPathName))
-                {
                     Directory.CreateDirectory(fullPathName);
-                }
 
                 if (!File.Exists(fullFileName))
                 {
                     Console.WriteLine("Preallocating {0} in {1}", file.Filename, downloadDirectory);
-
-                    var fileStream = File.Create(fullFileName);
+                    using var fileStream = File.Create(fullFileName);
                     fileStream.SetLength(file.FileSize);
-                    fileStream.Close();
                 }
             }
+        }
 
-            var socket = new PeerWireConnection<TCPSocket>
+        static void AddPeers(IEnumerable<IPEndPoint> peers)
+        {
+            foreach (var peer in peers)
             {
-                Timeout = 5
-            };
+                var key = $"{peer.Address}:{peer.Port}";
+                lock (seenPeersLock)
+                {
+                    if (!seenPeers.Add(key))
+                        continue;
+                }
+                Console.WriteLine($"Discovered peer {key}");
+                peerQueue.Enqueue(peer);
+            }
+        }
 
-            var client = new PeerWireClient(socket)
+        static void PollTracker(string tracker)
+        {
+            ITrackerClient trackerClient;
+            if (tracker.StartsWith("http"))
+                trackerClient = new HTTPTrackerClient(10);
+            else if (tracker.StartsWith("udp"))
+                trackerClient = new UDPTrackerClient(10);
+            else
             {
-                KeepConnectionAlive = true
-            };
+                Console.WriteLine($"Unsupported tracker protocol: {tracker}");
+                return;
+            }
 
-            var fastExt = new FastExtensions();
-            fastExt.AllowedFast += FastExt_AllowedFast;
-            fastExt.HaveAll += FastExt_HaveAll;
-            fastExt.HaveNone += FastExt_HaveNone;
-            fastExt.SuggestPiece += FastExt_SuggestPiece;
-
-            var dhtPortExt = new DHTPortExtension();
-            dhtPortExt.Port += DhtPortExt_Port;
-
-            client.RegisterBTExtension(fastExt);
-            client.RegisterBTExtension(dhtPortExt);
-
-            client.NoData += Client_NoData;
-            client.BitField += Client_BitField;
-            client.Cancel += Client_Cancel;
-            client.Piece += Client_Piece;
-            client.Choke += Client_Choke;
-            client.UnChoke += Client_UnChoke;
-            client.DroppedConnection += Client_DroppedConnection;
-            client.HandshakeComplete += Client_HandshakeComplete;
-            client.Have += Client_Have;
-            client.Interested += Client_Interested;
-            client.NotInterested += Client_NotInterested;
-            client.Request += Client_Request;
-
-            //var peer = new IPEndPoint(IPAddress.Parse("192.168.0.42"), 6881);
-            foreach (var peer in knownPeers)
+            while (downloadMetadata.PieceHashes.Count == 0 || currentPiece < downloadMetadata.PieceHashes.Count)
             {
                 try
                 {
-                    Console.WriteLine("< Attempting to connect to {0}:{1}", peer.Address.ToString(), peer.Port);
-                    client.Connect(peer);
-                    connectedDateTime = DateTime.UtcNow;
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine("Failed to connect: {0}", ex.Message);
-                    //continue;
-                }
+                    Console.WriteLine($"Requesting peers from {tracker}");
+                    var announceInfo = trackerClient.Announce(
+                        tracker,
+                        downloadMetadata.HashString,
+                        peerId,
+                        0,
+                        downloadMetadata.PieceHashes.Count * downloadMetadata.PieceSize,
+                        0, 0, 0, 256, 12345, 0);
 
-                Console.WriteLine("< Connected");
-                client.Handshake(downloadMetadata.HashString, peerId);
-                Thread.Sleep(200);
-                int x = 0, i=0;
-                while (client.Process())
-                {
-                    if(connectedDateTime < DateTime.UtcNow.AddSeconds(-30) && client.ReceivedHandshake == false)
+                    if (announceInfo != null)
                     {
-                        Console.WriteLine("< Disconnecting");
-                        client.Disconnect();
-                        continue;
-                    }
+                        var peers = announceInfo.Peers.ToArray();
+                        AddPeers(peers);
+                        Console.WriteLine($"Tracker {tracker}: {announceInfo.Seeders} seeders, {announceInfo.Leechers} leechers, {peers.Length} peers");
 
-                    if (choked == false && inflightPieces < 10)
-                    {
-                        if (PieceQueue.Count > 0)
-                        {
-                            while (PieceQueue.Count > 0)
-                            {
-                                var piece = PieceQueue.Dequeue();
-
-                                RequestPieceInParts(client, piece, maxRequest, downloadMetadata.PieceSize);
-                            }
-                        }
-                        else
-                        {
-
-                            RequestPieceInParts(client, currentPiece, maxRequest, downloadMetadata.PieceSize);
-                            currentPiece++;
-                        }
+                        var interval = Math.Max(announceInfo.WaitTime, 30);
+                        Thread.Sleep(TimeSpan.FromSeconds(interval));
                     }
                     else
                     {
-
+                        Console.WriteLine($"Error announcing to {tracker}, retrying in 60s");
+                        Thread.Sleep(TimeSpan.FromSeconds(60));
                     }
-
-                    if(x++ > 1000)
-                    {
-                        x = 0;
-                        client.SendKeepAlive();
-                        //Console.WriteLine("< KeepAlive");
-                    }
-
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Tracker {tracker} error: {ex.Message}, retrying in 60s");
+                    Thread.Sleep(TimeSpan.FromSeconds(60));
                 }
             }
         }
 
-        private static void DhtPortExt_Port(IPeerWireClient pwc, ushort port)
+        static void RunPeerConnection(IPEndPoint peer)
         {
-            Console.WriteLine($"> DHT Port: {port}");
-        }
+            bool choked = true;
+            int inflightPieces = 0;
+            var pieceQueue = new Queue<int>();
+            var connectedDateTime = DateTime.UtcNow;
 
-        private static void Lpd_NewPeer(IPAddress address, int port, string infoHash)
-        {
-            Console.WriteLine("Found new local peer");
-        }
+            var socket = new PeerWireConnection<TCPSocket> { Timeout = 5 };
+            var client = new PeerWireClient(socket) { KeepConnectionAlive = true };
 
-        private static void FastExt_SuggestPiece(IPeerWireClient pwc, int index)
-        {
-            Console.WriteLine($"> SuggestPiece: {index}");
-        }
-
-        private static void FastExt_HaveNone(IPeerWireClient pwc)
-        {
-            Console.WriteLine("> HaveNone");
-        }
-
-        private static void FastExt_HaveAll(IPeerWireClient pwc)
-        {
-            Console.WriteLine("> HaveAll");
-            pwc.SendInterested();
-        }
-
-        private static void FastExt_AllowedFast(IPeerWireClient pwc, int index)
-        {
-            Console.WriteLine($"> AllowedFast: {index}");
-            PieceQueue.Enqueue(index);
-        }
-
-        private static void Client_Request(IPeerWireClient pwc, int arg2, int arg3, int arg4)
-        {
-            Console.WriteLine("> Request");
-        }
-
-        private static void Client_NotInterested(IPeerWireClient pwc)
-        {
-            Console.WriteLine("> NotInterested");
-        }
-
-        private static void Client_Interested(IPeerWireClient pwc)
-        {
-            Console.WriteLine("> Interested");
-        }
-
-        private static void Client_Have(IPeerWireClient pwc, int index)
-        {
-            Console.WriteLine($"> Have {index}");
-            PieceQueue.Enqueue(index);
-        }
-
-        private static void Client_HandshakeComplete(IPeerWireClient pwc)
-        {
-            Console.WriteLine("> HandshakeComplete");
-        }
-
-        private static void Client_DroppedConnection(IPeerWireClient pwc)
-        {
-            Console.WriteLine("> DroppedConnection");
-        }
-
-        private static void Client_UnChoke(IPeerWireClient pwc)
-        {
-            Console.WriteLine("> UnChoke");
-            choked = false;
-        }
-
-        private static void Client_Choke(IPeerWireClient pwc)
-        {
-            Console.WriteLine("> Choke");
-            choked = true;
-        }
-
-        private static void Client_Piece(IPeerWireClient pwc, int index, int start, byte[] buffer)
-        {
-            Console.WriteLine($"> Piece: {index} # {start}");
-            inflightPieces--;
-            if(inflightPieces < 0)
+            var fastExt = new FastExtensions();
+            fastExt.AllowedFast += (pwc, index) =>
             {
-                inflightPieces = 0;
+                Console.WriteLine($"> AllowedFast: {index}");
+                pieceQueue.Enqueue(index);
+            };
+            fastExt.HaveAll += (pwc) =>
+            {
+                Console.WriteLine("> HaveAll");
+                pwc.SendInterested();
+            };
+            fastExt.HaveNone += (pwc) => Console.WriteLine("> HaveNone");
+            fastExt.SuggestPiece += (pwc, index) => Console.WriteLine($"> SuggestPiece: {index}");
+
+            var dhtPortExt = new DHTPortExtension();
+            dhtPortExt.Port += (pwc, port) => Console.WriteLine($"> DHT Port: {port}");
+
+            var pex = new UTPeerExchange();
+            pex.Added += (pwc, ext, endpoint, flags) =>
+            {
+                Console.WriteLine($"> PEX peer: {endpoint}");
+                AddPeers([endpoint]);
+            };
+
+            var trackerExchange = new LTTrackerExchange();
+            trackerExchange.TrackerAdded += (pwc, ext, newTracker) =>
+            {
+                Console.WriteLine($"> Tracker exchange: {newTracker}");
+                Task.Run(() => PollTracker(newTracker));
+            };
+
+            var utMetadata = new UTMetadata();
+            utMetadata.MetaDataReceived += (pwc, ext, infoDict) =>
+            {
+                lock (metadataLock)
+                {
+                    if (downloadMetadata.PieceHashes.Count > 0) return;
+
+                    Console.WriteLine($"Metadata received from {peer}, loading...");
+                    downloadMetadata.Load(infoDict);
+                    Console.WriteLine($"Name: {downloadMetadata.Name}");
+                    Console.WriteLine($"Pieces: {downloadMetadata.PieceHashes.Count} x {downloadMetadata.PieceSize / 1024} kb");
+                    PreAllocateFiles();
+                }
+            };
+
+            var extProtocol = new ExtendedProtocolExtensions();
+            extProtocol.RegisterProtocolExtension(client, pex);
+            extProtocol.RegisterProtocolExtension(client, trackerExchange);
+            extProtocol.RegisterProtocolExtension(client, utMetadata);
+
+            client.RegisterBTExtension(fastExt);
+            client.RegisterBTExtension(dhtPortExt);
+            client.RegisterBTExtension(extProtocol);
+
+            client.HandshakeComplete += (pwc) =>
+            {
+                Console.WriteLine($"> HandshakeComplete [{peer}]");
+                pwc.SendInterested();
+            };
+            client.BitField += (pwc, bitFieldLength, bitField) =>
+            {
+                Console.WriteLine($"> BitField [{peer}]");
+                pwc.SendInterested();
+            };
+            client.UnChoke += (pwc) =>
+            {
+                Console.WriteLine($"> UnChoke [{peer}]");
+                choked = false;
+            };
+            client.Choke += (pwc) =>
+            {
+                Console.WriteLine($"> Choke [{peer}]");
+                choked = true;
+            };
+            client.Have += (pwc, index) =>
+            {
+                Console.WriteLine($"> Have {index} [{peer}]");
+                pieceQueue.Enqueue(index);
+            };
+            client.Piece += (pwc, index, start, buffer) =>
+            {
+                Console.WriteLine($"> Piece: {index} # {start} [{peer}]");
+                inflightPieces = Math.Max(0, inflightPieces - 1);
+                WritePieceData(index, start, buffer);
+            };
+            client.DroppedConnection += (pwc) => Console.WriteLine($"> DroppedConnection [{peer}]");
+            client.Cancel += (pwc, a, b, c) => Console.WriteLine($"> Cancel [{peer}]");
+            client.Request += (pwc, a, b, c) => Console.WriteLine($"> Request [{peer}]");
+            client.Interested += (pwc) => Console.WriteLine($"> Interested [{peer}]");
+            client.NotInterested += (pwc) => Console.WriteLine($"> NotInterested [{peer}]");
+            client.NoData += (pwc) => { };
+
+            try
+            {
+                Console.WriteLine($"< Connecting to {peer}");
+                client.Connect(peer);
+                connectedDateTime = DateTime.UtcNow;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"< Failed to connect to {peer}: {ex.Message}");
+                return;
             }
 
+            try
+            {
+                client.Handshake(downloadMetadata.HashString, peerId);
+                Thread.Sleep(200);
+
+                int keepAliveCounter = 0;
+                while (client.Process())
+                {
+                    if (!client.ReceivedHandshake && connectedDateTime < DateTime.UtcNow.AddSeconds(-30))
+                    {
+                        Console.WriteLine($"< No handshake from {peer}, disconnecting");
+                        client.Disconnect();
+                        break;
+                    }
+
+                    // Only check piece completion and request data once we have metadata
+                    if (downloadMetadata.PieceHashes.Count > 0)
+                    {
+                        if (currentPiece >= downloadMetadata.PieceHashes.Count)
+                        {
+                            client.Disconnect();
+                            break;
+                        }
+
+                        if (!choked && inflightPieces < MaxInflight)
+                        {
+                            int piece;
+                            if (pieceQueue.Count > 0)
+                            {
+                                piece = pieceQueue.Dequeue();
+                            }
+                            else
+                            {
+                                piece = Interlocked.Increment(ref currentPiece) - 1;
+                                if (piece >= downloadMetadata.PieceHashes.Count)
+                                    break;
+                            }
+
+                            var pieceSize = PieceSizeFor(piece);
+                            var ceil = (int)Math.Ceiling(pieceSize / (float)MaxRequest);
+                            for (int b = 0; b < ceil; b++)
+                            {
+                                var offset = b * MaxRequest;
+                                var requesting = (int)Math.Min(pieceSize - offset, MaxRequest);
+                                Console.WriteLine($"< Request({piece}, {offset}, {requesting}) [{peer}]");
+                                client.SendRequest((uint)piece, (uint)offset, (uint)requesting);
+                                inflightPieces++;
+                            }
+                        }
+                    }
+
+                    if (++keepAliveCounter > 1000)
+                    {
+                        keepAliveCounter = 0;
+                        client.SendKeepAlive();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"< Error with {peer}: {ex.Message}");
+            }
         }
 
-        private static void Client_Cancel(IPeerWireClient pwc, int arg2, int arg3, int arg4)
+        static void Main(string[] args)
         {
-            Console.WriteLine("> Cancel");
+            var lpd = new LocalPeerDiscovery<UDPSocket>();
+            lpd.NewPeer += (address, port, infoHash) =>
+            {
+                Console.WriteLine($"Found new local peer {address}:{port}");
+                AddPeers([new IPEndPoint(address, port)]);
+            };
+            lpd.Open();
 
+            Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+
+            GeneratePeerId();
+
+            string inputFilename = null;
+            string magnetLink = null;
+
+            for (var x = 0; x < args.Length; x++)
+            {
+                if (args[x] == "-file") { x++; inputFilename = args[x]; }
+                else if (args[x] == "-magnet") { x++; magnetLink = args[x]; }
+                else if (args[x] == "-output") { x++; downloadDirectory = Path.GetFullPath(args[x]); }
+            }
+
+            if (inputFilename == null && magnetLink == null)
+            {
+                Console.WriteLine("Usage: Demo -file <torrent> | -magnet <link> -output <directory>");
+                return;
+            }
+
+            if (inputFilename != null && !File.Exists(inputFilename))
+            {
+                Console.WriteLine("{0} does not exist", inputFilename);
+                return;
+            }
+
+            if (downloadDirectory == null)
+            {
+                Console.WriteLine("No output directory specified (-output)");
+                return;
+            }
+
+            if (!Directory.Exists(downloadDirectory))
+                Directory.CreateDirectory(downloadDirectory);
+
+            if (magnetLink != null)
+            {
+                if (!MagnetLink.IsMagnetLink(magnetLink))
+                {
+                    Console.WriteLine("Invalid magnet link");
+                    return;
+                }
+                downloadMetadata = new Metadata(MagnetLink.Resolve(magnetLink));
+                Console.WriteLine("Magnet link: {0}", downloadMetadata.HashString);
+                Console.WriteLine("Fetching metadata from peers...");
+            }
+            else
+            {
+                downloadMetadata = (Metadata)Metadata.FromFile(inputFilename);
+                Console.WriteLine("Downloading: {0} to {1}", downloadMetadata.Name, downloadDirectory);
+                Console.WriteLine("Hash: {0}", downloadMetadata.HashString);
+                Console.WriteLine("Pieces: {0} x {1} kb", downloadMetadata.PieceHashes.Count, downloadMetadata.PieceSize / 1024);
+                PreAllocateFiles();
+            }
+
+            foreach (var tracker in downloadMetadata.AnnounceList)
+            {
+                var t = tracker;
+                Task.Run(() => PollTracker(t));
+            }
+
+            var dht = new DHTClient();
+            dht.PeerFound += endpoint =>
+            {
+                Console.WriteLine($"DHT peer: {endpoint}");
+                AddPeers([endpoint]);
+            };
+            dht.Start();
+            Task.Run(async () =>
+            {
+                var bootstrapNodes = ResolveBootstrapNodes();
+                Console.WriteLine($"DHT bootstrapping from {bootstrapNodes.Length} nodes");
+                await dht.BootstrapAsync(bootstrapNodes);
+                Console.WriteLine($"DHT routing table: {dht.NodeCount} nodes");
+                dht.StartSearch(downloadMetadata.Hash);
+            });
+
+            // For magnet links, keep looping until we have metadata AND all pieces are requested.
+            // For torrent files, loop until all pieces are requested.
+            while (downloadMetadata.PieceHashes.Count == 0 || currentPiece < downloadMetadata.PieceHashes.Count)
+            {
+                if (activeConnections >= MaxConnections)
+                {
+                    Thread.Sleep(100);
+                    continue;
+                }
+
+                if (!peerQueue.TryDequeue(out var peer))
+                {
+                    if (activeConnections == 0)
+                        Console.WriteLine("Waiting for peers...");
+                    Thread.Sleep(500);
+                    continue;
+                }
+
+                Interlocked.Increment(ref activeConnections);
+                var p = peer;
+                Task.Run(() =>
+                {
+                    try { RunPeerConnection(p); }
+                    finally { Interlocked.Decrement(ref activeConnections); }
+                });
+            }
+
+            while (activeConnections > 0)
+                Thread.Sleep(200);
+
+            dht.Dispose();
+            Console.WriteLine("Download complete.");
         }
 
-        private static void Client_BitField(IPeerWireClient pwc, int bitFieldLength, bool[] bitField)
+        static IPEndPoint[] ResolveBootstrapNodes()
         {
-            Console.WriteLine("> BitField");
+            var hosts = new[]
+            {
+                ("router.bittorrent.com", 6881),
+                ("router.utorrent.com", 6881),
+                ("dht.transmissionbt.com", 6881),
+            };
 
+            var endpoints = new List<IPEndPoint>();
+            foreach (var (host, port) in hosts)
+            {
+                try
+                {
+                    var addresses = Dns.GetHostAddresses(host);
+                    var ipv4 = addresses.FirstOrDefault(a => a.AddressFamily == AddressFamily.InterNetwork);
+                    if (ipv4 != null)
+                        endpoints.Add(new IPEndPoint(ipv4, port));
+                }
+                catch { }
+            }
+            return endpoints.ToArray();
         }
 
-        private static void Client_NoData(IPeerWireClient pwc)
-        {
-            //Console.WriteLine("> NoData");
-        }
-
-        private static void GeneratePeerId()
+        static void GeneratePeerId()
         {
             var sb = new StringBuilder();
             var rand = new Random();
             for (var x = 0; x < 12; x++)
-            {
                 sb.Append(rand.Next(0, 9));
-            }
             peerId = "-bz2200-" + sb.ToString();
         }
     }

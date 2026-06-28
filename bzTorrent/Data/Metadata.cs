@@ -174,101 +174,89 @@ namespace bzTorrent.Data
 
 			if (dictRoot.ContainsKey("info"))
 			{
-				var infoDict = (BDict)dictRoot["info"];
+				Load((BDict)dictRoot["info"]);
+			}
 
-				using (var sha1 = new SHA1Managed())
-				{
-					var str = BencodingUtils.EncodeBytes(infoDict);
-					Hash = sha1.ComputeHash(str);
-				}
+			return true;
+		}
 
-				if (infoDict.ContainsKey("files"))
+		public bool Load(BDict infoDict)
+		{
+			if (infoDict == null) return false;
+
+			using (var sha1 = new SHA1Managed())
+			{
+				var str = BencodingUtils.EncodeBytes(infoDict);
+				Hash = sha1.ComputeHash(str);
+			}
+
+			files.Clear();
+			PieceHashes = new Collection<byte[]>();
+			Pieces = new Collection<MetadataPieceInfo>();
+
+			if (infoDict.ContainsKey("files"))
+			{
+				var fileList = (BList)infoDict["files"];
+				var id = 0L;
+				var startByte = 0L;
+				foreach (var bencodingType in fileList)
 				{
-					//multi file mode
-					var fileList = (BList)infoDict["files"];
-					var id = 0L;
-					var startByte = 0L;
-					foreach (var bencodingType in fileList)
+					var fileDict = (BDict)bencodingType;
+
+					var filename = string.Empty;
+					long filesize = default;
+
+					if (fileDict.ContainsKey("path"))
 					{
-						var fileDict = (BDict)bencodingType;
-
-						var filename = string.Empty;
-						long filesize = default;
-
-						if (fileDict.ContainsKey("path"))
+						var filenameList = (BList)fileDict["path"];
+						foreach (var type in filenameList)
 						{
-							var filenameList = (BList)fileDict["path"];
-							foreach (var type in filenameList)
-							{
-								filename += (BString)type;
-								filename += "\\";
-							}
-							filename = filename.Trim('\\');
+							filename += (BString)type;
+							filename += "\\";
 						}
-
-						if (fileDict.ContainsKey("length"))
-						{
-							filesize = (BInt)fileDict["length"];
-						}
-
-						var fileInfo = new MetadataFileInfo
-						{
-							Id = id,
-							FileSize = filesize,
-							Filename = filename,
-							FileStartByte = startByte
-						};
-
-						id++;
-						startByte += filesize;
-
-						files.Add(fileInfo);
+						filename = filename.Trim('\\');
 					}
-				}
 
-				if (infoDict.ContainsKey("name"))
-				{
-					Name = (BString)infoDict["name"];
-					if (files.Count == 0 && infoDict.ContainsKey("length"))
-					{
-						files.Add(new MetadataFileInfo
-						{
-							Id = 0,
-							FileSize = (BInt)infoDict["length"],
-							Filename = Name,
-							FileStartByte = 0
-						});
-					}
-				}
+					if (fileDict.ContainsKey("length"))
+						filesize = (BInt)fileDict["length"];
 
-				if (infoDict.ContainsKey("private"))
-				{
-					var isPrivate = (BInt)infoDict["private"];
-					Private = isPrivate != 0;
-				}
-
-				if (infoDict.ContainsKey("pieces"))
-				{
-					var pieces = (BString)infoDict["pieces"];
-					for (var x = 0; x < pieces.ByteValue.Length; x += 20)
-					{
-						var hash = pieces.ByteValue.GetBytes(x, 20);
-						var pieceInfo = new MetadataPieceInfo
-						{
-							Id = x / 20,
-							PieceHash = hash
-						};
-
-						PieceHashes.Add(hash);
-						Pieces.Add(pieceInfo);
-					}
-				}
-
-				if (infoDict.ContainsKey("piece length"))
-				{
-					PieceSize = (BInt)infoDict["piece length"];
+					files.Add(new MetadataFileInfo { Id = id, FileSize = filesize, Filename = filename, FileStartByte = startByte });
+					id++;
+					startByte += filesize;
 				}
 			}
+
+			if (infoDict.ContainsKey("name"))
+			{
+				Name = (BString)infoDict["name"];
+				if (files.Count == 0 && infoDict.ContainsKey("length"))
+				{
+					files.Add(new MetadataFileInfo
+					{
+						Id = 0,
+						FileSize = (BInt)infoDict["length"],
+						Filename = Name,
+						FileStartByte = 0
+					});
+				}
+			}
+
+			if (infoDict.ContainsKey("private"))
+				Private = (BInt)infoDict["private"] != 0;
+
+			if (infoDict.ContainsKey("pieces"))
+			{
+				var pieces = (BString)infoDict["pieces"];
+				for (var x = 0; x < pieces.ByteValue.Length; x += 20)
+				{
+					var hash = pieces.ByteValue.GetBytes(x, 20);
+					PieceHashes.Add(hash);
+					Pieces.Add(new MetadataPieceInfo { Id = x / 20, PieceHash = hash });
+				}
+			}
+
+			if (infoDict.ContainsKey("piece length"))
+				PieceSize = (BInt)infoDict["piece length"];
 
 			return true;
 		}

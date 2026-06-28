@@ -119,10 +119,12 @@ namespace bzTorrent.Data
 
 			foreach (var str in parts)
 			{
-				var kv = str.Split('=');
-				if (kv.Length == 2)
+				var eqIdx = str.IndexOf('=');
+				if (eqIdx > 0)
 				{
-					values.Add(new KeyValuePair<string, string>(kv[0], Uri.UnescapeDataString(kv[1])));
+					var key = str.Substring(0, eqIdx);
+					var value = Uri.UnescapeDataString(str.Substring(eqIdx + 1));
+					values.Add(new KeyValuePair<string, string>(key, value));
 				}
 			}
 
