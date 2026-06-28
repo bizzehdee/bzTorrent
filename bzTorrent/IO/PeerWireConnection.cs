@@ -167,58 +167,88 @@ namespace bzTorrent.IO
 
 		private void ReceiveCallback(IAsyncResult asyncResult)
 		{
-			var dataLength = socket.EndReceive(asyncResult);
-
-			var socketBufferCopy = socketBuffer.GetBytes(0, dataLength);
-
-			if (incomingHandshake == null)
+			var localSocket = socket;
+			if (localSocket == null)
 			{
-				if (dataLength == 0)
+				receiving = false;
+				return;
+			}
+
+			int dataLength;
+			try
+			{
+				dataLength = localSocket.EndReceive(asyncResult);
+			}
+			catch (SocketException)
+			{
+				receiving = false;
+				return;
+			}
+			catch (ObjectDisposedException)
+			{
+				receiving = false;
+				return;
+			}
+
+			try
+			{
+				var socketBufferCopy = socketBuffer.GetBytes(0, dataLength);
+
+				if (incomingHandshake == null)
 				{
-					receiving = false;
-					return;
+					if (dataLength == 0)
+					{
+						receiving = false;
+						return;
+					}
+
+					var protocolStrLen = socketBufferCopy[0];
+					var protocolStrBytes = socketBufferCopy.GetBytes(1, protocolStrLen);
+					var reservedBytes = socketBufferCopy.GetBytes(1 + protocolStrLen, 8);
+					var infoHashBytes = socketBufferCopy.GetBytes(1 + protocolStrLen + 8, 20);
+					var peerIdBytes = socketBufferCopy.GetBytes(1 + protocolStrLen + 28, 20);
+
+					var protocolStr = Encoding.ASCII.GetString(protocolStrBytes);
+
+					if (protocolStr != "BitTorrent protocol")
+					{
+						receiving = false;
+						return;
+					}
+
+					incomingHandshake = new PeerClientHandshake
+					{
+						ReservedBytes = reservedBytes,
+						ProtocolHeader = protocolStr,
+						InfoHash = UnpackHelper.Hex(infoHashBytes),
+						PeerId = Encoding.ASCII.GetString(peerIdBytes)
+					};
+
+					socketBufferCopy = socketBufferCopy.GetBytes(protocolStrLen + 49);
+					dataLength -= (protocolStrLen + 49);
 				}
 
-				var protocolStrLen = socketBufferCopy[0];
-				var protocolStrBytes = socketBufferCopy.GetBytes(1, protocolStrLen);
-				var reservedBytes = socketBufferCopy.GetBytes(1 + protocolStrLen, 8);
-				var infoHashBytes = socketBufferCopy.GetBytes(1 + protocolStrLen + 8, 20);
-				var peerIdBytes = socketBufferCopy.GetBytes(1 + protocolStrLen + 28, 20);
-
-				var protocolStr = Encoding.ASCII.GetString(protocolStrBytes);
-
-				if (protocolStr != "BitTorrent protocol")
+				if (currentPacketBuffer == null)
 				{
-					throw new Exception(string.Format("Unsupported protocol: '{0}'", protocolStr));
+					currentPacketBuffer = Array.Empty<byte>();
 				}
 
-				incomingHandshake = new PeerClientHandshake
+				currentPacketBuffer = currentPacketBuffer.Cat(socketBufferCopy.GetBytes(0, dataLength));
+
+				if (dataLength > 0)
 				{
-					ReservedBytes = reservedBytes,
-					ProtocolHeader = protocolStr,
-					InfoHash = UnpackHelper.Hex(infoHashBytes),
-					PeerId = Encoding.ASCII.GetString(peerIdBytes)
-				};
-
-				socketBufferCopy = socketBufferCopy.GetBytes(protocolStrLen + 49);
-				dataLength -= (protocolStrLen + 49);
+					var parsedBytes = ParsePackets(currentPacketBuffer);
+					currentPacketBuffer = currentPacketBuffer.GetBytes((int)parsedBytes);
+				}
 			}
-
-			if (currentPacketBuffer == null)
+			catch (Exception)
 			{
-				currentPacketBuffer = Array.Empty<byte>();
+				// Malformed data from peer — stop receiving on this connection
 			}
-
-			currentPacketBuffer = currentPacketBuffer.Cat(socketBufferCopy.GetBytes(0, dataLength));
-
-			if (dataLength > 0)
+			finally
 			{
-				var parsedBytes = ParsePackets(currentPacketBuffer);
-
-				currentPacketBuffer = currentPacketBuffer.GetBytes((int)parsedBytes);
+				receiving = false;
 			}
-
-			receiving = false;
 		}
 
 		private uint ParsePackets(byte[] currentPacketBuffer)
