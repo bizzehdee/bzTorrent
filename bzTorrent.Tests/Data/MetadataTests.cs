@@ -30,7 +30,7 @@ namespace bzTorrent.Tests.Data
 
             metadata.HashString.Should().Be("C1463792A1FF36A237E3A0F68BADEB0D3764E9BB");
             metadata.Name.Should().Be("ubuntu-23.10-live-server-amd64.iso");
-            metadata.CreationDate.Should().Be(DateTime.Parse("12/10/2023 14:24:45"));
+            metadata.CreationDate.Should().Be(new DateTime(2023, 10, 12, 14, 24, 45));
 
             file.Close();
         }
@@ -58,7 +58,7 @@ namespace bzTorrent.Tests.Data
 
             metadata.HashString.Should().Be("C1463792A1FF36A237E3A0F68BADEB0D3764E9BB");
             metadata.Name.Should().Be("ubuntu-23.10-live-server-amd64.iso");
-            metadata.CreationDate.Should().Be(DateTime.Parse("12/10/2023 14:24:45"));
+            metadata.CreationDate.Should().Be(new DateTime(2023, 10, 12, 14, 24, 45));
             metadata.Pieces.Should().HaveCount(10156);
         }
 
