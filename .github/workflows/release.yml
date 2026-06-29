@@ -34,7 +34,7 @@ jobs:
         run: dotnet restore
 
       - name: Build
-        run: dotnet build bzTorrent/bzTorrent.csproj --configuration Release --no-restore
+        run: dotnet build --configuration Release --no-restore
 
       - name: Test
         run: dotnet test --configuration Release --no-build --verbosity normal

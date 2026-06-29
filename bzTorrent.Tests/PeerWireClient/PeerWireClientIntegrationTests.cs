@@ -69,8 +69,8 @@ namespace bzTorrent.Tests.Integration
                 CommandLength = (uint)havePayload.Length
             };
 
-            // Build a Bitfield packet with a single byte where LSB is set (piece 0 available)
-            var bitfieldPayload = new byte[] { 0x01 };
+            // Build a Bitfield packet: piece 0 = MSB of byte 0 (BitTorrent MSB-first), so use 0x80.
+            var bitfieldPayload = new byte[] { 0x80 };
             var bitfieldPacket = new PeerWirePacket
             {
                 Command = PeerClientCommands.Bitfield,
