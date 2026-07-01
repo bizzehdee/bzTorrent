@@ -6,6 +6,7 @@
         <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
         <Authors>Darren Horrocks</Authors>
         <PackageLicenseFile>LICENSE</PackageLicenseFile>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageProjectUrl>https://github.com/bizzehdee/bzTorrent</PackageProjectUrl>
         <RepositoryUrl>https://github.com/bizzehdee/bzTorrent</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
@@ -26,6 +27,10 @@
     </ItemGroup>
     <ItemGroup>
       <None Include="..\LICENSE">
+        <Pack>True</Pack>
+        <PackagePath></PackagePath>
+      </None>
+      <None Include="..\README.md">
         <Pack>True</Pack>
         <PackagePath></PackagePath>
       </None>
