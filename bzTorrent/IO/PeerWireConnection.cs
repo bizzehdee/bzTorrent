@@ -1,4 +1,4 @@
-﻿/*
+/*
 Copyright (c) 2021, Darren Horrocks
 All rights reserved.
 
@@ -25,7 +25,7 @@ ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
 LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
 ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 using System.Collections.Generic;
@@ -42,18 +42,40 @@ namespace bzTorrent.IO
 	public class PeerWireConnection<T> : IPeerConnection where T : ISocket, new()
 	{
 		private ISocket socket;
-		private bool receiving = false;
+		private IPEndPoint _lastEndPoint;
+		private volatile bool receiving = false;
 		private byte[] currentPacketBuffer = null;
 		private const int socketBufferSize = 16 * 1024;
 		private readonly byte[] socketBuffer = new byte[socketBufferSize];
 		private readonly ConcurrentQueue<PeerWirePacket> receiveQueue = new();
 		private readonly ConcurrentQueue<PeerWirePacket> sendQueue = new();
 		private PeerClientHandshake incomingHandshake = null;
+		private byte[] handshakeBuffer = Array.Empty<byte>();
+		private volatile RC4Cipher sendCipher;
+		private volatile RC4Cipher receiveCipher;
+		private volatile bool encryptionHandshakeCompleted;
+		private volatile bool encryptionNegotiated;
 
+		public PeerEncryptionMode EncryptionMode { get; set; } = PeerEncryptionMode.PlainText;
+		public bool IsEncrypted { get => encryptionHandshakeCompleted; }
+		public PeerEncryptionOptions EncryptionOptions { get; } = new PeerEncryptionOptions();
+
+		private int _timeout;
 		public int Timeout
 		{
-			get;
-			set;
+			get => _timeout;
+			set
+			{
+				_timeout = value;
+				// Apply to an already-created socket too (e.g. an accepted connection whose
+				// Timeout is set via an object initializer after construction). Otherwise the
+				// synchronous MSE read timeout would never take effect on that socket.
+				if (socket != null)
+				{
+					socket.ReceiveTimeout = value * 1000;
+					socket.SendTimeout = value * 1000;
+				}
+			}
 		}
 
 		// "Connected" reflects the liveness of the underlying socket only. It must NOT also
@@ -85,24 +107,32 @@ namespace bzTorrent.IO
 
 		public void Connect(IPEndPoint endPoint)
 		{
+			_lastEndPoint = endPoint;
 			socket = new T();
 			socket.NoDelay = true;
 			socket.ReceiveTimeout = Timeout * 1000;
 			socket.SendTimeout = Timeout * 1000;
 
 			incomingHandshake = null;
+			handshakeBuffer = Array.Empty<byte>();
+			sendCipher = null;
+			receiveCipher = null;
+			encryptionHandshakeCompleted = false;
+			encryptionNegotiated = false;
 
 			socket.Connect(endPoint);
 		}
 
 		public void Disconnect()
 		{
-			//if (socket.Connected)
-			{
-				socket.Disconnect(true);
-				socket = null;
-				receiving = false;
-			}
+			socket.Disconnect(true);
+			socket = null;
+			receiving = false;
+			handshakeBuffer = Array.Empty<byte>();
+			sendCipher = null;
+			receiveCipher = null;
+			encryptionHandshakeCompleted = false;
+			encryptionNegotiated = false;
 		}
 
 		public void Listen(EndPoint ep)
@@ -113,7 +143,21 @@ namespace bzTorrent.IO
 
 		public IPeerConnection Accept()
 		{
-			return new PeerWireConnection<T>(socket.Accept());
+			var connection = new PeerWireConnection<T>(socket.Accept())
+			{
+				Timeout = Timeout,
+				EncryptionMode = EncryptionMode
+			};
+
+			foreach (var infoHash in EncryptionOptions.GetKnownInfoHashes())
+			{
+				connection.EncryptionOptions.AddKnownInfoHash(infoHash);
+			}
+
+			connection.EncryptionOptions.SupportedTypes = EncryptionOptions.SupportedTypes;
+			connection.EncryptionOptions.MaxPaddingBytes = EncryptionOptions.MaxPaddingBytes;
+
+			return connection;
 		}
 
 		public IAsyncResult BeginAccept(AsyncCallback callback)
@@ -137,9 +181,9 @@ namespace bzTorrent.IO
 
 			while (sendQueue.Count > 0)
 			{
-				if (sendQueue.TryDequeue(out var packet)) 
+				if (sendQueue.TryDequeue(out var packet))
 				{
-					socket.Send(packet.GetBytes());
+					socket.Send(EncodeOutgoing(packet.GetBytes()));
 				}
 			}
 
@@ -163,12 +207,86 @@ namespace bzTorrent.IO
 
 		public void Handshake(PeerClientHandshake handshake)
 		{
+			if (EncryptionMode != PeerEncryptionMode.PlainText && !encryptionHandshakeCompleted)
+			{
+				if (EncryptionMode == PeerEncryptionMode.PreferEncryption && _lastEndPoint != null)
+				{
+					try
+					{
+						BeginOutgoingEncryption(handshake.InfoHash);
+					}
+					catch
+					{
+						// MSE failed — the TCP stream is corrupted from the peer's
+						// perspective. Reconnect cleanly and fall back to plaintext.
+						sendCipher = null;
+						receiveCipher = null;
+						encryptionHandshakeCompleted = false;
+						ReconnectSocket();
+					}
+				}
+				else
+				{
+					BeginOutgoingEncryption(handshake.InfoHash);
+				}
+			}
+
 			var infoHashBytes = PackHelper.Hex(handshake.InfoHash);
 			var protocolHeaderBytes = Encoding.ASCII.GetBytes(handshake.ProtocolHeader);
 			var peerIdBytes = Encoding.ASCII.GetBytes(handshake.PeerId);
 
 			var sendBuf = (new byte[] { (byte)protocolHeaderBytes.Length }).Cat(protocolHeaderBytes).Cat(handshake.ReservedBytes).Cat(infoHashBytes).Cat(peerIdBytes);
-			socket.Send(sendBuf);
+			socket.Send(EncodeOutgoing(sendBuf));
+		}
+
+		private void ReconnectSocket()
+		{
+			try { socket.Disconnect(true); } catch { }
+			socket = new T();
+			socket.NoDelay = true;
+			socket.ReceiveTimeout = Timeout * 1000;
+			socket.SendTimeout = Timeout * 1000;
+			socket.Connect(_lastEndPoint);
+		}
+
+		private void BeginOutgoingEncryption(string infoHash)
+		{
+			if ((EncryptionOptions.SupportedTypes & PeerEncryptionType.RC4) != PeerEncryptionType.RC4)
+			{
+				throw new InvalidOperationException("MSE/PE currently requires RC4 support");
+			}
+
+			// In PreferEncryption mode we additionally offer plaintext, so the peer may
+			// negotiate an unencrypted payload instead of dropping the connection.
+			var cryptoProvide = EncryptionOptions.SupportedTypes;
+			if (EncryptionMode == PeerEncryptionMode.PreferEncryption)
+			{
+				cryptoProvide |= PeerEncryptionType.PlainText;
+			}
+
+			var localPublicKey = MessageStreamEncryption.CreateLocalPublicKey(out var privateKey);
+			socket.Send(localPublicKey.Cat(MessageStreamEncryption.CreatePadding(EncryptionOptions)));
+
+			var remotePublicKey = new byte[96];
+			var offset = 0;
+			while (offset < remotePublicKey.Length)
+			{
+				var received = socket.Receive(remotePublicKey, offset, remotePublicKey.Length - offset);
+				if (received <= 0)
+				{
+					throw new InvalidOperationException("Socket closed during MSE public key exchange");
+				}
+
+				offset += received;
+			}
+
+			MessageStreamEncryption.CompleteOutgoing(socket, remotePublicKey, privateKey, infoHash, EncryptionOptions, cryptoProvide, out var outSend, out var outReceive);
+			sendCipher = outSend;
+			receiveCipher = outReceive;
+			encryptionNegotiated = true;
+			// Null ciphers mean the peer negotiated a plaintext payload; the connection is
+			// not encrypted but the MSE exchange itself completed successfully.
+			encryptionHandshakeCompleted = outSend != null;
 		}
 
 		private void ReceiveCallback(IAsyncResult asyncResult)
@@ -208,11 +326,57 @@ namespace bzTorrent.IO
 						return;
 					}
 
-					var protocolStrLen = socketBufferCopy[0];
-					var protocolStrBytes = socketBufferCopy.GetBytes(1, protocolStrLen);
-					var reservedBytes = socketBufferCopy.GetBytes(1 + protocolStrLen, 8);
-					var infoHashBytes = socketBufferCopy.GetBytes(1 + protocolStrLen + 8, 20);
-					var peerIdBytes = socketBufferCopy.GetBytes(1 + protocolStrLen + 28, 20);
+					if (receiveCipher != null && encryptionHandshakeCompleted)
+					{
+						socketBufferCopy = receiveCipher.Process(socketBufferCopy);
+					}
+					else if (!encryptionNegotiated && handshakeBuffer.Length == 0
+						&& (EncryptionMode == PeerEncryptionMode.RequireEncryption || socketBufferCopy[0] != 19))
+					{
+						// A leading 0x13 (19) normally signals a plaintext BitTorrent handshake,
+						// but an MSE handshake begins with the peer's DH public key whose first
+						// byte is ~uniformly random and is 0x13 roughly 1 in 256 times. In
+						// RequireEncryption mode plaintext is not permitted, so a 0x13 first byte
+						// must be treated as an MSE key rather than dropped. The guards ensure
+						// MSE detection only runs on the very first chunk of a connection.
+						if (EncryptionMode == PeerEncryptionMode.PlainText)
+						{
+							receiving = false;
+							return;
+						}
+
+						socketBufferCopy = MessageStreamEncryption.CompleteIncoming(socket, socketBufferCopy, EncryptionOptions, EncryptionMode == PeerEncryptionMode.RequireEncryption, out _, out var inSend, out var inReceive);
+						sendCipher = inSend;
+						receiveCipher = inReceive;
+						encryptionNegotiated = true;
+						// Null ciphers mean a plaintext payload was negotiated.
+						encryptionHandshakeCompleted = inReceive != null;
+					}
+
+					// Accumulate decrypted/plaintext handshake bytes until the full
+					// fixed-length BitTorrent handshake has arrived. Decrypting a partial
+					// handshake and then discarding it on a parse failure would advance and
+					// irrecoverably desync the stream cipher.
+					handshakeBuffer = handshakeBuffer.Cat(socketBufferCopy);
+
+					if (handshakeBuffer.Length < 1)
+					{
+						receiving = false;
+						return;
+					}
+
+					var protocolStrLen = handshakeBuffer[0];
+					var handshakeLength = protocolStrLen + 49;
+					if (handshakeBuffer.Length < handshakeLength)
+					{
+						receiving = false;
+						return;
+					}
+
+					var protocolStrBytes = handshakeBuffer.GetBytes(1, protocolStrLen);
+					var reservedBytes = handshakeBuffer.GetBytes(1 + protocolStrLen, 8);
+					var infoHashBytes = handshakeBuffer.GetBytes(1 + protocolStrLen + 8, 20);
+					var peerIdBytes = handshakeBuffer.GetBytes(1 + protocolStrLen + 28, 20);
 
 					var protocolStr = Encoding.ASCII.GetString(protocolStrBytes);
 
@@ -230,8 +394,14 @@ namespace bzTorrent.IO
 						PeerId = Encoding.ASCII.GetString(peerIdBytes)
 					};
 
-					socketBufferCopy = socketBufferCopy.GetBytes(protocolStrLen + 49);
-					dataLength -= (protocolStrLen + 49);
+					socketBufferCopy = handshakeBuffer.GetBytes(handshakeLength);
+					handshakeBuffer = Array.Empty<byte>();
+					dataLength = socketBufferCopy.Length;
+				}
+				else if (receiveCipher != null)
+				{
+					socketBufferCopy = receiveCipher.Process(socketBufferCopy);
+					dataLength = socketBufferCopy.Length;
 				}
 
 				if (currentPacketBuffer == null)
@@ -292,6 +462,11 @@ namespace bzTorrent.IO
 		public bool HasPackets()
 		{
 			return receiveQueue.Count > 0;
+		}
+
+		private byte[] EncodeOutgoing(byte[] bytes)
+		{
+			return sendCipher == null ? bytes : sendCipher.Process(bytes);
 		}
 	}
 }

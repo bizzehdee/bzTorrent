@@ -31,11 +31,15 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 using System;
 using System.Net;
 using bzTorrent.Data;
+using bzTorrent.IO;
 
 namespace bzTorrent
 {
 	public interface IPeerWireClient
 	{
+		public PeerEncryptionMode EncryptionMode { get; }
+		public bool IsEncrypted { get; }
+
 		public delegate void DroppedConnectionDelegate(IPeerWireClient client);
 		public delegate void NoDataDelegate(IPeerWireClient client);
 		public delegate void HandshakeCompleteDelegate(IPeerWireClient client);

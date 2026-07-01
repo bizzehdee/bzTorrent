@@ -22,6 +22,8 @@ namespace bzTorrent.Tests.Helpers
 
         public bool Connected { get; private set; } = true;
         public int Timeout { get; set; } = 10000;
+        public PeerEncryptionMode EncryptionMode { get; set; } = PeerEncryptionMode.PlainText;
+        public bool IsEncrypted { get; set; }
 
         public void Connect(IPEndPoint endPoint) => Connected = true;
 

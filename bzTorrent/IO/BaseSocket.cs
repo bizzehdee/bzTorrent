@@ -95,6 +95,11 @@ namespace bzTorrent.IO
 			return _socket.Send(buffer);
 		}
 
+		public virtual int Receive(byte[] buffer, int offset, int size)
+		{
+			return _socket.Receive(buffer, offset, size, SocketFlags.None);
+		}
+
 		public virtual void SetSocketOption(SocketOptionLevel optionLevel, SocketOptionName optionName, bool optionValue)
 		{
 			_socket.SetSocketOption(optionLevel, optionName, optionValue);

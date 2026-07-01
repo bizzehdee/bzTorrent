@@ -184,7 +184,13 @@ namespace Demo
             var pieceQueue = new Queue<int>();
             var connectedDateTime = DateTime.UtcNow;
 
-            var socket = new PeerWireConnection<TCPSocket> { Timeout = 30 };
+            var socket = new PeerWireConnection<TCPSocket>
+            {
+                Timeout = 30,
+                // Prefer encryption but fall back to plaintext, so we can connect to both
+                // encryption-requiring peers and plaintext peers.
+                EncryptionMode = PeerEncryptionMode.PreferEncryption
+            };
             var client = new PeerWireClient(socket) { KeepConnectionAlive = true };
 
             var fastExt = new FastExtensions();
@@ -269,7 +275,8 @@ namespace Demo
             };
             client.Piece += (pwc, index, start, buffer) =>
             {
-                Console.WriteLine($"> Piece: {index} # {start} [{peer}]");
+                var enc = pwc.IsEncrypted ? "enc" : "plain";
+                Console.WriteLine($"{enc}> Piece: {index} # {start} [{peer}]");
                 inflightPieces = Math.Max(0, inflightPieces - 1);
                 WritePieceData(index, start, buffer);
             };

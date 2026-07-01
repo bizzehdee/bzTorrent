@@ -37,6 +37,9 @@ namespace bzTorrent.IO
 {
 	public interface IPeerConnection
 	{
+		PeerEncryptionMode EncryptionMode { get; set; }
+		bool IsEncrypted { get; }
+
 		bool Connected { get; }
 		int Timeout { get; set; }
 		public PeerClientHandshake RemoteHandshake { get; }

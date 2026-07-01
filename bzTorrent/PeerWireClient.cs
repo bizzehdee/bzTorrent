@@ -56,6 +56,9 @@ namespace bzTorrent
 		public string RemotePeerID { get; private set; }
 		public string Hash { get; set; }
 
+		public PeerEncryptionMode EncryptionMode { get => _peerConnection.EncryptionMode; }
+		public bool IsEncrypted { get => _peerConnection.IsEncrypted; }
+
 		public event DroppedConnectionDelegate DroppedConnection;
 		public event NoDataDelegate NoData;
 		public event HandshakeCompleteDelegate HandshakeComplete;

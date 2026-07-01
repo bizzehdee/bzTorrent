@@ -59,6 +59,10 @@ namespace bzTorrent.IO
 		int Send(byte[] buffer);
 		int SendTo(byte[] buffer, EndPoint remoteEP);
 
+		// Synchronous receive used by the MSE/PE handshake (which is negotiated inline before
+		// the async receive loop takes over).
+		int Receive(byte[] buffer, int offset, int size);
+
 		void SetSocketOption(SocketOptionLevel optionLevel, SocketOptionName optionName, bool optionValue);
 		void SetSocketOption(SocketOptionLevel optionLevel, SocketOptionName optionName, int optionValue);
 		void SetSocketOption(SocketOptionLevel optionLevel, SocketOptionName optionName, object optionValue);

@@ -278,5 +278,13 @@ namespace bzTorrent.IO
 		{
 			return EndReceiveInternal(asyncResult)-20;
 		}
+
+		// A synchronous byte-stream receive is meaningless for uTP: it would hand back raw UDP
+		// datagrams (including the 20-byte uTP header) and bypass the uTP state machine. MSE/PE
+		// therefore is not supported over uTP; use TCPSocket for encrypted peers.
+		public override int Receive(byte[] buffer, int offset, int size)
+		{
+			throw new NotSupportedException("MSE/PE is not supported over uTP connections; use TCPSocket for encrypted peers.");
+		}
 	}
 }
