@@ -29,9 +29,12 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Security.Cryptography;
+using System.Threading;
 using System.Threading.Tasks;
 using bzTorrent.Helpers;
 
@@ -87,7 +90,15 @@ namespace bzTorrent.IO
 		private ushort SeqNumber = 0;
 		private ushort AckNumber = 0;
 		private ushort ConnectionIdLocal;
-		private readonly uint MaxWindow = socketBufferSize;
+
+		private readonly UTPCongestionControl congestionControl = new(socketBufferSize);
+		private readonly object sentPacketsLock = new();
+		private readonly Dictionary<ushort, int> sentPacketSizes = new();
+
+		private uint BytesInFlight
+		{
+			get { lock (sentPacketsLock) { return (uint)sentPacketSizes.Values.Sum(); } }
+		}
 
 		private ushort ConnectionIdRemote
 		{
@@ -134,7 +145,25 @@ namespace bzTorrent.IO
 
 		public override int Send(byte[] buffer)
 		{
+			WaitForSendWindow(buffer?.Length ?? 0);
 			return SenduTPData(PacketType.STData, buffer);
+		}
+
+		// Blocks (briefly) until the LEDBAT send window has room for dataLength bytes, so a
+		// caller pushing a lot of data doesn't blow straight through max_window. This is a
+		// best-effort throttle, not a queue: after maxWaitMs we send anyway rather than stalling
+		// the caller indefinitely.
+		private void WaitForSendWindow(int dataLength)
+		{
+			const int pollIntervalMs = 5;
+			const int maxWaitMs = 2000;
+			var waited = 0;
+
+			while (BytesInFlight + dataLength > congestionControl.MaxWindow && waited < maxWaitMs)
+			{
+				Thread.Sleep(pollIntervalMs);
+				waited += pollIntervalMs;
+			}
 		}
 
 		public override ISocket Accept()
@@ -152,6 +181,12 @@ namespace bzTorrent.IO
 		private static uint TimestampMicro()
 		{
 			return (uint)(DateTime.UtcNow.Ticks / (TimeSpan.TicksPerMillisecond / 1000));
+		}
+
+		// Serial number comparison (RFC 1982) so ack clearing keeps working across seq_nr wraparound.
+		private static bool SequenceLessThanOrEqual(ushort seq, ushort reference)
+		{
+			return (ushort)(reference - seq) < 0x8000;
 		}
 
 		private int SenduTPData(PacketType packetType, byte[] data, bool expectState = true)
@@ -173,10 +208,18 @@ namespace bzTorrent.IO
 			var header = typeAndVersion.Cat(extension).Cat(PackHelper.UInt16(connectionId))
 				.Cat(PackHelper.UInt32(timestamp))
 				.Cat(PackHelper.UInt32(LastTimestampReceivedDiff))
-				.Cat(PackHelper.UInt32(MaxWindow))
+				.Cat(PackHelper.UInt32(congestionControl.MaxWindow))
 				.Cat(PackHelper.UInt16(SeqNumber)).Cat(PackHelper.UInt16(AckNumber));
 
 			var sent = _socket.SendTo(header.Cat(sendData), SocketFlags.None, endPoint);
+
+			if (packetType != PacketType.STState)
+			{
+				lock (sentPacketsLock)
+				{
+					sentPacketSizes[SeqNumber] = sendData.Length;
+				}
+			}
 
 			if (expectState)
 			{
@@ -228,6 +271,23 @@ namespace bzTorrent.IO
 
 				LastTimestampReceived = currentPacketHeader.TimestampRecvd;
 				LastTimestampReceivedDiff = LastTimestampReceived - timestampRecvd;
+
+				congestionControl.OnDelaySample(currentPacketHeader.TimestampDiffRecvd);
+
+				uint bytesAcked = 0;
+				lock (sentPacketsLock)
+				{
+					var ackedSeqNumbers = sentPacketSizes.Keys
+						.Where(seq => SequenceLessThanOrEqual(seq, currentPacketHeader.AckNumberRecvd))
+						.ToList();
+
+					foreach (var seq in ackedSeqNumbers)
+					{
+						bytesAcked += (uint)sentPacketSizes[seq];
+						sentPacketSizes.Remove(seq);
+					}
+				}
+				congestionControl.OnAck(bytesAcked, timestampRecvd);
 
 				if (isFullyConnected == false)
 				{

@@ -157,6 +157,23 @@ for (int b = 0; b < blocks; b++)
 }
 ```
 
+## uTP transport (BEP-29)
+
+`UTPSocket` implements the Micro Transport Protocol (BEP-29) as a drop-in alternative to `TCPSocket` for `PeerWireConnection<T>` / `PeerWireListener<T>` — useful when you want BitTorrent traffic to back off under contention rather than crowding out other traffic on the link. It includes LEDBAT-based congestion control: the send window grows and shrinks based on measured one-way delay to the peer, per the algorithm in [`bzTorrent/Docs/utp-protocol.md`](bzTorrent/Docs/utp-protocol.md).
+
+```csharp
+using bzTorrent;
+using bzTorrent.IO;
+
+var connection = new PeerWireConnection<UTPSocket> { Timeout = 5 };
+var client = new PeerWireClient(connection) { KeepConnectionAlive = true };
+
+client.Connect(peerEndPoint);
+client.Handshake(metadata.HashString, peerId);
+```
+
+> **Note:** `UTPSocket` is experimental — it does not yet retransmit lost packets or handle out-of-order delivery, and MSE/PE (below) is not supported over uTP (`Receive` throws `NotSupportedException`). Prefer `TCPSocket` for production use until this stabilizes.
+
 ## Message Stream Encryption (MSE/PE)
 
 Obfuscates the handshake and subsequent traffic (RC4) so simple deep packet inspection can't identify it as BitTorrent. Set `EncryptionMode` on the `PeerWireConnection` before connecting/handshaking:
