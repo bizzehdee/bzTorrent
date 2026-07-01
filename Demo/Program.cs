@@ -30,6 +30,7 @@ namespace Demo
         static string peerId = "-bz2200-";
         static string downloadDirectory;
         static Metadata downloadMetadata;
+        static PeerEncryptionMode encryptionMode = PeerEncryptionMode.PreferEncryption;
 
         static readonly ConcurrentQueue<IPEndPoint> peerQueue = new();
         static readonly HashSet<string> seenPeers = new();
@@ -187,9 +188,7 @@ namespace Demo
             var socket = new PeerWireConnection<TCPSocket>
             {
                 Timeout = 30,
-                // Prefer encryption but fall back to plaintext, so we can connect to both
-                // encryption-requiring peers and plaintext peers.
-                EncryptionMode = PeerEncryptionMode.PreferEncryption
+                EncryptionMode = encryptionMode
             };
             var client = new PeerWireClient(socket) { KeepConnectionAlive = true };
 
@@ -377,17 +376,30 @@ namespace Demo
 
             string inputFilename = null;
             string magnetLink = null;
+            var manualPeers = new List<IPEndPoint>();
 
             for (var x = 0; x < args.Length; x++)
             {
                 if (args[x] == "-file") { x++; inputFilename = args[x]; }
                 else if (args[x] == "-magnet") { x++; magnetLink = args[x]; }
                 else if (args[x] == "-output") { x++; downloadDirectory = Path.GetFullPath(args[x]); }
+                else if (args[x] == "-peer")
+                {
+                    x++;
+                    var parts = args[x].Split(':');
+                    if (parts.Length != 2 || !IPAddress.TryParse(parts[0], out var peerAddress) || !int.TryParse(parts[1], out var peerPort))
+                    {
+                        Console.WriteLine($"Invalid -peer value '{args[x]}', expected format ip:port");
+                        return;
+                    }
+                    manualPeers.Add(new IPEndPoint(peerAddress, peerPort));
+                }
+                else if (args[x] == "-require-encryption") { encryptionMode = PeerEncryptionMode.RequireEncryption; }
             }
 
             if (inputFilename == null && magnetLink == null)
             {
-                Console.WriteLine("Usage: Demo -file <torrent> | -magnet <link> -output <directory>");
+                Console.WriteLine("Usage: Demo -file <torrent> | -magnet <link> -output <directory> [-peer ip:port ...]");
                 return;
             }
 
@@ -425,6 +437,9 @@ namespace Demo
                 Console.WriteLine("Pieces: {0} x {1} kb", downloadMetadata.PieceHashes.Count, downloadMetadata.PieceSize / 1024);
                 PreAllocateFiles();
             }
+
+            if (manualPeers.Count > 0)
+                AddPeers(manualPeers);
 
             foreach (var tracker in downloadMetadata.AnnounceList)
             {

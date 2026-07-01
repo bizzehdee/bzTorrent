@@ -31,12 +31,16 @@ namespace bzTorrent.IO
 		private const int VcLength = 8;           // verification constant (all zero)
 		private const int PrivateKeyBytes = 20;   // 160-bit exponent
 
-		// MSE Diffie-Hellman group (the RFC 2409 768-bit MODP prime), generator 2.
+		// MSE's 768-bit DH prime, generator 2. NOT the standard RFC 2409 Oakley Group 1 prime —
+		// MSE's P differs from it in the low 68 bits. Every real client (libtorrent, uTorrent,
+		// etc.) uses this exact constant; using the textbook RFC 2409 prime instead makes the
+		// shared secret silently diverge from every real peer's, breaking MSE against them while
+		// still working self-to-self or against a peer seeded with the same wrong constant.
 		private static readonly BigInteger Prime = ParseBigEndian(
 			"FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1" +
 			"29024E088A67CC74020BBEA63B139B22514A08798E3404DD" +
 			"EF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245" +
-			"E485B576625E7EC6F44C42E9A63A3620FFFFFFFFFFFFFFFF");
+			"E485B576625E7EC6F44C42E9A63A36210000000000090563");
 		private static readonly BigInteger Generator = new BigInteger(2);
 
 		public static byte[] CreateLocalPublicKey(out BigInteger privateKey)
