@@ -157,6 +157,49 @@ for (int b = 0; b < blocks; b++)
 }
 ```
 
+## Message Stream Encryption (MSE/PE)
+
+Obfuscates the handshake and subsequent traffic (RC4) so simple deep packet inspection can't identify it as BitTorrent. Set `EncryptionMode` on the `PeerWireConnection` before connecting/handshaking:
+
+```csharp
+using bzTorrent.IO;
+
+var connection = new PeerWireConnection<TCPSocket>
+{
+    Timeout = 5,
+    // PlainText          — never attempt MSE (default)
+    // PreferEncryption   — attempt MSE, fall back to plaintext if the peer won't encrypt
+    // RequireEncryption  — attempt MSE, refuse the connection if it can't be encrypted
+    EncryptionMode = PeerEncryptionMode.PreferEncryption
+};
+var client = new PeerWireClient(connection);
+
+client.Connect(peerEndPoint);
+client.Handshake(metadata.HashString, peerId); // runs the MSE key exchange first, if enabled
+
+// Check whether the negotiated payload ended up encrypted
+client.Piece += (pwc, index, offset, data) =>
+    Console.WriteLine(pwc.IsEncrypted ? "encrypted piece" : "plaintext piece");
+```
+
+`PeerEncryptionOptions` (on `connection.EncryptionOptions`) controls the negotiation details:
+
+```csharp
+connection.EncryptionOptions.MaxPaddingBytes = 512; // spec default
+```
+
+`AddKnownInfoHash` is required to accept encrypted incoming connections, since an incoming MSE handshake hides the infohash until matched against a known set. `PeerWireConnection<T>.Accept()` propagates `EncryptionMode` and `EncryptionOptions` (including known infohashes) to each accepted connection automatically:
+
+```csharp
+var listener = new PeerWireConnection<TCPSocket> { EncryptionMode = PeerEncryptionMode.PreferEncryption };
+listener.EncryptionOptions.AddKnownInfoHash(metadata.HashString);
+listener.Listen(new IPEndPoint(IPAddress.Any, 6881));
+
+var accepted = listener.Accept(); // inherits EncryptionMode + known infohashes
+```
+
+> **Note:** the higher-level `PeerWireListener<T>` convenience class (see [Listening for incoming connections](#listening-for-incoming-connections)) does not currently use `Accept()` internally, so encryption settings aren't propagated to connections it hands you — use the pattern above directly if you need encrypted incoming connections today.
+
 ## Protocol extensions
 
 Extensions plug into `PeerWireClient` and handle the details of their respective BEPs automatically.
@@ -315,6 +358,7 @@ listener.Start();
 | BEP-14 | Local service discovery |
 | BEP-15 | UDP tracker protocol |
 | BEP-28 | Tracker exchange protocol |
+| —      | Message Stream Encryption / Protocol Encryption (MSE/PE) — not a formal BEP, but widely implemented |
 
 ## License
 

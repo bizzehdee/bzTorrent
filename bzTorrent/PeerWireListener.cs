@@ -46,6 +46,14 @@ namespace bzTorrent
 		public int Port { get; init; }
 		public event NewPeerDelegate NewPeer;
 
+		// Applied to every connection accepted by this listener (see Callback).
+		public PeerEncryptionMode EncryptionMode
+		{
+			get => peerConnection.EncryptionMode;
+			set => peerConnection.EncryptionMode = value;
+		}
+		public PeerEncryptionOptions EncryptionOptions => peerConnection.EncryptionOptions;
+
 		public PeerWireListener()
 		{
 			peerConnection = new T();
@@ -77,8 +85,17 @@ namespace bzTorrent
 			var socket = peerConnection.EndAccept(ar);
 
 			var constructorInfo = typeof(T).GetConstructor(new[] { typeof(ISocket) });
+			var connection = (IPeerConnection)constructorInfo.Invoke(new object[] { socket });
 
-			NewPeer?.Invoke(new PeerWireClient((IPeerConnection)constructorInfo.Invoke(new object[] { socket })));
+			connection.EncryptionMode = peerConnection.EncryptionMode;
+			foreach (var infoHash in peerConnection.EncryptionOptions.GetKnownInfoHashes())
+			{
+				connection.EncryptionOptions.AddKnownInfoHash(infoHash);
+			}
+			connection.EncryptionOptions.SupportedTypes = peerConnection.EncryptionOptions.SupportedTypes;
+			connection.EncryptionOptions.MaxPaddingBytes = peerConnection.EncryptionOptions.MaxPaddingBytes;
+
+			NewPeer?.Invoke(new PeerWireClient(connection));
 
 			peerConnection.BeginAccept(Callback);
 		}

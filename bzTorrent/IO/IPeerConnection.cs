@@ -38,6 +38,7 @@ namespace bzTorrent.IO
 	public interface IPeerConnection
 	{
 		PeerEncryptionMode EncryptionMode { get; set; }
+		PeerEncryptionOptions EncryptionOptions { get; }
 		bool IsEncrypted { get; }
 
 		bool Connected { get; }

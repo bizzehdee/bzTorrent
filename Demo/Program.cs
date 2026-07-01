@@ -30,8 +30,9 @@ namespace Demo
         static string peerId = "-bz2200-";
         static string downloadDirectory;
         static Metadata downloadMetadata;
-        static PeerEncryptionMode encryptionMode = PeerEncryptionMode.PreferEncryption;
+        static PeerEncryptionMode encryptionMode = PeerEncryptionMode.PlainText;
 
+        static readonly ConcurrentQueue<IPEndPoint> trackerPeerQueue = new();
         static readonly ConcurrentQueue<IPEndPoint> peerQueue = new();
         static readonly HashSet<string> seenPeers = new();
         static readonly object seenPeersLock = new();
@@ -95,7 +96,7 @@ namespace Demo
             }
         }
 
-        static void AddPeers(IEnumerable<IPEndPoint> peers)
+        static void AddPeers(IEnumerable<IPEndPoint> peers, bool isTrackerPeer = false)
         {
             foreach (var peer in peers)
             {
@@ -109,7 +110,7 @@ namespace Demo
                         continue;
                 }
                 Console.WriteLine($"Discovered peer {key}");
-                peerQueue.Enqueue(peer);
+                (isTrackerPeer ? trackerPeerQueue : peerQueue).Enqueue(peer);
             }
         }
 
@@ -129,6 +130,8 @@ namespace Demo
             return bytes[0] != 0 && bytes[0] < 224;
         }
 
+        const int MaxConsecutiveTrackerFailures = 3;
+
         static void PollTracker(string tracker)
         {
             ITrackerClient trackerClient;
@@ -142,37 +145,47 @@ namespace Demo
                 return;
             }
 
+            var consecutiveFailures = 0;
+
             while (downloadMetadata.PieceHashes.Count == 0 || currentPiece < downloadMetadata.PieceHashes.Count)
             {
+                BaseScraper.AnnounceInfo announceInfo = null;
                 try
                 {
                     Console.WriteLine($"Requesting peers from {tracker}");
-                    var announceInfo = trackerClient.Announce(
+                    announceInfo = trackerClient.Announce(
                         tracker,
                         downloadMetadata.HashString,
                         peerId,
                         0,
                         downloadMetadata.PieceHashes.Count * downloadMetadata.PieceSize,
                         0, 0, 0, 256, 12345, 0);
-
-                    if (announceInfo != null)
-                    {
-                        var peers = announceInfo.Peers.ToArray();
-                        AddPeers(peers);
-                        Console.WriteLine($"Tracker {tracker}: {announceInfo.Seeders} seeders, {announceInfo.Leechers} leechers, {peers.Length} peers");
-
-                        var interval = Math.Max(announceInfo.WaitTime, 30);
-                        Thread.Sleep(TimeSpan.FromSeconds(interval));
-                    }
-                    else
-                    {
-                        Console.WriteLine($"Error announcing to {tracker}, retrying in 60s");
-                        Thread.Sleep(TimeSpan.FromSeconds(60));
-                    }
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"Tracker {tracker} error: {ex.Message}, retrying in 60s");
+                    Console.WriteLine($"Tracker {tracker} error: {ex.Message}");
+                }
+
+                if (announceInfo != null)
+                {
+                    consecutiveFailures = 0;
+                    var peers = announceInfo.Peers.ToArray();
+                    AddPeers(peers, isTrackerPeer: true);
+                    Console.WriteLine($"Tracker {tracker}: {announceInfo.Seeders} seeders, {announceInfo.Leechers} leechers, {peers.Length} peers");
+
+                    var interval = Math.Max(announceInfo.WaitTime, 30);
+                    Thread.Sleep(TimeSpan.FromSeconds(interval));
+                }
+                else
+                {
+                    consecutiveFailures++;
+                    if (consecutiveFailures >= MaxConsecutiveTrackerFailures)
+                    {
+                        Console.WriteLine($"Tracker {tracker} failed {consecutiveFailures} times in a row, giving up");
+                        return;
+                    }
+
+                    Console.WriteLine($"Retrying {tracker} in 60s ({consecutiveFailures}/{MaxConsecutiveTrackerFailures} failures)");
                     Thread.Sleep(TimeSpan.FromSeconds(60));
                 }
             }
@@ -493,7 +506,7 @@ namespace Demo
                     continue;
                 }
 
-                if (!peerQueue.TryDequeue(out var peer))
+                if (!trackerPeerQueue.TryDequeue(out var peer) && !peerQueue.TryDequeue(out peer))
                 {
                     if (activeConnections == 0)
                         Console.WriteLine("Waiting for peers...");

@@ -137,6 +137,7 @@ namespace bzTorrent.IO
 
 		public void Listen(EndPoint ep)
 		{
+			socket ??= new T();
 			socket.Bind(ep);
 			socket.Listen(10);
 		}
