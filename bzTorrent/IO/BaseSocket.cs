@@ -58,7 +58,21 @@ namespace bzTorrent.IO
 
 		public virtual void Connect(EndPoint remoteEP)
 		{
-			_socket.Connect(remoteEP);
+			var timeoutMs = _socket.SendTimeout;
+			if (timeoutMs <= 0)
+			{
+				_socket.Connect(remoteEP);
+				return;
+			}
+
+			// BeginConnect/EndConnect correctly updates Socket.Connected; Poll does not.
+			var ar = _socket.BeginConnect(remoteEP, null, null);
+			if (!ar.AsyncWaitHandle.WaitOne(timeoutMs))
+			{
+				_socket.Close();
+				throw new SocketException((int)SocketError.TimedOut);
+			}
+			_socket.EndConnect(ar);
 		}
 
 		public virtual void Disconnect(bool reuseSocket)

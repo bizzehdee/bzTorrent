@@ -22,7 +22,7 @@
     </PropertyGroup>
     <ItemGroup>
         <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.*" PrivateAssets="All" />
-        <PackageReference Include="bzBencode" Version="1.0.7" />
+        <PackageReference Include="bzBencode" Version="1.0.8" />
     </ItemGroup>
     <ItemGroup>
       <None Include="..\LICENSE">

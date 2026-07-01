@@ -5,7 +5,6 @@ using bzTorrent.Helpers;
 using Xunit;
 using bzTorrent.Data;
 using System.IO;
-using System.Text;
 
 namespace bzTorrent.Tests.Data
 {
@@ -13,11 +12,6 @@ namespace bzTorrent.Tests.Data
     {
         private readonly string magnetLink = "magnet:?xt=urn:btih:C1463792A1FF36A237E3A0F68BADEB0D3764E9BB&dn=ubuntu-23.10-live-server-amd64.iso&xl=2662275072&tr=https%3A%2F%2Ftorrent.ubuntu.com%2Fannounce";
         private readonly string magnetLinkWithNoHash = "magnet:?dn=ubuntu-23.10-live-server-amd64.iso&xl=2662275072&tr=https%3A%2F%2Ftorrent.ubuntu.com%2Fannounce";
-
-        public MetadataTests() 
-        {
-            Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
-        }
 
         [Fact]
         public void ValidFileCreatesValidMetadata()

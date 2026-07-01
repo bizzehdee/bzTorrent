@@ -56,9 +56,15 @@ namespace bzTorrent.IO
 			set;
 		}
 
+		// "Connected" reflects the liveness of the underlying socket only. It must NOT also
+		// require the peer handshake to have arrived: callers drive the connection with
+		// `while (Process())`, and Process() returns this value. Gating it on the inbound
+		// handshake made the loop exit before the peer's reply could arrive (it only "worked"
+		// when the reply was already buffered, e.g. low-latency peers). Handshake completion
+		// is observed separately via RemoteHandshake / the HandshakeComplete event.
 		public bool Connected
 		{
-			get => socket != null && socket.Connected && incomingHandshake != null;
+			get => socket != null && socket.Connected;
 		}
 
 		public PeerClientHandshake RemoteHandshake { get => incomingHandshake; }

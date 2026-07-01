@@ -21,6 +21,11 @@ namespace Demo
         const int MaxConnections = 10;
         const int MaxRequest = 16 * 1024;
         const int MaxInflight = 10;
+        // How long to wait for a peer's handshake before giving up the connection slot. A
+        // peer that connects but never handshakes (e.g. it requires encryption, or is just
+        // unresponsive) must not pin a scarce connection slot for long, or the handful of
+        // connectable peers get starved. Reachable peers handshake in well under a second.
+        const int HandshakeTimeoutSeconds = 8;
 
         static string peerId = "-bz2200-";
         static string downloadDirectory;
@@ -93,6 +98,9 @@ namespace Demo
         {
             foreach (var peer in peers)
             {
+                if (!IsUsablePeerEndpoint(peer))
+                    continue;
+
                 var key = $"{peer.Address}:{peer.Port}";
                 lock (seenPeersLock)
                 {
@@ -102,6 +110,22 @@ namespace Demo
                 Console.WriteLine($"Discovered peer {key}");
                 peerQueue.Enqueue(peer);
             }
+        }
+
+        static bool IsUsablePeerEndpoint(IPEndPoint peer)
+        {
+            if (peer == null || peer.Port <= 0 || peer.Port > 65535)
+                return false;
+
+            var address = peer.Address;
+            if (address.AddressFamily != AddressFamily.InterNetwork)
+                return false;
+
+            if (IPAddress.Any.Equals(address) || IPAddress.Broadcast.Equals(address) || IPAddress.None.Equals(address))
+                return false;
+
+            var bytes = address.GetAddressBytes();
+            return bytes[0] != 0 && bytes[0] < 224;
         }
 
         static void PollTracker(string tracker)
@@ -160,7 +184,7 @@ namespace Demo
             var pieceQueue = new Queue<int>();
             var connectedDateTime = DateTime.UtcNow;
 
-            var socket = new PeerWireConnection<TCPSocket> { Timeout = 5 };
+            var socket = new PeerWireConnection<TCPSocket> { Timeout = 30 };
             var client = new PeerWireClient(socket) { KeepConnectionAlive = true };
 
             var fastExt = new FastExtensions();
@@ -276,7 +300,7 @@ namespace Demo
                 int keepAliveCounter = 0;
                 while (client.Process())
                 {
-                    if (!client.ReceivedHandshake && connectedDateTime < DateTime.UtcNow.AddSeconds(-30))
+                    if (!client.ReceivedHandshake && connectedDateTime < DateTime.UtcNow.AddSeconds(-HandshakeTimeoutSeconds))
                     {
                         Console.WriteLine($"< No handshake from {peer}, disconnecting");
                         client.Disconnect();
@@ -341,8 +365,6 @@ namespace Demo
                 AddPeers([new IPEndPoint(address, port)]);
             };
             lpd.Open();
-
-            Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 
             GeneratePeerId();
 
@@ -410,13 +432,33 @@ namespace Demo
                 AddPeers([endpoint]);
             };
             dht.Start();
+            // Start the search immediately; it waits internally until the routing table has
+            // entries. Decoupling it from bootstrap means a bootstrap error can never prevent
+            // the search from running once nodes are available.
+            dht.StartSearch(downloadMetadata.Hash);
             Task.Run(async () =>
             {
-                var bootstrapNodes = ResolveBootstrapNodes();
-                Console.WriteLine($"DHT bootstrapping from {bootstrapNodes.Length} nodes");
-                await dht.BootstrapAsync(bootstrapNodes);
-                Console.WriteLine($"DHT routing table: {dht.NodeCount} nodes");
-                dht.StartSearch(downloadMetadata.Hash);
+                try
+                {
+                    var bootstrapNodes = ResolveBootstrapNodes();
+                    Console.WriteLine($"DHT bootstrapping from {bootstrapNodes.Length} nodes");
+                    if (bootstrapNodes.Length == 0)
+                    {
+                        Console.WriteLine("DHT: no bootstrap nodes resolved (DNS failure?) — DHT will stay idle");
+                        return;
+                    }
+
+                    await dht.BootstrapAsync(bootstrapNodes);
+                    Console.WriteLine($"DHT routing table: {dht.NodeCount} nodes");
+                    if (dht.NodeCount == 0)
+                    {
+                        Console.WriteLine("DHT: bootstrap produced no nodes (UDP blocked or nodes unreachable?)");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"DHT bootstrap failed: {ex.Message}");
+                }
             });
 
             // For magnet links, keep looping until we have metadata AND all pieces are requested.

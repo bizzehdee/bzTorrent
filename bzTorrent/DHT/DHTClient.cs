@@ -17,6 +17,7 @@ namespace bzTorrent.DHT
         private const int K = 8;
         private const int MaxNodesPerSearch = 300;
         private const int RequestTimeoutSeconds = 5;
+        private const int BootstrapAttempts = 8;
 
         public event Action<IPEndPoint> PeerFound;
 
@@ -24,20 +25,29 @@ namespace bzTorrent.DHT
         private readonly UdpClient _udp;
         private readonly DHTRoutingTable _routingTable = new DHTRoutingTable();
         private readonly ConcurrentDictionary<string, TaskCompletionSource<BDict>> _pending
-            = new ConcurrentDictionary<string, TaskCompletionSource<BDict>>();
-        private readonly object _sendLock = new object();
+            = new();
+        private readonly object _sendLock = new();
         private int _txCounter = 0;
         private CancellationTokenSource _cts;
         private bool _disposed = false;
 
-        public int NodeCount => _routingTable.Count;
+		public int NodeCount
+        {
+            get => _routingTable.Count;
+		}
 
-        public DHTClient(int port = 0)
+        // The local UDP port this client is bound to (useful for announcing and for tests).
+        public int LocalPort => ((IPEndPoint)_udp.Client.LocalEndPoint).Port;
+
+		public DHTClient(int port = 0)
         {
             _nodeId = new byte[20];
             using (var rng = RandomNumberGenerator.Create())
-                rng.GetBytes(_nodeId);
-            _udp = new UdpClient(port);
+			{
+				rng.GetBytes(_nodeId);
+			}
+
+			_udp = new UdpClient(port);
         }
 
         public void Start()
@@ -47,28 +57,48 @@ namespace bzTorrent.DHT
             _ = ReceiveLoopAsync();
         }
 
-        public void Stop() => _cts?.Cancel();
+		public void Stop()
+		{
+			_cts?.Cancel();
+		}
 
-        public async Task BootstrapAsync(IEnumerable<IPEndPoint> nodes)
+		public async Task BootstrapAsync(IEnumerable<IPEndPoint> nodes)
         {
-            var pingTasks = nodes.Select(async node =>
+            var bootstrapNodes = nodes?.ToList() ?? new List<IPEndPoint>();
+            if (bootstrapNodes.Count == 0)
             {
-                var response = await PingAsync(node);
-                if (response != null && response.TryGetValue("r", out var rv))
-                {
-                    var r = (BDict)rv;
-                    if (r.TryGetValue("id", out var idVal))
-                        _routingTable.AddOrUpdate(new DHTNode(((BString)idVal).ByteValue, node));
-                }
-            });
-            await Task.WhenAll(pingTasks);
+                return;
+            }
 
-            // Find nodes close to ourselves to fill the routing table
+            var ct = _cts?.Token ?? CancellationToken.None;
+
+            // UDP is lossy and NAT mappings take a moment to establish, so a single round of
+            // queries frequently returns nothing — which previously left the routing table
+            // empty and the client idle forever. Query the bootstrap nodes with find_node
+            // (which returns real nodes to seed the table, unlike ping) and retry until the
+            // table is populated. Each FindNodeAsync swallows its own errors, so one bad or
+            // unreachable bootstrap node can never fault the whole bootstrap.
+            for (var attempt = 0; attempt < BootstrapAttempts && _routingTable.Count == 0; attempt++)
+            {
+                if (ct.IsCancellationRequested)
+                {
+                    return;
+                }
+
+                await Task.WhenAll(bootstrapNodes.Select(node => FindNodeAsync(node, _nodeId)));
+
+                if (_routingTable.Count == 0)
+                {
+                    try { await Task.Delay(TimeSpan.FromSeconds(1), ct); }
+                    catch (OperationCanceledException) { return; }
+                }
+            }
+
+            // Widen the routing table by asking the nodes we just learned about.
             var knownNodes = _routingTable.GetAll();
             if (knownNodes.Count > 0)
             {
-                var findTasks = knownNodes.Select(node => FindNodeAsync(node.EndPoint, _nodeId));
-                await Task.WhenAll(findTasks);
+                await Task.WhenAll(knownNodes.Select(node => FindNodeAsync(node.EndPoint, _nodeId)));
             }
         }
 
@@ -82,9 +112,11 @@ namespace bzTorrent.DHT
         {
             // Wait until we have routing table entries from bootstrap
             while (_routingTable.Count == 0 && !ct.IsCancellationRequested)
-                await Task.Delay(1000);
+			{
+				await Task.Delay(1000, ct);
+			}
 
-            while (!ct.IsCancellationRequested)
+			while (!ct.IsCancellationRequested)
             {
                 try
                 {
@@ -112,20 +144,29 @@ namespace bzTorrent.DHT
                 {
                     var node = toQuery.Dequeue();
                     if (queried.Add(EndpointKey(node.EndPoint)))
-                        batch.Add(node);
-                }
+					{
+						batch.Add(node);
+					}
+				}
 
-                if (batch.Count == 0) break;
+                if (batch.Count == 0)
+				{
+					break;
+				}
 
-                var results = await Task.WhenAll(batch.Select(n => QueryNodeForPeersAsync(n, infoHash)));
+				var results = await Task.WhenAll(batch.Select(n => QueryNodeForPeersAsync(n, infoHash)));
 
                 foreach (var newNodes in results)
-                foreach (var n in newNodes)
-                {
-                    if (!queried.Contains(EndpointKey(n.EndPoint)))
-                        toQuery.Enqueue(n);
-                }
-            }
+				{
+					foreach (var n in newNodes)
+                    {
+                        if (!queried.Contains(EndpointKey(n.EndPoint)))
+						{
+							toQuery.Enqueue(n);
+						}
+					}
+				}
+			}
         }
 
         private async Task<IReadOnlyList<DHTNode>> QueryNodeForPeersAsync(DHTNode node, byte[] infoHash)
@@ -161,44 +202,43 @@ namespace bzTorrent.DHT
             return discovered;
         }
 
-        private async Task<BDict> PingAsync(IPEndPoint endpoint)
-        {
-            var (txId, txKey) = NextTxId();
-            var query = new BDict
-            {
-                { "t", new BString { ByteValue = txId } },
-                { "y", new BString("q") },
-                { "q", new BString("ping") },
-                { "a", new BDict { { "id", new BString { ByteValue = _nodeId } } } }
-            };
-            return await SendQueryAsync(endpoint, query, txKey);
-        }
-
         private async Task FindNodeAsync(IPEndPoint endpoint, byte[] target)
         {
-            var (txId, txKey) = NextTxId();
-            var query = new BDict
+            try
             {
-                { "t", new BString { ByteValue = txId } },
-                { "y", new BString("q") },
-                { "q", new BString("find_node") },
-                { "a", new BDict
-                    {
-                        { "id", new BString { ByteValue = _nodeId } },
-                        { "target", new BString { ByteValue = target } }
-                    }
-                }
-            };
-            var response = await SendQueryAsync(endpoint, query, txKey);
-            if (response != null && response.TryGetValue("r", out var rv))
-            {
-                var r = (BDict)rv;
-                if (r.TryGetValue("nodes", out var nodesVal))
+                var (txId, txKey) = NextTxId();
+                var query = new BDict
                 {
-                    foreach (var node in ParseCompactNodes(((BString)nodesVal).ByteValue))
+                    { "t", new BString { ByteValue = txId } },
+                    { "y", new BString("q") },
+                    { "q", new BString("find_node") },
+                    { "a", new BDict
+                        {
+                            { "id", new BString { ByteValue = _nodeId } },
+                            { "target", new BString { ByteValue = target } }
+                        }
+                    }
+                };
+                var response = await SendQueryAsync(endpoint, query, txKey);
+                if (response == null || !response.TryGetValue("r", out var rv) || !(rv is BDict r))
+                {
+                    return;
+                }
+
+                // Record the responder itself so bootstrap endpoints seed the routing table
+                // even when they return no (or few) additional nodes.
+                if (r.TryGetValue("id", out var idVal) && idVal is BString idStr)
+                {
+                    _routingTable.AddOrUpdate(new DHTNode(idStr.ByteValue, endpoint));
+                }
+
+                if (r.TryGetValue("nodes", out var nodesVal) && nodesVal is BString nodesStr)
+                {
+                    foreach (var node in ParseCompactNodes(nodesStr.ByteValue))
                         _routingTable.AddOrUpdate(node);
                 }
             }
+            catch { }
         }
 
         private async Task<BDict> GetPeersQueryAsync(IPEndPoint endpoint, byte[] infoHash)
@@ -267,7 +307,18 @@ namespace bzTorrent.DHT
                     _ = Task.Run(() => HandlePacket(result.RemoteEndPoint, result.Buffer));
                 }
                 catch (ObjectDisposedException) { break; }
-                catch (SocketException) { break; }
+                catch (OperationCanceledException) { break; }
+                catch (SocketException)
+                {
+                    // A transient UDP error (e.g. an ICMP port-unreachable surfaced from a
+                    // prior send on some platforms) must NOT kill the receive loop, otherwise
+                    // every outstanding and future query would silently time out and the
+                    // client would sit idle forever. Keep listening unless we are shutting down.
+                    if (_disposed || _cts == null || _cts.IsCancellationRequested)
+                    {
+                        break;
+                    }
+                }
                 catch { }
             }
         }

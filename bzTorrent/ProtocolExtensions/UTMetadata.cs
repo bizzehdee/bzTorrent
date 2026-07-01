@@ -30,7 +30,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 using System;
 using System.Linq;
-using System.Text;
 using bzBencode;
 using bzTorrent.Data;
 
@@ -118,10 +117,14 @@ namespace bzTorrent.ProtocolExtensions
 					{"piece", (BInt) i}
 				};
 
-				var encoded = BencodingUtils.EncodeString(masterBDict);
+				// Encode straight to bytes. The previous EncodeString + GetEncoding(1252)
+				// round-trip depended on the Windows-1252 code-pages provider (unavailable on
+				// .NET Core unless registered) and, being a mismatched re-encode, could corrupt
+				// any byte in the 0x80-0x9F range.
+				var encoded = BencodingUtils.EncodeBytes(masterBDict);
 
 				var buffer = new[] { _parent.GetIncomingMessageID(peerWireClient, this) };
-				buffer = buffer.Concat(Encoding.GetEncoding(1252).GetBytes(encoded)).ToArray();
+				buffer = buffer.Concat(encoded).ToArray();
 
 				sendBuffer = sendBuffer.Concat(buffer).ToArray();
 
