@@ -310,6 +310,21 @@ dhtPort.Port += (pwc, port) =>
 client.RegisterBTExtension(dhtPort);
 ```
 
+### Holepunch (BEP-55)
+
+Lets a peer (A) that can't connect directly to another peer (C) it learned about via PEX ask a peer it IS connected to (B, if also connected to C) to relay a NAT hole-punch. This only implements the wire format and events — deciding when to rendezvous, tracking who's connected to whom, and retrying the connection is left to the consumer, same as the other extensions:
+
+```csharp
+var holepunch = new UTHolepunchExtension();
+holepunch.Rendezvous += (pwc, ext, target) => { /* we're B: relay by SendConnect to target and to the requester */ };
+holepunch.Connect    += (pwc, ext, target) => { /* we've been told to (re)try connecting to target */ };
+holepunch.Error      += (pwc, ext, target, code) => { /* rendezvous failed, see UTHolepunchErrorCode */ };
+
+extProtocol.RegisterProtocolExtension(client, holepunch);
+```
+
+> **Note:** the payload byte layout is implemented to the best available understanding of BEP-55 — verify against the published BEP text before relying on it for interop with other clients, the same caveat as this library's other experimental pieces.
+
 ## WebSeeds (BEP-19)
 
 Fetch piece data over plain HTTP(S) from URLs the torrent publishes, instead of (or alongside) peers — useful when the swarm has few seeders:
@@ -379,7 +394,7 @@ listener.Start();
 | `bzTorrent.Data` | `Metadata`, `MagnetLink`, `MetadataFileInfo`, `MetadataPieceInfo` |
 | `bzTorrent.DHT` | `DHTClient`, `DHTNode`, `DHTRoutingTable` |
 | `bzTorrent.IO` | `PeerWireConnection`, `TCPSocket`, `UDPSocket`, `UTPSocket` |
-| `bzTorrent.ProtocolExtensions` | `FastExtensions`, `ExtendedProtocolExtensions`, `UTPeerExchange`, `UTMetadata`, `LTTrackerExchange`, `DHTPortExtension` |
+| `bzTorrent.ProtocolExtensions` | `FastExtensions`, `ExtendedProtocolExtensions`, `UTPeerExchange`, `UTMetadata`, `LTTrackerExchange`, `DHTPortExtension`, `UTHolepunchExtension` |
 
 ## Implemented BEPs
 
@@ -395,6 +410,7 @@ listener.Start();
 | BEP-15 | UDP tracker protocol |
 | BEP-19 | WebSeed — HTTP/FTP seeding |
 | BEP-28 | Tracker exchange protocol |
+| BEP-55 | Holepunch extension |
 | —      | Message Stream Encryption / Protocol Encryption (MSE/PE) — not a formal BEP, but widely implemented |
 
 ## License

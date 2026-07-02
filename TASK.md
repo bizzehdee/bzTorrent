@@ -2,5 +2,5 @@
 - [x] TASK-002: `UTPSocket` retransmission + out-of-order delivery (RTO-based retransmit, reordering buffer)
 - [x] TASK-003: MSE/PE over uTP — remove the `NotSupportedException` in `Receive`, wire `MessageStreamEncryption` through `UTPSocket`. Depends on: TASK-002
 - [x] TASK-004: BEP-19 WebSeed — parse `url-list` in `Metadata`, add an `IWebSeedClient`/`HTTPWebSeedClient` that fetches byte ranges
-- [ ] TASK-005: BEP-55 Holepunch extension protocol (`IBTExtension`, works with PEX)
+- [x] TASK-005: BEP-55 Holepunch extension protocol (`IBTExtension`, works with PEX)
 - [ ] TASK-006: BEP-7 / BEP-32 IPv6 — IPv6 compact peer lists in `HTTPTrackerClient`/`UDPTrackerClient`, IPv6 DHT (`BEP-32`) support in `DHTClient`/`DHTNode`/`DHTRoutingTable`

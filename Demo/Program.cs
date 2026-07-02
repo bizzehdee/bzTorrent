@@ -264,10 +264,16 @@ namespace Demo
                 }
             };
 
+            var holepunch = new UTHolepunchExtension();
+            holepunch.Rendezvous += (pwc, ext, target) => Console.WriteLine($"> Holepunch rendezvous request for {target}");
+            holepunch.Connect += (pwc, ext, target) => Console.WriteLine($"> Holepunch connect: try {target}");
+            holepunch.Error += (pwc, ext, target, code) => Console.WriteLine($"> Holepunch error for {target}: {code}");
+
             var extProtocol = new ExtendedProtocolExtensions();
             extProtocol.RegisterProtocolExtension(client, pex);
             extProtocol.RegisterProtocolExtension(client, trackerExchange);
             extProtocol.RegisterProtocolExtension(client, utMetadata);
+            extProtocol.RegisterProtocolExtension(client, holepunch);
 
             client.RegisterBTExtension(fastExt);
             client.RegisterBTExtension(dhtPortExt);
