@@ -107,16 +107,35 @@ namespace bzTorrent
 		}
 
 		/// <summary>
-		/// Extracts peer information from bencode response.
+		/// Extracts IPv4 peer information (6-byte compact entries) from bencode response.
 		/// </summary>
 		private static IEnumerable<IPEndPoint> GetPeers(byte[] peerData)
 		{
-			for (var i = 0; i < peerData.Length; i += 6)
+			for (var i = 0; i + 6 <= peerData.Length; i += 6)
 			{
-				long addr = UnpackHelper.UInt32(peerData, i, UnpackHelper.Endianness.Big);
+				// Build the address from its raw network-order bytes directly, not via
+				// IPAddress(long)/IPEndPoint(long,int) — those constructors reinterpret the
+				// value through BitConverter on the host's endianness, which double-flips a
+				// big-endian-decoded uint back into the wrong byte order on little-endian hosts.
+				var ip = new IPAddress(peerData.GetBytes(i, 4));
 				var port = UnpackHelper.UInt16(peerData, i + 4, UnpackHelper.Endianness.Big);
 
-				yield return new IPEndPoint(addr, port);
+				yield return new IPEndPoint(ip, port);
+			}
+		}
+
+		/// <summary>
+		/// Extracts IPv6 peer information (18-byte compact entries, BEP-7's "peers6") from
+		/// bencode response.
+		/// </summary>
+		private static IEnumerable<IPEndPoint> GetPeers6(byte[] peerData)
+		{
+			for (var i = 0; i + 18 <= peerData.Length; i += 18)
+			{
+				var addrBytes = peerData.GetBytes(i, 16);
+				var port = UnpackHelper.UInt16(peerData, i + 16, UnpackHelper.Endianness.Big);
+
+				yield return new IPEndPoint(new IPAddress(addrBytes), port);
 			}
 		}
 
@@ -125,12 +144,12 @@ namespace bzTorrent
 		/// </summary>
 		private static AnnounceInfo ParseAnnounceResponse(BDict decoded)
 		{
-			if (decoded?.Count == 0 || !decoded.ContainsKey("peers"))
+			if (decoded?.Count == 0 || (!decoded.ContainsKey("peers") && !decoded.ContainsKey("peers6")))
 			{
 				return null;
 			}
 
-			if (!(decoded["peers"] is BString))
+			if (decoded.ContainsKey("peers") && !(decoded["peers"] is BString))
 			{
 				throw new NotSupportedException("Dictionary based peers not supported");
 			}
@@ -139,8 +158,18 @@ namespace bzTorrent
 			var seeders = decoded.ContainsKey("complete") ? (int)(BInt)decoded["complete"] : 0;
 			var leechers = decoded.ContainsKey("incomplete") ? (int)(BInt)decoded["incomplete"] : 0;
 
-			var peerBinary = (BString)decoded["peers"];
-			return new AnnounceInfo(GetPeers(peerBinary.ByteValue), waitTime, seeders, leechers);
+			var peers = Enumerable.Empty<IPEndPoint>();
+			if (decoded.ContainsKey("peers"))
+			{
+				peers = peers.Concat(GetPeers(((BString)decoded["peers"]).ByteValue));
+			}
+
+			if (decoded.ContainsKey("peers6") && decoded["peers6"] is BString peers6Binary)
+			{
+				peers = peers.Concat(GetPeers6(peers6Binary.ByteValue));
+			}
+
+			return new AnnounceInfo(peers, waitTime, seeders, leechers);
 		}
 
 		/// <summary>

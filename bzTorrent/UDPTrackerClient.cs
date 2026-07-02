@@ -136,19 +136,40 @@ namespace bzTorrent
 		}
 
 		/// <summary>
-		/// Parses announce response data into peer list and statistics.
+		/// Parses announce response data into peer list and statistics. The compact peer stride
+		/// (BEP-15's 6-byte IPv4 entries, or BEP-7's 18-byte IPv6 entries) is determined by which
+		/// address family the announce request itself went out on — the UDP tracker protocol has
+		/// no separate "peers6" field the way the HTTP protocol does; a given connection is one
+		/// family or the other.
 		/// </summary>
-		private static List<IPEndPoint> ParseAnnouncePeers(byte[] response, out int waitTime, out int leechers, out int seeders)
+		private static List<IPEndPoint> ParseAnnouncePeers(byte[] response, AddressFamily family, out int waitTime, out int leechers, out int seeders)
 		{
 			var peers = new List<IPEndPoint>();
 			waitTime = (int)UnpackHelper.UInt32(response, 8, UnpackHelper.Endianness.Big);
 			leechers = (int)UnpackHelper.UInt32(response, 12, UnpackHelper.Endianness.Big);
 			seeders = (int)UnpackHelper.UInt32(response, 16, UnpackHelper.Endianness.Big);
 
-			for (var i = 20; i < response.Length; i += 6)
+			var stride = family == AddressFamily.InterNetworkV6 ? 18 : 6;
+			for (var i = 20; i + stride <= response.Length; i += stride)
 			{
-				var ip = UnpackHelper.UInt32(response, i, UnpackHelper.Endianness.Big);
-				var port = UnpackHelper.UInt16(response, i + 4, UnpackHelper.Endianness.Big);
+				IPAddress ip;
+				int portOffset;
+				if (stride == 18)
+				{
+					ip = new IPAddress(CopyBytes(response, i, 16));
+					portOffset = i + 16;
+				}
+				else
+				{
+					// Built from raw network-order bytes directly, not IPAddress(long) — that
+					// constructor reinterprets the value through BitConverter on the host's
+					// endianness, which double-flips a big-endian-decoded uint back into the
+					// wrong byte order on little-endian hosts.
+					ip = new IPAddress(CopyBytes(response, i, 4));
+					portOffset = i + 4;
+				}
+
+				var port = UnpackHelper.UInt16(response, portOffset, UnpackHelper.Endianness.Big);
 				peers.Add(new IPEndPoint(ip, port));
 			}
 
@@ -244,7 +265,7 @@ namespace bzTorrent
 
 					ValidateUdpResponse(recBuf, 1, transactionId, 20);
 
-					var peers = ParseAnnouncePeers(recBuf, out int waitTime, out int leechers, out int seeders);
+					var peers = ParseAnnouncePeers(recBuf, udpClient.Client.AddressFamily, out int waitTime, out int leechers, out int seeders);
 					return new AnnounceInfo(peers, waitTime, seeders, leechers);
 				}
 			}

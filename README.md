@@ -63,12 +63,14 @@ var info = tracker.Announce(
 
 Console.WriteLine($"{info.Seeders} seeders, {info.Leechers} leechers");
 foreach (var peer in info.Peers)
-    Console.WriteLine(peer); // IPEndPoint
+    Console.WriteLine(peer); // IPEndPoint — IPv4 or IPv6
 
 // Scrape (stats only, no peer list)
 var stats = tracker.Scrape(trackerUrl, metadata.HashString);
 Console.WriteLine($"{stats.Seeders} seeders, {stats.Leechers} leechers, {stats.Downloaded} completed");
 ```
+
+IPv6 peers (BEP-7) are included automatically: `HTTPTrackerClient` merges the `peers` and `peers6` fields from the tracker's response, and `UDPTrackerClient` returns whichever family the announce request itself went out on (IPv6 if the tracker hostname resolves to an AAAA record).
 
 ### DHT (trackerless)
 
@@ -92,6 +94,8 @@ dht.StartSearch(metadata.Hash); // searches continuously, re-querying every 5 mi
 // When done
 dht.Dispose();
 ```
+
+`DHTClient` uses a single dual-stack socket (BEP-32): bootstrap nodes, queries, and discovered peers can be IPv4 or IPv6 endpoints interchangeably — `PeerFound` fires with whichever family a peer used.
 
 ### Local peer discovery (LPD / BEP-14)
 
@@ -403,6 +407,7 @@ listener.Start();
 | BEP-3  | BitTorrent protocol — peer wire, tracker HTTP announce |
 | BEP-5  | DHT protocol |
 | BEP-6  | Fast extensions |
+| BEP-7  | IPv6 tracker extension |
 | BEP-9  | Extension for peers to send metadata files (magnet link metadata fetch) |
 | BEP-10 | Extension protocol |
 | BEP-11 | Peer exchange (PEX) |
@@ -410,6 +415,7 @@ listener.Start();
 | BEP-15 | UDP tracker protocol |
 | BEP-19 | WebSeed — HTTP/FTP seeding |
 | BEP-28 | Tracker exchange protocol |
+| BEP-32 | IPv6 DHT extension |
 | BEP-55 | Holepunch extension |
 | —      | Message Stream Encryption / Protocol Encryption (MSE/PE) — not a formal BEP, but widely implemented |
 
