@@ -31,6 +31,7 @@ namespace Demo
         static string downloadDirectory;
         static Metadata downloadMetadata;
         static PeerEncryptionMode encryptionMode = PeerEncryptionMode.PlainText;
+        static bool useUtp = false;
 
         static readonly ConcurrentQueue<IPEndPoint> trackerPeerQueue = new();
         static readonly ConcurrentQueue<IPEndPoint> peerQueue = new();
@@ -193,12 +194,24 @@ namespace Demo
 
         static void RunPeerConnection(IPEndPoint peer)
         {
+            if (useUtp)
+            {
+                RunPeerConnection<UTPSocket>(peer);
+            }
+            else
+            {
+                RunPeerConnection<TCPSocket>(peer);
+            }
+        }
+
+        static void RunPeerConnection<TSocket>(IPEndPoint peer) where TSocket : ISocket, new()
+        {
             bool choked = true;
             int inflightPieces = 0;
             var pieceQueue = new Queue<int>();
             var connectedDateTime = DateTime.UtcNow;
 
-            var socket = new PeerWireConnection<TCPSocket>
+            var socket = new PeerWireConnection<TSocket>
             {
                 Timeout = 30,
                 EncryptionMode = encryptionMode
@@ -408,11 +421,12 @@ namespace Demo
                     manualPeers.Add(new IPEndPoint(peerAddress, peerPort));
                 }
                 else if (args[x] == "-require-encryption") { encryptionMode = PeerEncryptionMode.RequireEncryption; }
+                else if (args[x] == "-utp") { useUtp = true; }
             }
 
             if (inputFilename == null && magnetLink == null)
             {
-                Console.WriteLine("Usage: Demo -file <torrent> | -magnet <link> -output <directory> [-peer ip:port ...]");
+                Console.WriteLine("Usage: Demo -file <torrent> | -magnet <link> -output <directory> [-peer ip:port ...] [-utp] [-require-encryption]");
                 return;
             }
 

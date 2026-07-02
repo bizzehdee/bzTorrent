@@ -1,4 +1,4 @@
-﻿/*
+/*
 Copyright (c) 2021, Darren Horrocks
 All rights reserved.
 
@@ -25,7 +25,7 @@ ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
 LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
 ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 using System;
@@ -33,9 +33,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
-using System.Security.Cryptography;
 using System.Threading;
-using System.Threading.Tasks;
 using bzTorrent.Helpers;
 
 namespace bzTorrent.IO
@@ -65,7 +63,9 @@ namespace bzTorrent.IO
 	}
 
 	/// <summary>
-	/// WARNING, This is an incomplete implementation, and is quite buggy, and needs a lot of work to fix the issues. use the TCPSocket for a standard BT connection for now
+	/// WARNING: experimental. Retransmission (RTO-based) and out-of-order/reordering delivery
+	/// are implemented (see the "reliability" region below); MSE/PE is still not supported over
+	/// uTP (Receive throws NotSupportedException) — use TCPSocket for encrypted peers.
 	/// </summary>
 	public class UTPSocket : BaseSocket, ISocket
 	{
@@ -76,6 +76,15 @@ namespace bzTorrent.IO
 			STState = 2,
 			STReset = 3,
 			STSyn = 4
+		}
+
+		private class CompletedAsyncResult : IAsyncResult
+		{
+			public CompletedAsyncResult(object state) { AsyncState = state; }
+			public object AsyncState { get; }
+			public WaitHandle AsyncWaitHandle => null;
+			public bool CompletedSynchronously => true;
+			public bool IsCompleted => true;
 		}
 
 		private readonly Random rng = new();
@@ -92,12 +101,32 @@ namespace bzTorrent.IO
 		private ushort ConnectionIdLocal;
 
 		private readonly UTPCongestionControl congestionControl = new(socketBufferSize);
-		private readonly object sentPacketsLock = new();
-		private readonly Dictionary<ushort, int> sentPacketSizes = new();
+
+		#region Reliability (retransmission + reordering)
+
+		// Guards retransmissionTracker, reorderBuffer and deliverableQueue. A single lock keeps
+		// this simple: the retransmit timer callback and the socket receive callback both touch
+		// this state and must never interleave.
+		private readonly object stateLock = new();
+
+		private readonly UTPRetransmissionTracker retransmissionTracker = new();
+		private readonly UTPReorderBuffer reorderBuffer = new();
+
+		// In-order payloads that couldn't be handed to the caller yet because BeginReceive only
+		// delivers one payload per call; drained on subsequent BeginReceive calls before touching
+		// the socket again.
+		private readonly Queue<byte[]> deliverableQueue = new();
+
+		private int pendingDeliveredLength;
+
+		private Timer retransmitTimer;
+		private const int RetransmitPollIntervalMs = 100;
+
+		#endregion
 
 		private uint BytesInFlight
 		{
-			get { lock (sentPacketsLock) { return (uint)sentPacketSizes.Values.Sum(); } }
+			get { lock (stateLock) { return retransmissionTracker.BytesInFlight; } }
 		}
 
 		private ushort ConnectionIdRemote
@@ -109,7 +138,7 @@ namespace bzTorrent.IO
 		public override bool NoDelay { get; set; }
 
 
-		public UTPSocket(Socket socket) : 
+		public UTPSocket(Socket socket) :
 			base(socket)
 		{
 
@@ -129,12 +158,23 @@ namespace bzTorrent.IO
 			ConnectionIdLocal = (ushort)rng.Next(0, ushort.MaxValue);
 
 			SenduTPData(PacketType.STSyn, null);
+
+			retransmitTimer = new Timer(_ => RetransmitTick(), null, RetransmitPollIntervalMs, RetransmitPollIntervalMs);
 		}
 
 		public override void Disconnect(bool reuseSocket)
 		{
 			SenduTPData(PacketType.STFin, null);
 			isConnected = false;
+			retransmitTimer?.Dispose();
+			retransmitTimer = null;
+		}
+
+		public override void Dispose()
+		{
+			retransmitTimer?.Dispose();
+			retransmitTimer = null;
+			base.Dispose();
 		}
 
 		public override void Listen(int backlog)
@@ -183,22 +223,9 @@ namespace bzTorrent.IO
 			return (uint)(DateTime.UtcNow.Ticks / (TimeSpan.TicksPerMillisecond / 1000));
 		}
 
-		// Serial number comparison (RFC 1982) so ack clearing keeps working across seq_nr wraparound.
-		private static bool SequenceLessThanOrEqual(ushort seq, ushort reference)
+		private int SendPacket(PacketType packetType, byte[] data, ushort seq)
 		{
-			return (ushort)(reference - seq) < 0x8000;
-		}
-
-		private int SenduTPData(PacketType packetType, byte[] data, bool expectState = true)
-		{
-			Console.WriteLine("PACKET SENT: {0}", packetType.ToString());
-
-			if (packetType != PacketType.STState)
-			{
-				SeqNumber++;
-			}
-
-			var sendData = data ?? (Array.Empty<byte>());
+			var sendData = data ?? Array.Empty<byte>();
 
 			var connectionId = packetType == PacketType.STSyn ? ConnectionIdLocal : ConnectionIdRemote;
 			var typeAndVersion = new byte[] { (byte)(((byte)packetType << 4) | 1) };
@@ -209,15 +236,27 @@ namespace bzTorrent.IO
 				.Cat(PackHelper.UInt32(timestamp))
 				.Cat(PackHelper.UInt32(LastTimestampReceivedDiff))
 				.Cat(PackHelper.UInt32(congestionControl.MaxWindow))
-				.Cat(PackHelper.UInt16(SeqNumber)).Cat(PackHelper.UInt16(AckNumber));
+				.Cat(PackHelper.UInt16(seq)).Cat(PackHelper.UInt16(AckNumber));
 
-			var sent = _socket.SendTo(header.Cat(sendData), SocketFlags.None, endPoint);
+			return _socket.SendTo(header.Cat(sendData), SocketFlags.None, endPoint);
+		}
+
+		private int SenduTPData(PacketType packetType, byte[] data, bool expectState = true)
+		{
+			if (packetType != PacketType.STState)
+			{
+				SeqNumber++;
+			}
+
+			var seq = SeqNumber;
+			var sendData = data ?? Array.Empty<byte>();
+			var sent = SendPacket(packetType, sendData, seq);
 
 			if (packetType != PacketType.STState)
 			{
-				lock (sentPacketsLock)
+				lock (stateLock)
 				{
-					sentPacketSizes[SeqNumber] = sendData.Length;
+					retransmissionTracker.OnSent(seq, packetType, sendData, DateTime.UtcNow);
 				}
 			}
 
@@ -237,6 +276,45 @@ namespace bzTorrent.IO
 			SenduTPData(PacketType.STState, null, false);
 		}
 
+		#region Reliability (retransmission + reordering)
+
+		// Fires on a fixed poll interval so a fully lost packet (peer never sends anything back)
+		// still gets retransmitted, not just packets sitting behind a request/response exchange.
+		private void RetransmitTick()
+		{
+			if (!isConnected)
+			{
+				return;
+			}
+
+			var now = DateTime.UtcNow;
+			IReadOnlyList<UTPRetransmissionTracker.TrackedPacket> due;
+
+			lock (stateLock)
+			{
+				if (retransmissionTracker.HasExceededMaxRetransmits(now))
+				{
+					// Peer is unreachable — give up on the connection rather than
+					// retransmitting forever.
+					isConnected = false;
+					return;
+				}
+
+				due = retransmissionTracker.GetDueForRetransmit(now);
+			}
+
+			foreach (var packet in due)
+			{
+				SendPacket(packet.Type, packet.Payload, packet.Seq);
+				lock (stateLock)
+				{
+					retransmissionTracker.MarkRetransmitted(packet, DateTime.UtcNow);
+				}
+			}
+		}
+
+		#endregion
+
 		public override ISocket EndAccept(IAsyncResult ar)
 		{
 			try
@@ -251,6 +329,24 @@ namespace bzTorrent.IO
 
 		public override IAsyncResult BeginReceive(byte[] buffer, int offset, int size, SocketFlags socketFlags, AsyncCallback callback, object state)
 		{
+			byte[] queuedPayload = null;
+			lock (stateLock)
+			{
+				if (deliverableQueue.Count > 0)
+				{
+					queuedPayload = deliverableQueue.Dequeue();
+				}
+			}
+
+			if (queuedPayload != null)
+			{
+				// Already-reassembled in-order data waiting from a previous datagram; hand it
+				// off without touching the socket. Dispatched via the thread pool to preserve
+				// the async (not synchronously-recursive) calling contract.
+				ThreadPool.QueueUserWorkItem(_ => DeliverPayload(queuedPayload, buffer, offset, callback, state));
+				return new CompletedAsyncResult(state);
+			}
+
 			return _socket.BeginReceiveFrom(buffer, offset, size, socketFlags, ref endPoint, (IAsyncResult ar) => {
 				var dataLength = EndReceiveInternal(ar);
 
@@ -261,33 +357,26 @@ namespace bzTorrent.IO
 
 				if (dataLength < 20)
 				{
-					//error
+					DeliverPayload(Array.Empty<byte>(), buffer, offset, callback, state);
+					return;
 				}
 
 				var currentPacketHeader = new UTPPacketHeader();
 				currentPacketHeader.Parse(internalBuffer);
-
-				Console.WriteLine("PACKET RECV: {0}", currentPacketHeader.PacketType.ToString());
 
 				LastTimestampReceived = currentPacketHeader.TimestampRecvd;
 				LastTimestampReceivedDiff = LastTimestampReceived - timestampRecvd;
 
 				congestionControl.OnDelaySample(currentPacketHeader.TimestampDiffRecvd);
 
-				uint bytesAcked = 0;
-				lock (sentPacketsLock)
+				uint bytesAcked;
+				lock (stateLock)
 				{
-					var ackedSeqNumbers = sentPacketSizes.Keys
-						.Where(seq => SequenceLessThanOrEqual(seq, currentPacketHeader.AckNumberRecvd))
-						.ToList();
-
-					foreach (var seq in ackedSeqNumbers)
-					{
-						bytesAcked += (uint)sentPacketSizes[seq];
-						sentPacketSizes.Remove(seq);
-					}
+					bytesAcked = retransmissionTracker.OnAck(currentPacketHeader.AckNumberRecvd, DateTime.UtcNow);
 				}
 				congestionControl.OnAck(bytesAcked, timestampRecvd);
+
+				byte[] readyPayload = null;
 
 				if (isFullyConnected == false)
 				{
@@ -300,20 +389,44 @@ namespace bzTorrent.IO
 				}
 				else
 				{
-					AckNumber = currentPacketHeader.SeqNumberRecvd;
+					if (currentPacketHeader.PacketType == PacketType.STData)
+					{
+						var payload = internalBuffer.GetBytes(20, dataLength - 20);
+
+						UTPReorderBuffer.Result result;
+						lock (stateLock)
+						{
+							result = reorderBuffer.Accept(currentPacketHeader.SeqNumberRecvd, AckNumber, payload);
+						}
+
+						AckNumber = result.AckNumber;
+
+						// result.DeliverablePayloads is the packet just received (if it filled
+						// the next expected sequence) plus any previously-buffered packets a
+						// filled gap makes deliverable too, in order. Duplicate/old packets and
+						// packets still ahead of an outstanding gap yield no deliverable payloads
+						// here — the peer's RTO/backoff will resend the missing packet.
+						if (result.DeliverablePayloads.Count > 0)
+						{
+							readyPayload = result.DeliverablePayloads[0];
+							lock (stateLock)
+							{
+								for (var i = 1; i < result.DeliverablePayloads.Count; i++)
+								{
+									deliverableQueue.Enqueue(result.DeliverablePayloads[i]);
+								}
+							}
+						}
+					}
+					else
+					{
+						AckNumber = currentPacketHeader.SeqNumberRecvd;
+					}
 
 					if (currentPacketHeader.PacketType == PacketType.STFin)
 					{
 						isConnected = false;
 						return;
-					}
-
-					if (currentPacketHeader.PacketType == PacketType.STState)
-					{
-						if (dataLength > 20)
-						{
-							Console.WriteLine("Received state and {0} extra data", dataLength - 20);
-						}
 					}
 
 					if (currentPacketHeader.PacketType != PacketType.STState)
@@ -322,11 +435,19 @@ namespace bzTorrent.IO
 					}
 				}
 
-				Array.Clear(buffer, 0, dataLength);
-				Array.Copy(internalBuffer.GetBytes(20, dataLength - 20), buffer, dataLength - 20);
-				
-				callback?.Invoke(ar);
+				DeliverPayload(readyPayload ?? Array.Empty<byte>(), buffer, offset, callback, state);
 			}, state);
+		}
+
+		private void DeliverPayload(byte[] payload, byte[] buffer, int offset, AsyncCallback callback, object state)
+		{
+			pendingDeliveredLength = payload.Length;
+			if (payload.Length > 0)
+			{
+				Array.Copy(payload, 0, buffer, offset, payload.Length);
+			}
+
+			callback?.Invoke(new CompletedAsyncResult(state));
 		}
 
 		private int EndReceiveInternal(IAsyncResult asyncResult)
@@ -336,7 +457,7 @@ namespace bzTorrent.IO
 
 		public override int EndReceive(IAsyncResult asyncResult)
 		{
-			return EndReceiveInternal(asyncResult)-20;
+			return pendingDeliveredLength;
 		}
 
 		// A synchronous byte-stream receive is meaningless for uTP: it would hand back raw UDP

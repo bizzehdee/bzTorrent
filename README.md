@@ -172,7 +172,7 @@ client.Connect(peerEndPoint);
 client.Handshake(metadata.HashString, peerId);
 ```
 
-> **Note:** `UTPSocket` is experimental — it does not yet retransmit lost packets or handle out-of-order delivery, and MSE/PE (below) is not supported over uTP (`Receive` throws `NotSupportedException`). Prefer `TCPSocket` for production use until this stabilizes.
+> **Note:** `UTPSocket` is experimental. It now retransmits lost packets (RTO-based, with Karn's algorithm and exponential backoff) and reassembles out-of-order delivery correctly — see `UTPRetransmissionTracker` / `UTPReorderBuffer`. It can only *initiate* connections, though: there is no passive-open (listening) support, so `Listen`/`Accept` don't work for uTP. MSE/PE is also not supported over uTP (`Receive` throws `NotSupportedException`). Prefer `TCPSocket` for production use until this stabilizes.
 
 ## Message Stream Encryption (MSE/PE)
 
