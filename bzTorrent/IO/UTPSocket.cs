@@ -64,8 +64,10 @@ namespace bzTorrent.IO
 
 	/// <summary>
 	/// WARNING: experimental. Retransmission (RTO-based) and out-of-order/reordering delivery
-	/// are implemented (see the "reliability" region below); MSE/PE is still not supported over
-	/// uTP (Receive throws NotSupportedException) — use TCPSocket for encrypted peers.
+	/// are implemented (see the "reliability" region below), and Receive() is now a real
+	/// synchronous byte-stream pump so MSE/PE works over uTP too. There is no passive-open
+	/// (listening) support, though — Listen/Accept don't work for uTP, so this can only initiate
+	/// connections.
 	/// </summary>
 	public class UTPSocket : BaseSocket, ISocket
 	{
@@ -136,6 +138,8 @@ namespace bzTorrent.IO
 
 		public override bool Connected { get => isConnected; }
 		public override bool NoDelay { get; set; }
+
+		public IPEndPoint LocalEndPoint => (IPEndPoint)_socket.LocalEndPoint;
 
 
 		public UTPSocket(Socket socket) :
@@ -460,12 +464,45 @@ namespace bzTorrent.IO
 			return pendingDeliveredLength;
 		}
 
-		// A synchronous byte-stream receive is meaningless for uTP: it would hand back raw UDP
-		// datagrams (including the 20-byte uTP header) and bypass the uTP state machine. MSE/PE
-		// therefore is not supported over uTP; use TCPSocket for encrypted peers.
+		// Synchronous byte-stream receive over uTP's async, packet-oriented BeginReceive/
+		// EndReceive: pumps them on a blocking wait, looping past deliveries that carry no
+		// application payload (pure ST_STATE acks, or ST_DATA still buffered behind a reorder
+		// gap — see UTPReorderBuffer) so this never returns 0 bytes for a still-open connection,
+		// matching the blocking-read contract MSE/PE's handshake (ReadExact, etc.) relies on.
 		public override int Receive(byte[] buffer, int offset, int size)
 		{
-			throw new NotSupportedException("MSE/PE is not supported over uTP connections; use TCPSocket for encrypted peers.");
+			var timeoutMs = ReceiveTimeout > 0 ? ReceiveTimeout : Timeout.Infinite;
+
+			while (isConnected)
+			{
+				using var completed = new ManualResetEventSlim(false);
+				var received = 0;
+				Exception error = null;
+
+				BeginReceive(buffer, offset, size, SocketFlags.None, ar =>
+				{
+					try { received = EndReceive(ar); }
+					catch (Exception ex) { error = ex; }
+					completed.Set();
+				}, null);
+
+				if (!completed.Wait(timeoutMs))
+				{
+					throw new SocketException((int)SocketError.TimedOut);
+				}
+
+				if (error != null)
+				{
+					throw error;
+				}
+
+				if (received > 0)
+				{
+					return received;
+				}
+			}
+
+			return 0;
 		}
 	}
 }
