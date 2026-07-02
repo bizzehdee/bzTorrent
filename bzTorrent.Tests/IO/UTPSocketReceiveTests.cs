@@ -11,11 +11,10 @@ using Xunit;
 namespace bzTorrent.Tests.IO
 {
     // Exercises UTPSocket.Receive() (used by the MSE/PE handshake, which needs a real blocking
-    // byte-stream read) end-to-end over real loopback UDP sockets. UTPSocket has no passive-open
-    // support (see its class doc comment), so a second real UTPSocket can't act as the peer here —
-    // instead a raw UdpClient plays a scripted, well-behaved uTP peer: it replies to the SYN with
-    // an ST_STATE (completing the transport handshake UTPSocket does implement), then sends
-    // ST_DATA packets built by hand.
+    // byte-stream read) end-to-end over real loopback UDP sockets. Uses a raw UdpClient as a
+    // scripted peer (rather than a second real UTPSocket) so the packet sequencing in each test
+    // is exact and explicit, independent of UTPSocketPassiveOpenTests' real two-UTPSocket
+    // end-to-end coverage.
     public class UTPSocketReceiveTests : IDisposable
     {
         private readonly UdpClient fakePeer = new(new IPEndPoint(IPAddress.Loopback, 0));
@@ -45,8 +44,11 @@ namespace bzTorrent.Tests.IO
         }
 
         // Handshakes utp with the fake peer (SYN -> ST_STATE) and returns the connection id and
-        // seq number the fake peer must use for its own ST_DATA packets.
-        private (ushort ConnectionId, ushort Seq) ConnectAndHandshake()
+        // the seq number the fake peer's *first* ST_DATA packet must carry. The ST_STATE reply
+        // carries the peer's current (unincremented) seq counter; the client's AckNumber baseline
+        // is seeded directly from that value (see UTPSocket.ProcessIncomingPacket), so the first
+        // real data send — which increments before sending — must be exactly one more.
+        private (ushort ConnectionId, ushort FirstDataSeq) ConnectAndHandshake()
         {
             utp = new UTPSocket { ReceiveTimeout = 5000 };
             var fakePeerEndPoint = (IPEndPoint)fakePeer.Client.LocalEndPoint;
@@ -59,15 +61,15 @@ namespace bzTorrent.Tests.IO
             var syn = fakePeer.EndReceive(synResult, ref clientEndPoint);
             var connectionId = UnpackHelper.UInt16(syn, 2, UnpackHelper.Endianness.Big);
 
-            const ushort fakePeerSeq = 100;
-            var statePacket = BuildPacket(UTPSocket.PacketType.STState, connectionId, fakePeerSeq, ack: 1);
+            const ushort fakePeerStateSeq = 100;
+            var statePacket = BuildPacket(UTPSocket.PacketType.STState, connectionId, fakePeerStateSeq, ack: 1);
             fakePeer.Send(statePacket, statePacket.Length, clientEndPoint);
 
             // Give the client's internal (already-armed) receive a moment to process the
             // ST_STATE and flip isFullyConnected before we start sending it ST_DATA.
             Thread.Sleep(200);
 
-            return (connectionId, fakePeerSeq);
+            return (connectionId, (ushort)(fakePeerStateSeq + 1));
         }
 
         [Fact]

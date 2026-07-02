@@ -115,7 +115,7 @@ namespace bzTorrent.IO
 			_socket.SetSocketOption(optionLevel, optionName, optionValue);
 		}
 
-		public IAsyncResult BeginAccept(AsyncCallback callback, object state)
+		public virtual IAsyncResult BeginAccept(AsyncCallback callback, object state)
 		{
 			return _socket.BeginAccept(callback, state);
 		}

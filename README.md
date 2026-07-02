@@ -176,7 +176,7 @@ client.Connect(peerEndPoint);
 client.Handshake(metadata.HashString, peerId);
 ```
 
-> **Note:** `UTPSocket` is experimental. It now retransmits lost packets (RTO-based, with Karn's algorithm and exponential backoff) and reassembles out-of-order delivery correctly — see `UTPRetransmissionTracker` / `UTPReorderBuffer`. `Receive()` is a real blocking byte-stream read, so MSE/PE (below) works over uTP too. It can only *initiate* connections, though: there is no passive-open (listening) support, so `Listen`/`Accept` don't work for uTP. Prefer `TCPSocket` for production use until this stabilizes.
+> **Note:** `UTPSocket` is experimental against real-world/foreign uTP implementations (wire compatibility with e.g. libutp-based clients hasn't been verified — no real internet peer has been observed completing a uTP handshake with this library yet). It's internally self-consistent and tested end-to-end, though: retransmission (RTO-based, with Karn's algorithm and exponential backoff) and out-of-order reassembly work — see `UTPRetransmissionTracker` / `UTPReorderBuffer` — `Receive()` is a real blocking byte-stream read so MSE/PE (below) works over uTP too, and passive-open (`Listen`/`Accept`) works: two `UTPSocket`s (or `PeerWireListener`/`PeerWireConnection` built on them) can complete a full handshake and exchange data bidirectionally over real UDP. Prefer `TCPSocket` for production use until real-world interop is verified.
 
 ## Message Stream Encryption (MSE/PE)
 

@@ -63,11 +63,21 @@ namespace bzTorrent.IO
 	}
 
 	/// <summary>
-	/// WARNING: experimental. Retransmission (RTO-based) and out-of-order/reordering delivery
-	/// are implemented (see the "reliability" region below), and Receive() is now a real
-	/// synchronous byte-stream pump so MSE/PE works over uTP too. There is no passive-open
-	/// (listening) support, though — Listen/Accept don't work for uTP, so this can only initiate
-	/// connections.
+	/// WARNING: experimental against real-world/foreign uTP implementations (wire-format
+	/// compatibility is unverified), but internally self-consistent and tested end-to-end:
+	/// retransmission (RTO-based) and out-of-order/reordering delivery are implemented (see the
+	/// "reliability" region below), Receive() is a real synchronous byte-stream pump so MSE/PE
+	/// works over uTP too, and passive-open (Listen/Accept) works — verified with two real
+	/// UTPSocket instances (and PeerWireListener/PeerWireConnection built on them) completing a
+	/// full handshake and exchanging data bidirectionally over real loopback UDP.
+	///
+	/// Passive-open: since UDP has no OS-level "listen/accept", all accepted connections share
+	/// the single bound Socket with the listening UTPSocket, which runs a demultiplex loop keyed
+	/// by remote endpoint — an ST_SYN from an unrecognized endpoint creates a new accepted
+	/// UTPSocket (see the "passive open" region below), everything else is routed to the matching
+	/// existing connection. This is a simplification of the full BEP-29 connection-id-based demux
+	/// (a second connection attempt from the same (address, port) while one is already tracked
+	/// routes to the existing one rather than starting a new connection).
 	/// </summary>
 	public class UTPSocket : BaseSocket, ISocket
 	{
@@ -84,6 +94,16 @@ namespace bzTorrent.IO
 		{
 			public CompletedAsyncResult(object state) { AsyncState = state; }
 			public object AsyncState { get; }
+			public WaitHandle AsyncWaitHandle => null;
+			public bool CompletedSynchronously => true;
+			public bool IsCompleted => true;
+		}
+
+		private class AcceptAsyncResult : IAsyncResult
+		{
+			public AcceptAsyncResult(object state) { AsyncState = state; }
+			public object AsyncState { get; }
+			public UTPSocket AcceptedSocket { get; set; }
 			public WaitHandle AsyncWaitHandle => null;
 			public bool CompletedSynchronously => true;
 			public bool IsCompleted => true;
@@ -106,9 +126,10 @@ namespace bzTorrent.IO
 
 		#region Reliability (retransmission + reordering)
 
-		// Guards retransmissionTracker, reorderBuffer and deliverableQueue. A single lock keeps
-		// this simple: the retransmit timer callback and the socket receive callback both touch
-		// this state and must never interleave.
+		// Guards retransmissionTracker, reorderBuffer, deliverableQueue and the waiting-
+		// receive/accept registrations below. A single lock keeps this simple: the retransmit
+		// timer callback, this socket's own receive callback, and (for an accepted child) the
+		// listening parent's demux thread all touch this state and must never interleave.
 		private readonly object stateLock = new();
 
 		private readonly UTPRetransmissionTracker retransmissionTracker = new();
@@ -116,13 +137,39 @@ namespace bzTorrent.IO
 
 		// In-order payloads that couldn't be handed to the caller yet because BeginReceive only
 		// delivers one payload per call; drained on subsequent BeginReceive calls before touching
-		// the socket again.
+		// the socket (or, for an accepted child, before registering as a waiting receiver) again.
 		private readonly Queue<byte[]> deliverableQueue = new();
 
 		private int pendingDeliveredLength;
 
 		private Timer retransmitTimer;
 		private const int RetransmitPollIntervalMs = 100;
+
+		#endregion
+
+		#region Passive open (Listen/Accept)
+
+		// True for a UTPSocket returned by Accept()/EndAccept(): it shares the listening socket's
+		// _socket rather than owning one, so it must never itself call BeginReceiveFrom (the
+		// listener's demux loop owns all reads on that socket) and must never Dispose() it.
+		private bool isServerChild;
+		private UTPSocket listenerParent;
+		private string childKey;
+
+		private bool isListening;
+		private readonly object childrenLock = new();
+		private readonly Dictionary<string, UTPSocket> activeChildren = new();
+		private readonly Queue<UTPSocket> pendingAccepts = new();
+		private AsyncCallback waitingAcceptCallback;
+		private object waitingAcceptState;
+
+		// A child's single outstanding BeginReceive registration, completed by the listening
+		// parent's demux thread when a packet for this connection arrives (or immediately, from
+		// deliverableQueue, if one is already buffered).
+		private AsyncCallback waitingReceiveCallback;
+		private byte[] waitingReceiveBuffer;
+		private int waitingReceiveOffset;
+		private object waitingReceiveState;
 
 		#endregion
 
@@ -154,6 +201,25 @@ namespace bzTorrent.IO
 
 		}
 
+		// Used internally by the listening socket's demux loop to construct an accepted
+		// connection sharing its Socket. ConnectionIdLocal is derived so that this socket's
+		// ConnectionIdRemote (used for every non-SYN send) equals the SYN's ConnectionIdRecvd —
+		// the value the initiator is listening for its ST_STATE reply on.
+		private UTPSocket(Socket sharedSocket, IPEndPoint remote, UTPPacketHeader synHeader, UTPSocket parent) :
+			base(sharedSocket)
+		{
+			isServerChild = true;
+			listenerParent = parent;
+			endPoint = remote;
+			childKey = remote.ToString();
+			ConnectionIdLocal = (ushort)(synHeader.ConnectionIdRecvd - 1);
+			AckNumber = synHeader.SeqNumberRecvd;
+			isConnected = true;
+			isFullyConnected = true;
+
+			retransmitTimer = new Timer(_ => RetransmitTick(), null, RetransmitPollIntervalMs, RetransmitPollIntervalMs);
+		}
+
 		public override void Connect(EndPoint remoteEP)
 		{
 			isConnected = true;
@@ -172,19 +238,27 @@ namespace bzTorrent.IO
 			isConnected = false;
 			retransmitTimer?.Dispose();
 			retransmitTimer = null;
+			listenerParent?.RemoveChild(this);
 		}
 
 		public override void Dispose()
 		{
 			retransmitTimer?.Dispose();
 			retransmitTimer = null;
-			base.Dispose();
+			isListening = false;
+
+			// A child shares the listening socket's _socket — only the listener that actually
+			// owns it may dispose it, or every other accepted connection breaks too.
+			if (!isServerChild)
+			{
+				base.Dispose();
+			}
 		}
 
 		public override void Listen(int backlog)
 		{
-			_socket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.ReuseAddress, true);
-			_socket.Bind(endPoint);
+			isListening = true;
+			BeginDemuxReceive();
 		}
 
 		public override int Send(byte[] buffer)
@@ -212,14 +286,17 @@ namespace bzTorrent.IO
 
 		public override ISocket Accept()
 		{
-			try
+			using var completed = new ManualResetEventSlim(false);
+			UTPSocket accepted = null;
+
+			BeginAccept(ar =>
 			{
-				return new UTPSocket(_socket.Accept());
-			}
-			catch (Exception)
-			{
-				return null;
-			}
+				accepted = (UTPSocket)EndAccept(ar);
+				completed.Set();
+			}, null);
+
+			completed.Wait();
+			return accepted;
 		}
 
 		private static uint TimestampMicro()
@@ -245,7 +322,17 @@ namespace bzTorrent.IO
 			return _socket.SendTo(header.Cat(sendData), SocketFlags.None, endPoint);
 		}
 
-		private int SenduTPData(PacketType packetType, byte[] data, bool expectState = true)
+		// Does NOT arm a receive after sending. An earlier version did (to let a bare Connect()
+		// call alone observe the ST_STATE reply), but that self-armed receive competes with
+		// whatever the consumer's own receive loop (PeerWireConnection.Process(), or a direct
+		// Receive()/BeginReceive call) is doing — with multiple sends in quick succession (e.g.
+		// Connect() immediately followed by a Send()), several such receives can be outstanding
+		// at once, each racing to consume the next incoming datagram, and a reply meant for the
+		// consumer's own receive loop can be silently stolen by one of these no-op internal ones.
+		// The OS still buffers an incoming datagram even with no receive currently pending, so
+		// removing this doesn't lose anything — whichever BeginReceive call comes next (from
+		// anywhere) picks it up.
+		private int SenduTPData(PacketType packetType, byte[] data)
 		{
 			if (packetType != PacketType.STState)
 			{
@@ -264,20 +351,12 @@ namespace bzTorrent.IO
 				}
 			}
 
-			if (expectState)
-			{
-				var internalBuffer = new byte[1024];
-
-				BeginReceive(internalBuffer, 0, 1024, SocketFlags.None, (IAsyncResult ar) => {
-				}, this);
-
-			}
 			return sent;
 		}
 
 		private void SendAck()
 		{
-			SenduTPData(PacketType.STState, null, false);
+			SenduTPData(PacketType.STState, null);
 		}
 
 		#region Reliability (retransmission + reordering)
@@ -301,6 +380,7 @@ namespace bzTorrent.IO
 					// Peer is unreachable — give up on the connection rather than
 					// retransmitting forever.
 					isConnected = false;
+					listenerParent?.RemoveChild(this);
 					return;
 				}
 
@@ -319,17 +399,174 @@ namespace bzTorrent.IO
 
 		#endregion
 
-		public override ISocket EndAccept(IAsyncResult ar)
+		#region Passive open (Listen/Accept)
+
+		public override IAsyncResult BeginAccept(AsyncCallback callback, object state)
 		{
-			try
+			lock (stateLock)
 			{
-				return new UTPSocket(_socket.EndAccept(ar));
-			}
-			catch (Exception)
-			{
-				return null;
+				if (pendingAccepts.Count > 0)
+				{
+					var child = pendingAccepts.Dequeue();
+					var ar = new AcceptAsyncResult(state) { AcceptedSocket = child };
+					ThreadPool.QueueUserWorkItem(_ => callback?.Invoke(ar));
+					return ar;
+				}
+
+				waitingAcceptCallback = callback;
+				waitingAcceptState = state;
+				return new AcceptAsyncResult(state);
 			}
 		}
+
+		public override ISocket EndAccept(IAsyncResult ar)
+		{
+			return (ar as AcceptAsyncResult)?.AcceptedSocket;
+		}
+
+		private void RemoveChild(UTPSocket child)
+		{
+			lock (childrenLock)
+			{
+				activeChildren.Remove(child.childKey);
+			}
+		}
+
+		// Continuously reads datagrams on the listening socket and routes each one to the
+		// matching accepted connection (by remote endpoint), or — for an ST_SYN from an
+		// unrecognized endpoint — creates and completes a new accepted connection.
+		private void BeginDemuxReceive()
+		{
+			if (!isListening)
+			{
+				return;
+			}
+
+			var buffer = new byte[socketBufferSize];
+			EndPoint from = new IPEndPoint(
+				_socket.AddressFamily == AddressFamily.InterNetworkV6 ? IPAddress.IPv6Any : IPAddress.Any, 0);
+
+			try
+			{
+				_socket.BeginReceiveFrom(buffer, 0, buffer.Length, SocketFlags.None, ref from, ar =>
+				{
+					EndPoint remote = from;
+					int dataLength;
+					try
+					{
+						dataLength = _socket.EndReceiveFrom(ar, ref remote);
+					}
+					catch (ObjectDisposedException)
+					{
+						return;
+					}
+					catch (SocketException)
+					{
+						BeginDemuxReceive();
+						return;
+					}
+
+					var internalBuffer = new byte[dataLength];
+					Array.Copy(buffer, internalBuffer, dataLength);
+
+					DispatchIncoming(internalBuffer, dataLength, (IPEndPoint)remote);
+
+					BeginDemuxReceive();
+				}, null);
+			}
+			catch (ObjectDisposedException)
+			{
+			}
+		}
+
+		private void DispatchIncoming(byte[] internalBuffer, int dataLength, IPEndPoint remote)
+		{
+			if (dataLength < 20)
+			{
+				return;
+			}
+
+			var header = new UTPPacketHeader();
+			header.Parse(internalBuffer);
+
+			var key = remote.ToString();
+
+			UTPSocket child;
+			lock (childrenLock)
+			{
+				activeChildren.TryGetValue(key, out child);
+			}
+
+			if (child != null)
+			{
+				child.HandleIncomingPacket(internalBuffer, dataLength);
+				return;
+			}
+
+			if (header.PacketType != PacketType.STSyn)
+			{
+				return;
+			}
+
+			var accepted = new UTPSocket(_socket, remote, header, this);
+
+			lock (childrenLock)
+			{
+				activeChildren[key] = accepted;
+			}
+
+			// Completes the handshake: acks the SYN's sequence number, which the initiator uses
+			// to seed its own AckNumber baseline for our (the acceptor's) subsequent data.
+			accepted.SendAck();
+
+			AsyncCallback callback;
+			object state;
+			lock (stateLock)
+			{
+				if (waitingAcceptCallback == null)
+				{
+					pendingAccepts.Enqueue(accepted);
+					return;
+				}
+
+				callback = waitingAcceptCallback;
+				state = waitingAcceptState;
+				waitingAcceptCallback = null;
+			}
+
+			var ar = new AcceptAsyncResult(state) { AcceptedSocket = accepted };
+			callback?.Invoke(ar);
+		}
+
+		// Called by the listening parent's demux thread (never by this instance's own code) to
+		// feed this accepted connection a datagram addressed to it.
+		private void HandleIncomingPacket(byte[] internalBuffer, int dataLength)
+		{
+			var readyPayload = ProcessIncomingPacket(internalBuffer, dataLength) ?? Array.Empty<byte>();
+
+			AsyncCallback callback;
+			byte[] buffer;
+			int offset;
+			object state;
+			lock (stateLock)
+			{
+				if (waitingReceiveCallback == null)
+				{
+					deliverableQueue.Enqueue(readyPayload);
+					return;
+				}
+
+				callback = waitingReceiveCallback;
+				buffer = waitingReceiveBuffer;
+				offset = waitingReceiveOffset;
+				state = waitingReceiveState;
+				waitingReceiveCallback = null;
+			}
+
+			DeliverPayload(readyPayload, buffer, offset, callback, state);
+		}
+
+		#endregion
 
 		public override IAsyncResult BeginReceive(byte[] buffer, int offset, int size, SocketFlags socketFlags, AsyncCallback callback, object state)
 		{
@@ -351,96 +588,144 @@ namespace bzTorrent.IO
 				return new CompletedAsyncResult(state);
 			}
 
+			if (isServerChild)
+			{
+				// This connection doesn't own a receive loop — the listening parent's demux
+				// thread delivers datagrams via HandleIncomingPacket. Register to be completed
+				// then, rather than touching the (shared, parent-owned) socket ourselves.
+				lock (stateLock)
+				{
+					waitingReceiveCallback = callback;
+					waitingReceiveBuffer = buffer;
+					waitingReceiveOffset = offset;
+					waitingReceiveState = state;
+				}
+				return new CompletedAsyncResult(state);
+			}
+
 			return _socket.BeginReceiveFrom(buffer, offset, size, socketFlags, ref endPoint, (IAsyncResult ar) => {
-				var dataLength = EndReceiveInternal(ar);
+				int dataLength;
+				try
+				{
+					dataLength = EndReceiveInternal(ar);
+				}
+				catch (ObjectDisposedException)
+				{
+					// The socket was disposed while this receive was outstanding (e.g. the
+					// caller tore down the connection) — nothing left to deliver to.
+					return;
+				}
+				catch (SocketException)
+				{
+					// A pending receive is cancelled (e.g. ECANCELED/OperationAborted) when the
+					// underlying socket is disposed out from under it. Same as above: the
+					// connection is going away, there's nothing to deliver.
+					return;
+				}
 
 				var internalBuffer = new byte[dataLength];
 				Array.Copy(buffer, internalBuffer, dataLength);
 
-				var timestampRecvd = TimestampMicro();
+				var readyPayload = ProcessIncomingPacket(internalBuffer, dataLength);
 
-				if (dataLength < 20)
+				DeliverPayload(readyPayload ?? Array.Empty<byte>(), buffer, offset, callback, state);
+			}, state);
+		}
+
+		// Header parse, ack/RTT bookkeeping, connection-state transitions and reorder-buffer
+		// handling for one received datagram. Shared by this socket's own receive callback (the
+		// initiating/client role) and HandleIncomingPacket (the accepted/server role) — the same
+		// logic applies to both, just driven from different places.
+		private byte[] ProcessIncomingPacket(byte[] internalBuffer, int dataLength)
+		{
+			if (dataLength < 20)
+			{
+				return null;
+			}
+
+			var timestampRecvd = TimestampMicro();
+
+			var currentPacketHeader = new UTPPacketHeader();
+			currentPacketHeader.Parse(internalBuffer);
+
+			LastTimestampReceived = currentPacketHeader.TimestampRecvd;
+			LastTimestampReceivedDiff = LastTimestampReceived - timestampRecvd;
+
+			congestionControl.OnDelaySample(currentPacketHeader.TimestampDiffRecvd);
+
+			uint bytesAcked;
+			lock (stateLock)
+			{
+				bytesAcked = retransmissionTracker.OnAck(currentPacketHeader.AckNumberRecvd, DateTime.UtcNow);
+			}
+			congestionControl.OnAck(bytesAcked, timestampRecvd);
+
+			byte[] readyPayload = null;
+
+			if (isFullyConnected == false)
+			{
+				//syn sent but not received status yet
+				if (currentPacketHeader.PacketType == PacketType.STState && currentPacketHeader.ConnectionIdRecvd == ConnectionIdLocal)
 				{
-					DeliverPayload(Array.Empty<byte>(), buffer, offset, callback, state);
-					return;
+					isFullyConnected = true;
+					// The acceptor's ST_STATE reply carries its own (unincremented) current
+					// seq_nr; its first real ST_DATA send increments from there. So our "next
+					// expected" baseline is exactly that seq_nr, not seq_nr-1 — matches how an
+					// accepted connection seeds AckNumber from the SYN's seq_nr (see the private
+					// accept constructor above).
+					AckNumber = currentPacketHeader.SeqNumberRecvd;
 				}
-
-				var currentPacketHeader = new UTPPacketHeader();
-				currentPacketHeader.Parse(internalBuffer);
-
-				LastTimestampReceived = currentPacketHeader.TimestampRecvd;
-				LastTimestampReceivedDiff = LastTimestampReceived - timestampRecvd;
-
-				congestionControl.OnDelaySample(currentPacketHeader.TimestampDiffRecvd);
-
-				uint bytesAcked;
-				lock (stateLock)
+			}
+			else
+			{
+				if (currentPacketHeader.PacketType == PacketType.STData)
 				{
-					bytesAcked = retransmissionTracker.OnAck(currentPacketHeader.AckNumberRecvd, DateTime.UtcNow);
-				}
-				congestionControl.OnAck(bytesAcked, timestampRecvd);
+					var payload = internalBuffer.GetBytes(20, dataLength - 20);
 
-				byte[] readyPayload = null;
-
-				if (isFullyConnected == false)
-				{
-					//syn sent but not received status yet
-					if (currentPacketHeader.PacketType == PacketType.STState && currentPacketHeader.ConnectionIdRecvd == ConnectionIdLocal)
+					UTPReorderBuffer.Result result;
+					lock (stateLock)
 					{
-						isFullyConnected = true;
-						AckNumber = (ushort)(currentPacketHeader.SeqNumberRecvd - 1);
+						result = reorderBuffer.Accept(currentPacketHeader.SeqNumberRecvd, AckNumber, payload);
+					}
+
+					AckNumber = result.AckNumber;
+
+					// result.DeliverablePayloads is the packet just received (if it filled
+					// the next expected sequence) plus any previously-buffered packets a
+					// filled gap makes deliverable too, in order. Duplicate/old packets and
+					// packets still ahead of an outstanding gap yield no deliverable payloads
+					// here — the peer's RTO/backoff will resend the missing packet.
+					if (result.DeliverablePayloads.Count > 0)
+					{
+						readyPayload = result.DeliverablePayloads[0];
+						lock (stateLock)
+						{
+							for (var i = 1; i < result.DeliverablePayloads.Count; i++)
+							{
+								deliverableQueue.Enqueue(result.DeliverablePayloads[i]);
+							}
+						}
 					}
 				}
 				else
 				{
-					if (currentPacketHeader.PacketType == PacketType.STData)
-					{
-						var payload = internalBuffer.GetBytes(20, dataLength - 20);
-
-						UTPReorderBuffer.Result result;
-						lock (stateLock)
-						{
-							result = reorderBuffer.Accept(currentPacketHeader.SeqNumberRecvd, AckNumber, payload);
-						}
-
-						AckNumber = result.AckNumber;
-
-						// result.DeliverablePayloads is the packet just received (if it filled
-						// the next expected sequence) plus any previously-buffered packets a
-						// filled gap makes deliverable too, in order. Duplicate/old packets and
-						// packets still ahead of an outstanding gap yield no deliverable payloads
-						// here — the peer's RTO/backoff will resend the missing packet.
-						if (result.DeliverablePayloads.Count > 0)
-						{
-							readyPayload = result.DeliverablePayloads[0];
-							lock (stateLock)
-							{
-								for (var i = 1; i < result.DeliverablePayloads.Count; i++)
-								{
-									deliverableQueue.Enqueue(result.DeliverablePayloads[i]);
-								}
-							}
-						}
-					}
-					else
-					{
-						AckNumber = currentPacketHeader.SeqNumberRecvd;
-					}
-
-					if (currentPacketHeader.PacketType == PacketType.STFin)
-					{
-						isConnected = false;
-						return;
-					}
-
-					if (currentPacketHeader.PacketType != PacketType.STState)
-					{
-						SendAck();
-					}
+					AckNumber = currentPacketHeader.SeqNumberRecvd;
 				}
 
-				DeliverPayload(readyPayload ?? Array.Empty<byte>(), buffer, offset, callback, state);
-			}, state);
+				if (currentPacketHeader.PacketType == PacketType.STFin)
+				{
+					isConnected = false;
+					listenerParent?.RemoveChild(this);
+					return null;
+				}
+
+				if (currentPacketHeader.PacketType != PacketType.STState)
+				{
+					SendAck();
+				}
+			}
+
+			return readyPayload;
 		}
 
 		private void DeliverPayload(byte[] payload, byte[] buffer, int offset, AsyncCallback callback, object state)

@@ -4,3 +4,4 @@
 - [x] TASK-004: BEP-19 WebSeed — parse `url-list` in `Metadata`, add an `IWebSeedClient`/`HTTPWebSeedClient` that fetches byte ranges
 - [x] TASK-005: BEP-55 Holepunch extension protocol (`IBTExtension`, works with PEX)
 - [x] TASK-006: BEP-7 / BEP-32 IPv6 — IPv6 compact peer lists in `HTTPTrackerClient`/`UDPTrackerClient`, IPv6 DHT (`BEP-32`) support in `DHTClient`/`DHTNode`/`DHTRoutingTable`
+- [x] TASK-007: uTP passive-open — `Listen`/`Accept` for `UTPSocket` via a shared-socket demux loop keyed by remote endpoint
