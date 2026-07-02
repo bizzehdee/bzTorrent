@@ -59,5 +59,9 @@ namespace bzTorrent.Data
 		public bool Load(MagnetLink magnetLink);
 
 		public bool Load(Stream stream);
+
+		public void Save(Stream stream);
+
+		public void SaveToFile(string filename);
 	}
 }
