@@ -310,6 +310,25 @@ dhtPort.Port += (pwc, port) =>
 client.RegisterBTExtension(dhtPort);
 ```
 
+## WebSeeds (BEP-19)
+
+Fetch piece data over plain HTTP(S) from URLs the torrent publishes, instead of (or alongside) peers — useful when the swarm has few seeders:
+
+```csharp
+using bzTorrent;
+
+if (metadata.WebSeeds.Count > 0)
+{
+    IWebSeedClient webSeed = new HTTPWebSeedClient(timeoutSeconds: 10);
+
+    // Same (pieceIndex, offset, length) coordinates as PeerWireClient.SendRequest.
+    var block = webSeed.GetPieceBlock(metadata.WebSeeds.First(), metadata, pieceIndex, offset, length);
+    WritePieceData(pieceIndex, offset, block);
+}
+```
+
+`GetPieceBlock` maps the request onto whichever file(s) it spans and issues one ranged HTTP GET per file, per BEP-19: a single-file torrent's URL addresses the file directly, a multi-file torrent's URL is treated as a directory with the torrent name and file path appended.
+
 ## Writing piece data to files
 
 `MetadataFileInfo.FileStartByte` gives the byte offset of each file within the overall torrent data stream. Use this to map piece data to the correct file position:
@@ -356,7 +375,7 @@ listener.Start();
 
 | Namespace | Contents |
 |---|---|
-| `bzTorrent` | `PeerWireClient`, `PeerWireListener`, `LocalPeerDiscovery`, tracker clients |
+| `bzTorrent` | `PeerWireClient`, `PeerWireListener`, `LocalPeerDiscovery`, tracker clients, `IWebSeedClient`/`HTTPWebSeedClient` |
 | `bzTorrent.Data` | `Metadata`, `MagnetLink`, `MetadataFileInfo`, `MetadataPieceInfo` |
 | `bzTorrent.DHT` | `DHTClient`, `DHTNode`, `DHTRoutingTable` |
 | `bzTorrent.IO` | `PeerWireConnection`, `TCPSocket`, `UDPSocket`, `UTPSocket` |
@@ -374,6 +393,7 @@ listener.Start();
 | BEP-11 | Peer exchange (PEX) |
 | BEP-14 | Local service discovery |
 | BEP-15 | UDP tracker protocol |
+| BEP-19 | WebSeed — HTTP/FTP seeding |
 | BEP-28 | Tracker exchange protocol |
 | —      | Message Stream Encryption / Protocol Encryption (MSE/PE) — not a formal BEP, but widely implemented |
 

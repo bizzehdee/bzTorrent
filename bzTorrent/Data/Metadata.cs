@@ -74,6 +74,10 @@ namespace bzTorrent.Data
 
 		public bool Private { get; private set; }
 
+		public ICollection<string> WebSeeds { get; private set; } = new Collection<string>();
+
+		public bool IsMultiFile { get; private set; }
+
 		public Metadata()
 		{
 
@@ -179,6 +183,23 @@ namespace bzTorrent.Data
 				CreationDate = new DateTime(1970, 1, 1).AddSeconds(ts);
 			}
 
+			if (dictRoot.ContainsKey("url-list"))
+			{
+				WebSeeds = new Collection<string>();
+				var urlList = dictRoot["url-list"];
+				if (urlList is BString single)
+				{
+					WebSeeds.Add(single);
+				}
+				else if (urlList is BList list)
+				{
+					foreach (var entry in list)
+					{
+						WebSeeds.Add((BString)entry);
+					}
+				}
+			}
+
 			if (dictRoot.ContainsKey("info"))
 			{
 				Load((BDict)dictRoot["info"]);
@@ -200,6 +221,8 @@ namespace bzTorrent.Data
 			files.Clear();
 			PieceHashes = new Collection<byte[]>();
 			Pieces = new Collection<MetadataPieceInfo>();
+
+			IsMultiFile = infoDict.ContainsKey("files");
 
 			if (infoDict.ContainsKey("files"))
 			{

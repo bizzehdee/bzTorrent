@@ -53,6 +53,10 @@ namespace bzTorrent.Data
 
 		public bool Private { get; }
 
+		public ICollection<string> WebSeeds { get; }
+
+		public bool IsMultiFile { get; }
+
 		public IReadOnlyCollection<string> GetFiles();
 		public IReadOnlyCollection<MetadataFileInfo> GetFileInfos();
 
