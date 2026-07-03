@@ -194,13 +194,8 @@ namespace bzTorrent
 			}
 		}
 
-		public AnnounceInfo Announce(string url, string hash, string peerId)
-		{
-			return Announce(url, hash, peerId, 0, 0, 0, 2, 0, -1, 12345, 0);
-		}
-
-		public AnnounceInfo Announce(string url, string hash, string peerId, long bytesDownloaded, 
-			long bytesLeft, long bytesUploaded, int eventTypeFilter, int ipAddress, int numWant, 
+		public override AnnounceInfo Announce(string url, string hash, string peerId, long bytesDownloaded,
+			long bytesLeft, long bytesUploaded, int eventTypeFilter, int ipAddress, int numWant,
 			int listenPort, int extensions)
 		{
 			ValidateInput(url, new[] { hash }, ScraperType.UDP);
@@ -252,10 +247,12 @@ namespace bzTorrent
 			}
 		}
 
-		public IDictionary<string, AnnounceInfo> Announce(string url, string[] hashes, string peerId)
+		// UDP validates the whole hash set up front (the 74-hash limit), then defers to the
+		// shared fan-out.
+		public override IDictionary<string, AnnounceInfo> Announce(string url, string[] hashes, string peerId)
 		{
 			ValidateInput(url, hashes, ScraperType.UDP);
-			return hashes.ToDictionary(hash => hash, hash => Announce(url, hash, peerId));
+			return base.Announce(url, hashes, peerId);
 		}
 	}
 }

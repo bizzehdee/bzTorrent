@@ -191,18 +191,8 @@ namespace bzTorrent
 			return result;
 		}
 
-		public IDictionary<string, AnnounceInfo> Announce(string url, string[] hashes, string peerId)
-		{
-			return hashes.ToDictionary(hash => hash, hash => Announce(url, hash, peerId));
-		}
-
-		public AnnounceInfo Announce(string url, string hash, string peerId)
-		{
-			return Announce(url, hash, peerId, 0, 0, 0, 2, 0, -1, 12345, 0);
-		}
-
-		public AnnounceInfo Announce(string url, string hash, string peerId, long bytesDownloaded, 
-			long bytesLeft, long bytesUploaded, int eventTypeFilter, int ipAddress, int numWant, 
+		public override AnnounceInfo Announce(string url, string hash, string peerId, long bytesDownloaded,
+			long bytesLeft, long bytesUploaded, int eventTypeFilter, int ipAddress, int numWant,
 			int listenPort, int extensions)
 		{
 			var announceUrl = BuildAnnounceUrl(url, hash, peerId, bytesDownloaded, bytesLeft, 

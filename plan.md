@@ -552,7 +552,30 @@ The library has **two competing dispatch designs**: the clean table-driven
 
 ---
 
-## Phase 9 — Tracker layer (SRP / OCP / DIP / DRY)
+## Phase 9 — Tracker layer (SRP / OCP / DIP / DRY) — ◑ PARTIAL
+
+**Status — done:**
+- Moved the duplicated convenience `Announce(url, hash, peerId)` overload (with
+  the magic `0,0,0,2,0,-1,12345,0` defaults, now named constants) and the
+  multi-hash `Announce(url, string[], peerId)` fan-out into `BaseScraper`. Both
+  were copy-pasted in `HTTPTrackerClient` and `UDPTrackerClient`; the full 11-arg
+  `Announce` is now `abstract` on `BaseScraper` and `override` in each client.
+  `UDPTrackerClient` keeps a thin multi-hash override (it validates the whole hash
+  set up front, then calls `base`). Signatures preserved → non-breaking.
+  (Compact-peer parsing was already de-duplicated in Phase 0.)
+
+**Status — deferred, by decision:**
+- **Promote `AnnounceInfo`/`ScrapeInfo` to top-level types** (the DIP-inversion
+  fix): source-breaking — they're referenced as `BaseScraper.AnnounceInfo` by
+  `ITrackerClient` and by the Demo (`Demo/Program.cs:153`). Major-version change.
+- **Narrow the 11-parameter `Announce` to an options object** (ISP/LSP — HTTP
+  ignores several params): source-breaking public-API change. Deferred with the
+  DTO promotion.
+- **`BaseScraper` SRP split** (regex validation / URL-encoding helpers / DTOs into
+  separate types) and **transport DIP** (`new UdpClient`, `WebRequest.Create`):
+  moderate churn touching the public base type / concrete transports; deferred.
+- The fragile `url.Replace("scrape","announce")` endpoint rewriting is noted but
+  left (behavioural change risk for marginal gain).
 
 - **Move shared logic into `BaseScraper`** (or dedicated collaborators):
   - Identical default `Announce` overload with the magic arg list
