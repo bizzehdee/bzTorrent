@@ -260,7 +260,7 @@ namespace Demo
                     if (downloadMetadata.PieceHashes.Count > 0) return;
 
                     Console.WriteLine($"Metadata received from {peer}, loading...");
-                    downloadMetadata.Load(infoDict);
+                    downloadMetadata.LoadInfoDictionary(infoDict);
                     Console.WriteLine($"Name: {downloadMetadata.Name}");
                     Console.WriteLine($"Pieces: {downloadMetadata.PieceHashes.Count} x {downloadMetadata.PieceSize / 1024} kb");
                     PreAllocateFiles();

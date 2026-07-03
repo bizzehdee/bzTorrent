@@ -200,13 +200,13 @@ namespace bzTorrent.Data
 
 			if (dictRoot.ContainsKey("info"))
 			{
-				Load((BDict)dictRoot["info"]);
+				LoadInfoDictionary((BDict)dictRoot["info"]);
 			}
 
 			return true;
 		}
 
-		public bool Load(BDict infoDict)
+		public bool LoadInfoDictionary(BDict infoDict)
 		{
 			if (infoDict == null) return false;
 

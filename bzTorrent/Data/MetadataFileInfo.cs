@@ -35,7 +35,8 @@ namespace bzTorrent.Data
 		// A multi-file torrent's per-file "path" component list is joined into Filename with this
 		// separator; consumers that need the components back (e.g. WebSeed URL building) split on
 		// it. Defined once here so the join (Metadata) and split (HTTPWebSeedClient) can't drift.
-		public const char PathSeparator = '\\';
+		// Forward slash: portable (BitTorrent/URL convention), unlike the old Windows-only '\\'.
+		public const char PathSeparator = '/';
 
 		public long Id { get; set; }
 		public string Filename { get; set; }
