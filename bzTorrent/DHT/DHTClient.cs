@@ -7,6 +7,7 @@ using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using bzBencode;
+using bzTorrent.Data;
 using bzTorrent.Helpers;
 
 namespace bzTorrent.DHT
@@ -200,23 +201,21 @@ namespace bzTorrent.DHT
             try
             {
                 var response = await GetPeersQueryAsync(node.EndPoint, infoHash);
-                if (response == null || !response.TryGetValue("r", out var rv))
+                if (response == null || !response.TryGetDict("r", out var r))
                     return discovered;
 
-                var r = (BDict)rv;
+                if (r.TryGetBytes("id", out var nodeId))
+                    _routingTable.AddOrUpdate(new DHTNode(nodeId, node.EndPoint));
 
-                if (r.TryGetValue("id", out var idVal))
-                    _routingTable.AddOrUpdate(new DHTNode(((BString)idVal).ByteValue, node.EndPoint));
-
-                if (r.TryGetValue("values", out var valuesVal))
+                if (r.TryGetList("values", out var values))
                 {
-                    foreach (var peer in ParseCompactPeers((BList)valuesVal))
+                    foreach (var peer in ParseCompactPeers(values))
                         PeerFound?.Invoke(peer);
                 }
 
-                if (r.TryGetValue("values6", out var values6Val))
+                if (r.TryGetList("values6", out var values6))
                 {
-                    foreach (var peer in ParseCompactPeers6((BList)values6Val))
+                    foreach (var peer in ParseCompactPeers6(values6))
                         PeerFound?.Invoke(peer);
                 }
 
@@ -238,16 +237,16 @@ namespace bzTorrent.DHT
                     { "want", WantBoth() }
                 });
                 var response = await SendQueryAsync(endpoint, query, txKey);
-                if (response == null || !response.TryGetValue("r", out var rv) || !(rv is BDict r))
+                if (response == null || !response.TryGetDict("r", out var r))
                 {
                     return;
                 }
 
                 // Record the responder itself so bootstrap endpoints seed the routing table
                 // even when they return no (or few) additional nodes.
-                if (r.TryGetValue("id", out var idVal) && idVal is BString idStr)
+                if (r.TryGetBytes("id", out var responderId))
                 {
-                    _routingTable.AddOrUpdate(new DHTNode(idStr.ByteValue, endpoint));
+                    _routingTable.AddOrUpdate(new DHTNode(responderId, endpoint));
                 }
 
                 IngestNodes(r);
@@ -338,15 +337,13 @@ namespace bzTorrent.DHT
             try
             {
                 if (!(BencodingUtils.Decode(data) is BDict message)) return;
-                if (!message.TryGetValue("y", out var yVal)) return;
-
-                var y = ((BString)yVal).Value;
+                if (!message.TryGetString("y", out var y)) return;
 
                 if (y == "r" || y == "e")
                 {
-                    if (message.TryGetValue("t", out var tVal))
+                    if (message.TryGetBytes("t", out var txId))
                     {
-                        _transactions.Complete(((BString)tVal).ByteValue, message);
+                        _transactions.Complete(txId, message);
                     }
                 }
                 else if (y == "q")
@@ -359,16 +356,12 @@ namespace bzTorrent.DHT
 
         private void HandleQuery(IPEndPoint from, BDict message)
         {
-            if (!message.TryGetValue("q", out var qVal)) return;
-            if (!message.TryGetValue("t", out var tVal)) return;
-            if (!message.TryGetValue("a", out var aVal)) return;
+            if (!message.TryGetString("q", out var q)) return;
+            if (!message.TryGetBytes("t", out var txId)) return;
+            if (!message.TryGetDict("a", out var a)) return;
 
-            var q = ((BString)qVal).Value;
-            var txId = ((BString)tVal).ByteValue;
-            var a = (BDict)aVal;
-
-            if (a.TryGetValue("id", out var idVal))
-                _routingTable.AddOrUpdate(new DHTNode(((BString)idVal).ByteValue, from));
+            if (a.TryGetBytes("id", out var queryNodeId))
+                _routingTable.AddOrUpdate(new DHTNode(queryNodeId, from));
 
             BDict responseArgs;
             switch (q)
@@ -378,21 +371,21 @@ namespace bzTorrent.DHT
                     break;
 
                 case "find_node":
-                    if (!a.TryGetValue("target", out var targetVal)) return;
+                    if (!a.TryGetBytes("target", out var target)) return;
                     responseArgs = AddCompactNodes(
                         new BDict { { "id", new BString { ByteValue = _nodeId } } },
-                        _routingTable.GetClosest(((BString)targetVal).ByteValue, K));
+                        _routingTable.GetClosest(target, K));
                     break;
 
                 case "get_peers":
-                    if (!a.TryGetValue("info_hash", out var hashVal)) return;
+                    if (!a.TryGetBytes("info_hash", out var infoHash)) return;
                     responseArgs = AddCompactNodes(
                         new BDict
                         {
                             { "id", new BString { ByteValue = _nodeId } },
                             { "token", new BString { ByteValue = from.Address.GetAddressBytes() } }
                         },
-                        _routingTable.GetClosest(((BString)hashVal).ByteValue, K));
+                        _routingTable.GetClosest(infoHash, K));
                     break;
 
                 case "announce_peer":

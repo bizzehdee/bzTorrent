@@ -464,7 +464,34 @@ codec extraction (0.3):
 
 ---
 
-## Phase 8 — Unify the two dispatch models (extensions) (OCP / DIP / ISP)
+## Phase 8 — Unify the two dispatch models (extensions) (OCP / DIP / ISP) — ◑ PARTIAL
+
+**Status — done:**
+- Added the shared guarded bencode accessor `Data/BencodeExtensions.cs`
+  (`TryGetBytes`/`TryGetString`/`TryGetDict`/`TryGetList`) — the item deferred
+  from Phase 7. Applied across `DHTClient` (`HandlePacket`, `HandleQuery`,
+  `QueryNodeForPeersAsync`, `FindNodeAsync`), replacing ~14 `TryGetValue` +
+  unchecked-cast pairs with one guarded call each (well covered by the loopback
+  round-trip tests).
+- Collapsed `FastExtensions.ProcessSuggest`/`ProcessAllowFast` (byte-for-byte
+  identical apart from the event) into one `ProcessSingleIndex(payload, raise)`;
+  removed the now-redundant `OnSuggest`/`OnAllowFast`.
+
+**Status — deferred, by decision:**
+- **8.1 Unify the two dispatch models** (migrate `IProtocolExtension`/`IBTExtension`
+  onto `IMessageHandler`/`MessageDispatcher`) and **8.2 `IExtensionHost`**: both
+  are **source-breaking changes to the public extension API** (external code
+  implements `IProtocolExtension`/`IBTExtension`), with high churn across the
+  extension surface and comparatively thin test coverage (only `FastExtensions`
+  and `UTHolepunch` have tests). Same call as the other ISP/interface splits —
+  a deliberate major-version change, not a safe in-place refactor.
+- **Splitting `ExtendedProtocolExtensions`/`UTMetadata` and unifying `UTMetadata`'s
+  hand-rolled send**: deferred with the above (touches the same
+  lightly-tested extension internals).
+- Applying `BencodeExtensions` across the extensions (`UTPeerExchange`,
+  `UTMetadata`, `LTTrackerExchange`, `ExtendedProtocolExtensions`): left for when
+  those files are next touched — the helper now exists for incremental adoption;
+  applied only to the well-tested DHT paths for now to limit risk.
 
 The library has **two competing dispatch designs**: the clean table-driven
 `IMessageHandler`/`MessageDispatcher` and the legacy `switch`/`if`-based

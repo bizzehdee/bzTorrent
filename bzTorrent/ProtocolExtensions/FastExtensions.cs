@@ -74,7 +74,7 @@ namespace bzTorrent.ProtocolExtensions
 			switch (commandId)
 			{
 				case 13:
-					ProcessSuggest(client, payload);
+					ProcessSingleIndex(payload, index => SuggestPiece?.Invoke(client, index));
 					return true;
 				case 14:
 					OnHaveAll(client);
@@ -86,25 +86,20 @@ namespace bzTorrent.ProtocolExtensions
 					ProcessReject(client, payload);
 					return true;
 				case 17:
-					ProcessAllowFast(client, payload);
+					ProcessSingleIndex(payload, index => AllowedFast?.Invoke(client, index));
 					return true;
 				default:
 					return false;
 			}
 		}
 
-		private void ProcessSuggest(IPeerWireClient client, byte[] payload)
+		// Suggest Piece (13) and Allowed Fast (17) carry the same single 4-byte piece index and
+		// differ only in which event fires; one parser, caller supplies the event.
+		private static void ProcessSingleIndex(byte[] payload, Action<int> raise)
 		{
 			var index = UnpackHelper.Int32(payload, 0, Endianness.Big);
 
-			OnSuggest(client, index);
-		}
-
-		private void ProcessAllowFast(IPeerWireClient client, byte[] payload)
-		{
-			var index = UnpackHelper.Int32(payload, 0, Endianness.Big);
-
-			OnAllowFast(client, index);
+			raise(index);
 		}
 
 		private void ProcessReject(IPeerWireClient client, byte[] payload)
@@ -114,11 +109,6 @@ namespace bzTorrent.ProtocolExtensions
 			var length = UnpackHelper.Int32(payload, 8, Endianness.Big);
 
 			OnReject(client, index, begin, length);
-		}
-
-		private void OnSuggest(IPeerWireClient client, int pieceIndex)
-		{
-			SuggestPiece?.Invoke(client, pieceIndex);
 		}
 
 		private void OnHaveAll(IPeerWireClient client)
@@ -134,11 +124,6 @@ namespace bzTorrent.ProtocolExtensions
 		private void OnReject(IPeerWireClient client, int index, int begin, int length)
 		{
 			Reject?.Invoke(client, index, begin, length);
-		}
-
-		private void OnAllowFast(IPeerWireClient client, int pieceIndex)
-		{
-			AllowedFast?.Invoke(client, pieceIndex);
 		}
 	}
 }
