@@ -206,7 +206,35 @@ type split lands.
 
 ---
 
-## Phase 3 — Socket abstraction hygiene (ISP / LSP)
+## Phase 3 — Socket abstraction hygiene (ISP / LSP) — ◑ PARTIAL
+
+**Status:**
+- ✅ **3.0 LSP + Accept/EndAccept DRY** (commit): `BaseSocket.Accept`/`EndAccept`
+  were `abstract`, forcing the datagram `UDPSocket` to implement passive-open by
+  calling `_socket.Accept()` on a UDP socket and swallowing the throw as null.
+  They're now `virtual`, throwing `NotSupportedException` by default; `UDPSocket`
+  drops its bogus overrides (which also removes the TCP/UDP `Accept` duplication).
+- ✅ **UTPSocket role split** (was the deferred Phase 2 headline): the 758-line
+  god class is split into `UTPConnection` (data socket) and `UTPListener` (passive
+  open), with `PacketType` promoted to top-level `UTPPacketType`. `UTPSocket.cs`
+  deleted. Validated against the real two-instance loopback e2e tests.
+- ❌ **3.1 ISocket interface-segregation + 3.2 socket factory — NOT done, by
+  decision.** Having read the whole socket layer: `MessageStreamEncryption` takes
+  `ISocket` in six signatures, and `PeerWireConnection<T : ISocket, new()>` /
+  `LocalPeerDiscovery<T>` are deeply coupled to the fat interface (they use
+  cross-cutting subsets — connect+listen, datagram+connect+options — that don't
+  map onto clean single interfaces). Segregating would be a wide, high-risk
+  rewrite of the generic socket-consumption model for mostly-structural gain, and
+  the concrete LSP defect it targeted is already fixed by 3.0. The `new T()`
+  blocker that motivated a factory turned out not to bite: the UTP split works
+  because `UTPConnection`/`UTPListener` are distinct types used in their
+  respective roles, and nothing drives UTP through `PeerWireConnection`'s listener
+  path. Revisit only if a future feature needs the narrow interfaces.
+- **3.2 (original) "remove SetSocketOption from the interface" is infeasible** as
+  written: `LocalPeerDiscovery` actively uses all three overloads (ReuseAddress,
+  MulticastTimeToLive, AddMembership). Left in place.
+
+### Original 3.1–3.4 detail (for reference)
 
 - **Split the fat `ISocket` interface** (`IO/ISocket.cs:37-70`) into capability
   interfaces: `IConnectableSocket` (Connect/Send/Receive/Begin/EndReceive),
