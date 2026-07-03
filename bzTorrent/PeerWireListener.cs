@@ -39,7 +39,8 @@ namespace bzTorrent
 	{
 
 		private readonly T peerConnection;
-		private IAsyncResult asyncResult = null;
+		private readonly Func<ISocket, IPeerConnection> connectionFactory;
+		private volatile bool stopped;
 
 		public delegate void NewPeerDelegate(IPeerWireClient peerWireClient);
 
@@ -54,44 +55,62 @@ namespace bzTorrent
 		}
 		public PeerEncryptionOptions EncryptionOptions => peerConnection.EncryptionOptions;
 
-		public PeerWireListener()
+		public PeerWireListener() : this(0, null)
 		{
-			peerConnection = new T();
 		}
 
-		public PeerWireListener(int port)
+		public PeerWireListener(int port) : this(port, null)
+		{
+		}
+
+		/// <summary>
+		/// <paramref name="connectionFactory"/> wraps each accepted socket in a connection.
+		/// Pass one (e.g. <c>s =&gt; new PeerWireConnection&lt;TCPSocket&gt;(s)</c>) to avoid the
+		/// reflection-based default.
+		/// </summary>
+		public PeerWireListener(int port, Func<ISocket, IPeerConnection> connectionFactory)
 		{
 			Port = port;
 			peerConnection = new T();
+			this.connectionFactory = connectionFactory ?? DefaultConnectionFactory;
 		}
 
-		public void StartListening()
+		// Wraps an accepted socket in T via its (ISocket) constructor. Prefer an explicit factory.
+		private static IPeerConnection DefaultConnectionFactory(ISocket socket)
 		{
-			peerConnection.Listen(new IPEndPoint(IPAddress.Any, Port));
-			asyncResult = peerConnection.BeginAccept(Callback);
-		}
-
-
-		public void StopListening()
-		{
-			if (asyncResult != null)
-			{
-				peerConnection.EndAccept(asyncResult);
-			}
-		}
-
-		private void Callback(IAsyncResult ar)
-		{
-			var socket = peerConnection.EndAccept(ar);
-
 			var constructorInfo = typeof(T).GetConstructor(new[] { typeof(ISocket) });
 			if (constructorInfo == null)
 			{
 				throw new InvalidOperationException(
-					$"{typeof(T).Name} must expose a public constructor taking a single ISocket for PeerWireListener to wrap accepted connections.");
+					$"{typeof(T).Name} has no public (ISocket) constructor; pass a connectionFactory to PeerWireListener instead.");
 			}
 
-			var connection = (IPeerConnection)constructorInfo.Invoke(new object[] { socket });
+			return (IPeerConnection)constructorInfo.Invoke(new object[] { socket });
+		}
+
+		public void StartListening()
+		{
+			stopped = false;
+			peerConnection.Listen(new IPEndPoint(IPAddress.Any, Port));
+			peerConnection.BeginAccept(Callback);
+		}
+
+		public void StopListening()
+		{
+			// Stop surfacing new peers: the accept loop below stops re-arming. (The old code
+			// called EndAccept on the pending accept, which completes -- not stops -- it.)
+			stopped = true;
+		}
+
+		private void Callback(IAsyncResult ar)
+		{
+			if (stopped)
+			{
+				return;
+			}
+
+			var socket = peerConnection.EndAccept(ar);
+			var connection = connectionFactory(socket);
 
 			connection.EncryptionMode = peerConnection.EncryptionMode;
 			foreach (var infoHash in peerConnection.EncryptionOptions.GetKnownInfoHashes())
@@ -103,7 +122,10 @@ namespace bzTorrent
 
 			NewPeer?.Invoke(new PeerWireClient(connection));
 
-			peerConnection.BeginAccept(Callback);
+			if (!stopped)
+			{
+				peerConnection.BeginAccept(Callback);
+			}
 		}
 
 	}
