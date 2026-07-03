@@ -1,5 +1,31 @@
 # bzTorrent Maintainability Plan — SOLID & DRY Refactor
 
+> **Status:** Phases 0–11 landed on `master` (behaviour-preserving). The breaking
+> changes those phases deferred were then completed on `refactor/solid-dry-4.0`
+> (version bumped to 4.0.0) as items **D1–D12** — all committed, build clean, 187
+> tests green. Summary of the 4.0 breaking work:
+> - D1 removed `PeerMessageBuilder.IDisposable`.
+> - D2 `IHashProvider.Hash`: `byte[]` → `InfoHash` value type.
+> - D3 promoted `AnnounceInfo`/`ScrapeInfo` to top-level types (`FromHttp`/`FromUdp`).
+> - D4 replaced the 11-param `Announce` with an `AnnounceRequest` options object.
+> - D5 extracted `TrackerUrlEncoder` from `BaseScraper`.
+> - D6 renamed `Metadata.Load(BDict)` → `LoadInfoDictionary`; portable `/` path separator.
+> - D7 segregated `IPeerWireClient` → control/sender/events (composite).
+> - D8 made `ProcessCommand` fully table-driven.
+> - D9 segregated `ISocket` → connectable/datagram/listener (MSE narrowed to `IConnectableSocket`).
+> - D10 introduced `IExtensionHost` (DIP) for `IBTExtension.Init`.
+> - D11 extracted `DHTQueryResponder` (DHT server role).
+> - D12 gave `PeerWireListener` an injectable factory + fixed `StopListening`.
+>
+> A few sub-parts were deliberately *not* done, with rationale in the commit
+> messages: the socket-factory rewrite of `PeerWireConnection<T>` (Phase 3 showed
+> it's high-risk for no functional gain), the delegate→`EventArgs` consolidation
+> (25+ subscriber rewrites for style), fully merging the two extension-dispatch
+> models (they serve different layers), the tracker transport DIP (no clean shared
+> abstraction / no fake consumer), a separate Metadata parser type (the disk-builder
+> was already extracted), and the DHT transport/PeerSearch extraction (async
+> receive-loop restructure, loopback-only coverage).
+
 This document catalogs concrete SOLID and DRY violations in the core `bzTorrent`
 library and lays out a prioritized, incremental plan to fix them. Line references
 are anchors at time of writing and may drift as work proceeds.
