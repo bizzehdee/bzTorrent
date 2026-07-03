@@ -147,12 +147,39 @@ left for Phase 11 as noted there.
 
 ---
 
-## Phase 2 — The UTPSocket god class (biggest structural problem)
+## Phase 2 — The UTPSocket god class (biggest structural problem) — ◑ PARTIAL
 
 `IO/UTPSocket.cs` (793 lines) fuses at least six responsibilities and switches
 between two fundamentally different object roles (listener vs. data socket, and
 parent vs. accepted-child) via mutable boolean flags `isServerChild` /
 `isListening` (`:155,159`). This is the single worst SRP/LSP/OCP offender.
+
+**Status — done in this pass (safe, contract-preserving decomposition):**
+- Extracted `IO/UTPPacketCodec.cs`: the uTP header parse (was `UTPPacketHeader.Parse`)
+  and build (was inlined in `UTPSocket.SendPacket`) now live in one codec;
+  `UTPPacketHeader` is a plain data holder. Removes the wire-format responsibility
+  from the socket and is unit-tested (`UTPPacketCodecTests`, 6 cases).
+- Removed the dead `static readonly byte[] socketBuffer` (latent cross-instance
+  shared state; it was never read).
+- Replaced the `20` header-size literals with `UTPPacketCodec.HeaderSize`.
+- Validated end-to-end: the real two-`UTPSocket` loopback tests
+  (`UTPSocketPassiveOpenTests`, `UTPSocketReceiveTests`) still pass.
+
+**Status — deferred to Phase 3 (the role-type split is coupled to the ISocket
+rework):** The headline split of listener / data-socket / accepted-child into
+distinct types cannot be done in isolation. `PeerWireConnection<T> where T :
+ISocket, new()` uses a *single* `T` for `Connect` (client), `Listen`/`Accept`
+(server), and re-wraps `socket.Accept()` as `new PeerWireConnection<T>(...)`
+(`PeerWireConnection.cs:111,140,147`), and the Demo instantiates it as
+`PeerWireConnection<UTPSocket>`. So `UTPSocket` must remain one type that serves
+all three roles until the `ISocket` fat interface is segregated and
+`PeerWireConnection`/`PeerWireListener` take a socket **factory** instead of
+`new T()` — exactly the Phase 3 work below. The type split is therefore folded
+into Phase 3. DIP-injecting the reliability collaborators
+(`UTPCongestionControl`/`UTPRetransmissionTracker`/`UTPReorderBuffer`) was judged
+low-value for now: they are concrete classes already covered by their own tests,
+so injecting them without extracting interfaces buys little; revisit if/when the
+type split lands.
 
 - **Split the roles into distinct types:**
   - `UTPListener` — the passive-open/demux path (`Listen:258`,

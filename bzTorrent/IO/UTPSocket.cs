@@ -38,30 +38,6 @@ using bzTorrent.Helpers;
 
 namespace bzTorrent.IO
 {
-	public class UTPPacketHeader
-	{
-		public byte Version { get; private set; }
-		public UTPSocket.PacketType PacketType { get; private set; }
-		public ushort ConnectionIdRecvd { get; private set; }
-		public uint TimestampRecvd { get; private set; }
-		public uint TimestampDiffRecvd { get; private set; }
-		public uint WndSizeRecvd { get; private set; }
-		public ushort SeqNumberRecvd { get; private set; }
-		public ushort AckNumberRecvd { get; private set; }
-
-		public void Parse(byte[] buffer)
-		{
-			Version = (byte)(buffer[0] & 0x0F);
-			PacketType = (UTPSocket.PacketType)((buffer[0] & 0xF0) >> 4);
-			ConnectionIdRecvd = UnpackHelper.UInt16(buffer, 2, Endianness.Big);
-			TimestampRecvd = UnpackHelper.UInt32(buffer, 4, Endianness.Big);
-			TimestampDiffRecvd = UnpackHelper.UInt32(buffer, 8, Endianness.Big);
-			WndSizeRecvd = UnpackHelper.UInt32(buffer, 12, Endianness.Big);
-			SeqNumberRecvd = UnpackHelper.UInt16(buffer, 16, Endianness.Big);
-			AckNumberRecvd = UnpackHelper.UInt16(buffer, 18, Endianness.Big);
-		}
-	}
-
 	/// <summary>
 	/// WARNING: experimental against real-world/foreign uTP implementations (wire-format
 	/// compatibility is unverified), but internally self-consistent and tested end-to-end:
@@ -111,7 +87,6 @@ namespace bzTorrent.IO
 
 		private readonly Random rng = new();
 		private const int socketBufferSize = 16 * 1024;
-		private static readonly byte[] socketBuffer = new byte[socketBufferSize];
 
 		private EndPoint endPoint;
 		private bool isConnected = false;
@@ -306,20 +281,12 @@ namespace bzTorrent.IO
 
 		private int SendPacket(PacketType packetType, byte[] data, ushort seq)
 		{
-			var sendData = data ?? Array.Empty<byte>();
-
 			var connectionId = packetType == PacketType.STSyn ? ConnectionIdLocal : ConnectionIdRemote;
-			var typeAndVersion = new byte[] { (byte)(((byte)packetType << 4) | 1) };
-			var extension = new byte[] { 0 };
-			var timestamp = TimestampMicro();
 
-			var header = typeAndVersion.Cat(extension).Cat(PackHelper.UInt16(connectionId))
-				.Cat(PackHelper.UInt32(timestamp))
-				.Cat(PackHelper.UInt32(LastTimestampReceivedDiff))
-				.Cat(PackHelper.UInt32(congestionControl.MaxWindow))
-				.Cat(PackHelper.UInt16(seq)).Cat(PackHelper.UInt16(AckNumber));
+			var packet = UTPPacketCodec.BuildPacket(packetType, connectionId, TimestampMicro(),
+				LastTimestampReceivedDiff, congestionControl.MaxWindow, seq, AckNumber, data);
 
-			return _socket.SendTo(header.Cat(sendData), SocketFlags.None, endPoint);
+			return _socket.SendTo(packet, SocketFlags.None, endPoint);
 		}
 
 		// Does NOT arm a receive after sending. An earlier version did (to let a bare Connect()
@@ -481,13 +448,12 @@ namespace bzTorrent.IO
 
 		private void DispatchIncoming(byte[] internalBuffer, int dataLength, IPEndPoint remote)
 		{
-			if (dataLength < 20)
+			if (dataLength < UTPPacketCodec.HeaderSize)
 			{
 				return;
 			}
 
-			var header = new UTPPacketHeader();
-			header.Parse(internalBuffer);
+			var header = UTPPacketCodec.Parse(internalBuffer);
 
 			var key = remote.ToString();
 
@@ -638,15 +604,14 @@ namespace bzTorrent.IO
 		// logic applies to both, just driven from different places.
 		private byte[] ProcessIncomingPacket(byte[] internalBuffer, int dataLength)
 		{
-			if (dataLength < 20)
+			if (dataLength < UTPPacketCodec.HeaderSize)
 			{
 				return null;
 			}
 
 			var timestampRecvd = TimestampMicro();
 
-			var currentPacketHeader = new UTPPacketHeader();
-			currentPacketHeader.Parse(internalBuffer);
+			var currentPacketHeader = UTPPacketCodec.Parse(internalBuffer);
 
 			LastTimestampReceived = currentPacketHeader.TimestampRecvd;
 			LastTimestampReceivedDiff = LastTimestampReceived - timestampRecvd;
@@ -680,7 +645,7 @@ namespace bzTorrent.IO
 			{
 				if (currentPacketHeader.PacketType == PacketType.STData)
 				{
-					var payload = internalBuffer.GetBytes(20, dataLength - 20);
+					var payload = internalBuffer.GetBytes(UTPPacketCodec.HeaderSize, dataLength - UTPPacketCodec.HeaderSize);
 
 					UTPReorderBuffer.Result result;
 					lock (stateLock)
