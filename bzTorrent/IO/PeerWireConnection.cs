@@ -32,7 +32,6 @@ using System.Collections.Generic;
 using System.Net.Sockets;
 using bzTorrent.Data;
 using bzTorrent.Helpers;
-using System.Text;
 using System;
 using System.Net;
 using System.Collections.Concurrent;
@@ -99,26 +98,35 @@ namespace bzTorrent.IO
 		public PeerWireConnection(ISocket _socket)
 		{
 			socket = _socket;
-			socket.ReceiveTimeout = Timeout * 1000;
-			socket.SendTimeout = Timeout * 1000;
+			ConfigureSocket(socket);
+		}
 
-			socket.NoDelay = true;
+		// Common socket setup applied wherever a socket is (re)created for this connection.
+		private void ConfigureSocket(ISocket target)
+		{
+			target.NoDelay = true;
+			target.ReceiveTimeout = Timeout * 1000;
+			target.SendTimeout = Timeout * 1000;
+		}
+
+		// Clears the MSE/PE negotiation state shared by connect/disconnect teardown.
+		private void ResetEncryptionState()
+		{
+			handshakeBuffer = Array.Empty<byte>();
+			sendCipher = null;
+			receiveCipher = null;
+			encryptionHandshakeCompleted = false;
+			encryptionNegotiated = false;
 		}
 
 		public void Connect(IPEndPoint endPoint)
 		{
 			_lastEndPoint = endPoint;
 			socket = new T();
-			socket.NoDelay = true;
-			socket.ReceiveTimeout = Timeout * 1000;
-			socket.SendTimeout = Timeout * 1000;
+			ConfigureSocket(socket);
 
 			incomingHandshake = null;
-			handshakeBuffer = Array.Empty<byte>();
-			sendCipher = null;
-			receiveCipher = null;
-			encryptionHandshakeCompleted = false;
-			encryptionNegotiated = false;
+			ResetEncryptionState();
 
 			socket.Connect(endPoint);
 		}
@@ -128,11 +136,7 @@ namespace bzTorrent.IO
 			socket.Disconnect(true);
 			socket = null;
 			receiving = false;
-			handshakeBuffer = Array.Empty<byte>();
-			sendCipher = null;
-			receiveCipher = null;
-			encryptionHandshakeCompleted = false;
-			encryptionNegotiated = false;
+			ResetEncryptionState();
 		}
 
 		public void Listen(EndPoint ep)
@@ -232,21 +236,14 @@ namespace bzTorrent.IO
 				}
 			}
 
-			var infoHashBytes = PackHelper.Hex(handshake.InfoHash);
-			var protocolHeaderBytes = Encoding.ASCII.GetBytes(handshake.ProtocolHeader);
-			var peerIdBytes = Encoding.ASCII.GetBytes(handshake.PeerId);
-
-			var sendBuf = (new byte[] { (byte)protocolHeaderBytes.Length }).Cat(protocolHeaderBytes).Cat(handshake.ReservedBytes).Cat(infoHashBytes).Cat(peerIdBytes);
-			socket.Send(EncodeOutgoing(sendBuf));
+			socket.Send(EncodeOutgoing(PeerHandshakeCodec.Build(handshake)));
 		}
 
 		private void ReconnectSocket()
 		{
 			try { socket.Disconnect(true); } catch { }
 			socket = new T();
-			socket.NoDelay = true;
-			socket.ReceiveTimeout = Timeout * 1000;
-			socket.SendTimeout = Timeout * 1000;
+			ConfigureSocket(socket);
 			socket.Connect(_lastEndPoint);
 		}
 
@@ -360,42 +357,17 @@ namespace bzTorrent.IO
 					// irrecoverably desync the stream cipher.
 					handshakeBuffer = handshakeBuffer.Cat(socketBufferCopy);
 
-					if (handshakeBuffer.Length < 1)
+					if (!PeerHandshakeCodec.TryParse(handshakeBuffer, out var parsedHandshake, out var consumed))
 					{
+						// Not a full valid handshake yet (need more bytes, or protocol mismatch);
+						// keep the accumulated bytes and wait for the next receive.
 						receiving = false;
 						return;
 					}
 
-					var protocolStrLen = handshakeBuffer[0];
-					var handshakeLength = protocolStrLen + 49;
-					if (handshakeBuffer.Length < handshakeLength)
-					{
-						receiving = false;
-						return;
-					}
+					incomingHandshake = parsedHandshake;
 
-					var protocolStrBytes = handshakeBuffer.GetBytes(1, protocolStrLen);
-					var reservedBytes = handshakeBuffer.GetBytes(1 + protocolStrLen, 8);
-					var infoHashBytes = handshakeBuffer.GetBytes(1 + protocolStrLen + 8, 20);
-					var peerIdBytes = handshakeBuffer.GetBytes(1 + protocolStrLen + 28, 20);
-
-					var protocolStr = Encoding.ASCII.GetString(protocolStrBytes);
-
-					if (protocolStr != "BitTorrent protocol")
-					{
-						receiving = false;
-						return;
-					}
-
-					incomingHandshake = new PeerClientHandshake
-					{
-						ReservedBytes = reservedBytes,
-						ProtocolHeader = protocolStr,
-						InfoHash = UnpackHelper.Hex(infoHashBytes),
-						PeerId = Encoding.ASCII.GetString(peerIdBytes)
-					};
-
-					socketBufferCopy = handshakeBuffer.GetBytes(handshakeLength);
+					socketBufferCopy = handshakeBuffer.GetBytes(consumed);
 					handshakeBuffer = Array.Empty<byte>();
 					dataLength = socketBufferCopy.Length;
 				}

@@ -256,7 +256,35 @@ type split lands.
 
 ---
 
-## Phase 4 — PeerWireConnection (SRP / DIP / DRY)
+## Phase 4 — PeerWireConnection (SRP / DIP / DRY) — ◑ MOSTLY DONE
+
+**Status — done:**
+- Extracted `Data/PeerHandshakeCodec.cs`: the fixed BitTorrent handshake wire
+  layout (build + parse + the `"BitTorrent protocol"` constant) now lives in one
+  place, used by both `Handshake()` (send) and `ReceiveCallback` (receive). This
+  removed the magic offsets (`+49/+8/+20/+28`), the literal protocol string, and
+  the inline field slicing from the ~135-line `ReceiveCallback`. Unit-tested
+  (`PeerHandshakeCodecTests`, 6 cases).
+- De-duplicated socket setup into `ConfigureSocket()` (was repeated in the ctor,
+  `Connect`, and `ReconnectSocket`).
+- De-duplicated the MSE reset block into `ResetEncryptionState()` (was in
+  `Connect` and `Disconnect`).
+
+**Status — deferred, by decision:**
+- **Socket factory (DIP):** not done — consistent with the Phase 3 decision to
+  keep the `new T()` generic model (the factory solved a problem the codebase
+  doesn't have in practice).
+- **`IEncryptionHandshake` abstraction (DIP):** deferred to Phase 5, where
+  `MessageStreamEncryption` itself is split — introducing the interface is
+  natural there rather than bolting it onto the current static class.
+- **Blanket `catch (Exception)` in `ReceiveCallback`:** left as-is. It runs on an
+  async socket callback where an uncaught exception would crash the process, and
+  the library has no logging seam to route a swallowed error to; narrowing it is
+  a change better made alongside a logging abstraction. The duplicated blocking
+  "read exactly N bytes" loop in `BeginOutgoingEncryption` is likewise left for
+  Phase 5 (it belongs with MSE's `ReadExact`).
+
+### Original detail (for reference)
 
 `IO/PeerWireConnection.cs` (473 lines), especially the ~135-line
 `ReceiveCallback:293-429` god-method.
