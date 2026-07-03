@@ -75,22 +75,22 @@ namespace bzTorrent.ProtocolExtensions
 			{
 				case 13:
 					ProcessSuggest(client, payload);
-					break;
+					return true;
 				case 14:
 					OnHaveAll(client);
-					break;
+					return true;
 				case 15:
 					OnHaveNone(client);
-					break;
+					return true;
 				case 16:
 					ProcessReject(client, payload);
-					break;
+					return true;
 				case 17:
 					ProcessAllowFast(client, payload);
-					break;
+					return true;
+				default:
+					return false;
 			}
-
-			return false;
 		}
 
 		private void ProcessSuggest(IPeerWireClient client, byte[] payload)

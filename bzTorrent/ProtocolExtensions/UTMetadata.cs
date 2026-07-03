@@ -107,8 +107,6 @@ namespace bzTorrent.ProtocolExtensions
 
 		public void RequestMetaData(IPeerWireClient peerWireClient)
 		{
-			var sendBuffer = Array.Empty<byte>();
-
 			for (var i = 0; i < _pieceCount; i++)
 			{
 				var masterBDict = new BDict
@@ -125,8 +123,6 @@ namespace bzTorrent.ProtocolExtensions
 
 				var buffer = new[] { _parent.GetIncomingMessageID(peerWireClient, this) };
 				buffer = buffer.Concat(encoded).ToArray();
-
-				sendBuffer = sendBuffer.Concat(buffer).ToArray();
 
 				var packet = new PeerWirePacket
 				{

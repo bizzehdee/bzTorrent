@@ -45,7 +45,9 @@ namespace bzTorrent.Helpers
 
 		public static byte[] UInt16(ushort value) => ByteOrder.Order(BitConverter.GetBytes(value), Endianness.Big);
 
-		public static byte[] UInt32(uint value) => ByteOrder.Order(BitConverter.GetBytes(value), Endianness.Big);
+		public static byte[] UInt32(uint value) => UInt32(value, Endianness.Big);
+
+		public static byte[] UInt32(uint value, Endianness e) => ByteOrder.Order(BitConverter.GetBytes(value), e);
 
 		public static byte[] UInt64(ulong value) => ByteOrder.Order(BitConverter.GetBytes(value), Endianness.Big);
 

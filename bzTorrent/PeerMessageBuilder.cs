@@ -65,7 +65,7 @@ namespace bzTorrent
 
 		public PeerMessageBuilder Add(uint n, Endianness endianness = Endianness.Big)
 		{
-			MessagePayload.AddRange(PackHelper.UInt32(n));
+			MessagePayload.AddRange(PackHelper.UInt32(n, endianness));
 
 			return this;
 		}

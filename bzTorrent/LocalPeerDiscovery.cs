@@ -122,11 +122,14 @@ namespace bzTorrent
 
 		public void Close()
 		{
+			// Cooperative shutdown: the Process loop polls _killSwitch. Thread.Abort
+			// is obsolete and throws PlatformNotSupportedException on modern .NET.
 			_killSwitch = true;
-			thread.Abort();
 
 			udpReaderSocket.Close();
 			udpSenderSocket.Close();
+
+			thread?.Join(TimeSpan.FromSeconds(1));
 		}
 
 		private void Process()

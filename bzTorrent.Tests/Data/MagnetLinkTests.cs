@@ -55,5 +55,15 @@ namespace bzTorrent.Tests.Data
             magnet.Hash.Should().BeNull();
             magnet.Trackers.Should().HaveCount(0);
         }
+
+        [Fact]
+        public void NonMagnetInputGivesBlankMagnetDTOWithoutThrowing()
+        {
+            // Previously this dereferenced a null value set and threw NullReferenceException.
+            var magnet = MagnetLink.Resolve("https://example.com/not-a-magnet");
+
+            magnet.Hash.Should().BeNull();
+            magnet.Trackers.Should().HaveCount(0);
+        }
     }
 }

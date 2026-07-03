@@ -85,14 +85,18 @@ namespace bzTorrent.Data
 				return new byte[4] { 0, 0, 0, 0 };
 			}
 
-			var messageBytes = new byte[PacketByteLength];
-			var lengthBytes = PackHelper.UInt32((uint)(1 + Payload.Length));
+			// Derive both the length prefix and the buffer size from the same payload,
+			// so a packet whose CommandLength has no matching Payload (e.g. a parsed
+			// no-payload command, where Payload is left null) can't diverge or NRE.
+			var payload = Payload ?? System.Array.Empty<byte>();
+			var messageLength = (uint)(1 + payload.Length);
 
-			lengthBytes.CopyTo(messageBytes, 0);
+			var messageBytes = new byte[4 + messageLength];
+			PackHelper.UInt32(messageLength).CopyTo(messageBytes, 0);
 
 			messageBytes[4] = (byte)Command;
 
-			Payload.CopyTo(messageBytes, 5);
+			payload.CopyTo(messageBytes, 5);
 
 			return messageBytes;
 		}

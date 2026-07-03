@@ -107,10 +107,21 @@ ut_pex through the shared codec (see 0.3). The standalone `InfoHash` value type
 
 ---
 
-## Phase 1 — Kill the parallel-implementation bugs (correctness-adjacent)
+## Phase 1 — Kill the parallel-implementation bugs (correctness-adjacent) — ✅ DONE
 
 These are DRY violations that have already produced (or are one edit away from)
 real defects. Fix alongside Phase 0 codecs.
+
+**Status:** Implemented. `FastExtensions.OnCommand` now returns `true` on handled
+commands; `PeerMessageBuilder.Add(uint, Endianness)` honors its argument (via a
+new `PackHelper.UInt32(uint, Endianness)` overload); `PeerWirePacket.GetBytes`
+derives the length prefix and buffer size from one payload value and is null-safe;
+`MagnetLink.Resolve` returns a blank link for non-magnet input instead of NREing;
+`LocalPeerDiscovery.Close` uses the cooperative `_killSwitch` + bounded `Join`
+instead of `Thread.Abort()`; dead discarded-decode/`sendBuffer` code removed. The
+ut_pex port-offset item was already fixed in Phase 0 (0.3). 12 regression tests
+added; full suite green (168). LPD async-callback-on-closed-socket hardening is
+left for Phase 11 as noted there.
 
 - **`FastExtensions.OnCommand` always returns `false`** (`FastExtensions.cs:93`)
   even on handled commands 13–17 — an LSP violation of the `OnCommand`

@@ -57,14 +57,17 @@ namespace bzTorrent.Data
 
 		public static MagnetLink Resolve(string magnetLink)
 		{
-			IEnumerable<KeyValuePair<string, string>> values = null;
+			var magnet = new MagnetLink();
 
-			if (IsMagnetLink(magnetLink))
+			// A non-magnet input has no parts to parse; return a blank link rather
+			// than dereferencing a null value set. This keeps the "invalid magnet ->
+			// blank DTO" contract consistent for any invalid input.
+			if (!IsMagnetLink(magnetLink))
 			{
-				values = SplitURLIntoParts(magnetLink.Substring(8));
+				return magnet;
 			}
 
-			var magnet = new MagnetLink();
+			var values = SplitURLIntoParts(magnetLink.Substring(8));
 
 			foreach (var pair in values)
 			{

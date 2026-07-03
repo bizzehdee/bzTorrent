@@ -59,6 +59,19 @@ namespace bzTorrent.Tests.Data
         }
 
         [Fact]
+        public void NoPayloadCommandGetBytesRoundTripsWithoutNRE()
+        {
+            // CommandLength == 1 means a bare command byte and no payload; Parse leaves
+            // Payload null. GetBytes previously dereferenced Payload and threw NRE.
+            var inputOutput = new byte[] { 0, 0, 0, 1, 1 }; // Unchoke
+            var pwp = new PeerWirePacket();
+            pwp.Parse(inputOutput).Should().BeTrue();
+            pwp.Payload.Should().BeNull();
+
+            pwp.GetBytes().Should().BeEquivalentTo(inputOutput);
+        }
+
+        [Fact]
         public void CommandPacketShouldBe5Bytes()
         {
             var pwp = new PeerWirePacket();

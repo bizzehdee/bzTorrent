@@ -62,7 +62,7 @@ namespace bzTorrent.ProtocolExtensions
 
 		public void OnHandshake(IPeerWireClient peerWireClient, byte[] handshake)
 		{
-			BencodingUtils.Decode(handshake);
+			// ut_pex carries no handshake state we need to track.
 		}
 
 		public void OnExtendedMessage(IPeerWireClient peerWireClient, byte[] bytes)
