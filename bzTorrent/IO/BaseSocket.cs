@@ -49,7 +49,9 @@ namespace bzTorrent.IO
 			_socket = socket;
 		}
 
-		public abstract ISocket Accept();
+		// Passive open is not supported by default (e.g. datagram sockets). Stream/uTP
+		// sockets override these; a socket that never listens simply never calls them.
+		public virtual ISocket Accept() => throw new NotSupportedException("This socket does not support Accept.");
 
 		public virtual void Bind(EndPoint localEP)
 		{
@@ -120,7 +122,7 @@ namespace bzTorrent.IO
 			return _socket.BeginAccept(callback, state);
 		}
 
-		public abstract ISocket EndAccept(IAsyncResult ar);
+		public virtual ISocket EndAccept(IAsyncResult ar) => throw new NotSupportedException("This socket does not support EndAccept.");
 
 		public virtual IAsyncResult BeginReceive(byte[] buffer, int offset, int size, SocketFlags socketFlags, AsyncCallback callback, object state)
 		{

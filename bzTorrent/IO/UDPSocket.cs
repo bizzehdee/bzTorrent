@@ -28,7 +28,6 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
 */
 
-using System;
 using System.Net;
 using System.Net.Sockets;
 
@@ -65,28 +64,8 @@ namespace bzTorrent.IO
 			isConnected = false;
 		}
 
-		public override ISocket Accept()
-		{
-			try
-			{
-				return new UDPSocket(_socket.Accept());
-			}
-			catch (Exception)
-			{
-				return null;
-			}
-		}
-
-		public override ISocket EndAccept(IAsyncResult ar)
-		{
-			try
-			{
-				return new UDPSocket(_socket.EndAccept(ar));
-			}
-			catch (Exception)
-			{
-				return null;
-			}
-		}
+		// UDP has no passive-open concept; Accept/EndAccept intentionally fall through to
+		// BaseSocket's NotSupportedException rather than calling _socket.Accept() (which is
+		// meaningless on a datagram socket).
 	}
 }
