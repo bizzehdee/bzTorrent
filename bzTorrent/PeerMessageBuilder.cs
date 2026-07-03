@@ -37,8 +37,11 @@ namespace bzTorrent
 {
 	public class PeerMessageBuilder : IDisposable
 	{
-		public uint PacketLength { get => (uint)(5 + MessagePayload.Count); }
-		public uint MessageLength { get => (uint)(1 + MessagePayload.Count); }
+		private const int LengthPrefixSize = 4;   // 4-byte big-endian length prefix
+		private const int MessageIdSize = 1;      // 1-byte message id
+
+		public uint PacketLength { get => (uint)(LengthPrefixSize + MessageIdSize + MessagePayload.Count); }
+		public uint MessageLength { get => (uint)(MessageIdSize + MessagePayload.Count); }
 		public byte MessageID { get; private set; }
 		public List<byte> MessagePayload { get; private set; }
 

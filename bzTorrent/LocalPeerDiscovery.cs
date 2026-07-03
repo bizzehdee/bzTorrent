@@ -86,14 +86,19 @@ namespace bzTorrent
 			thread.Start();
 		}
 
+		// Both the reader and sender sockets share the multicast group, so both must allow the
+		// address to be reused (port sharing) rather than claimed exclusively.
+		private static void EnableAddressReuse(ISocket socket)
+		{
+			socket.ExclusiveAddressUse = false;
+			socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+		}
+
 		private void SetupReaderSocket(IPAddress address, int port)
 		{
 			var endPoint = new IPEndPoint(IPAddress.Any, port);
 
-			udpReaderSocket.ExclusiveAddressUse = false;
-			udpReaderSocket.SetSocketOption(SocketOptionLevel.Socket,
-				SocketOptionName.ReuseAddress,
-				true);
+			EnableAddressReuse(udpReaderSocket);
 
 			udpReaderSocket.Bind(endPoint);
 
@@ -106,10 +111,7 @@ namespace bzTorrent
 		{
 			var endPoint = new IPEndPoint(address, port);
 
-			udpSenderSocket.ExclusiveAddressUse = false;
-			udpSenderSocket.SetSocketOption(SocketOptionLevel.Socket,
-				SocketOptionName.ReuseAddress,
-				true);
+			EnableAddressReuse(udpSenderSocket);
 			udpSenderSocket.SetSocketOption(SocketOptionLevel.IP,
 				SocketOptionName.AddMembership,
 				new MulticastOption(address));
@@ -155,32 +157,11 @@ namespace bzTorrent
 						}
 
 						var remoteAddress = ((IPEndPoint)internalRemoteEP).Address;
-						var remotePort = 0;
-						var remoteHash = "";
 
-						var packet = Encoding.ASCII.GetString(buffer).Trim();
+						// Decode only the bytes actually received, not the whole 16 KB buffer.
+						var packet = Encoding.ASCII.GetString(buffer, 0, length).Trim();
 
-						if (!packet.StartsWith("BT-SEARCH"))
-						{
-							return;
-						}
-
-						var packetLines = packet.Split('\n');
-
-						foreach (var line in packetLines)
-						{
-							if (line.StartsWith("Port:"))
-							{
-								var portStr = line.Substring(5).Trim();
-								int.TryParse(portStr, out remotePort);
-							}
-							if (line.StartsWith("Infohash:"))
-							{
-								remoteHash = line.Substring(10, 40);
-							}
-						}
-
-						if (!string.IsNullOrEmpty(remoteHash) && remotePort != 0)
+						if (TryParseSearchPacket(packet, out var remotePort, out var remoteHash))
 						{
 							NewPeer?.Invoke(remoteAddress, remotePort, remoteHash);
 						}
@@ -189,6 +170,43 @@ namespace bzTorrent
 					}, null);
 				}
 			}
+		}
+
+		// Parses an LPD BT-SEARCH announce. Returns true only when both a non-zero port and a
+		// 40-char infohash were found. Extracted from the receive callback so it's a pure,
+		// testable function — and guards the infohash length (the old inline Substring(10, 40)
+		// threw on a short/malformed line).
+		internal static bool TryParseSearchPacket(string packet, out int port, out string infoHash)
+		{
+			port = 0;
+			infoHash = null;
+
+			if (string.IsNullOrEmpty(packet) || !packet.StartsWith("BT-SEARCH"))
+			{
+				return false;
+			}
+
+			const string portPrefix = "Port:";
+			const string infoHashPrefix = "Infohash:";
+			const int infoHashLength = 40;
+
+			foreach (var line in packet.Split('\n'))
+			{
+				if (line.StartsWith(portPrefix))
+				{
+					int.TryParse(line.Substring(portPrefix.Length).Trim(), out port);
+				}
+				else if (line.StartsWith(infoHashPrefix))
+				{
+					var value = line.Substring(infoHashPrefix.Length).Trim();
+					if (value.Length >= infoHashLength)
+					{
+						infoHash = value.Substring(0, infoHashLength);
+					}
+				}
+			}
+
+			return !string.IsNullOrEmpty(infoHash) && port != 0;
 		}
 
 		public void Announce(int listeningPort, string infoHash)

@@ -85,6 +85,12 @@ namespace bzTorrent
 			var socket = peerConnection.EndAccept(ar);
 
 			var constructorInfo = typeof(T).GetConstructor(new[] { typeof(ISocket) });
+			if (constructorInfo == null)
+			{
+				throw new InvalidOperationException(
+					$"{typeof(T).Name} must expose a public constructor taking a single ISocket for PeerWireListener to wrap accepted connections.");
+			}
+
 			var connection = (IPeerConnection)constructorInfo.Invoke(new object[] { socket });
 
 			connection.EncryptionMode = peerConnection.EncryptionMode;

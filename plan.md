@@ -659,7 +659,33 @@ serialization.
 
 ---
 
-## Phase 11 — Misc client cleanups
+## Phase 11 — Misc client cleanups — ◑ MOSTLY DONE
+
+**Status — done:**
+- **`LocalPeerDiscovery`**: extracted the inline BT-SEARCH parse into a pure,
+  testable `TryParseSearchPacket` (now unit-tested, 5 cases) that guards the
+  infohash length — the old inline `Substring(10, 40)` threw on a short/malformed
+  line. The receive callback now decodes only the `length` bytes actually
+  received (was decoding the whole 16 KB buffer). De-duplicated the reader/sender
+  socket reuse-address setup into `EnableAddressReuse`. (`Thread.Abort` was already
+  fixed in Phase 1.) Added `InternalsVisibleTo(bzTorrent.Tests)` to enable the test.
+- **`PeerMessageBuilder`**: named the `5`/`1` header-size magic numbers
+  (`LengthPrefixSize` + `MessageIdSize`).
+- **`PeerWireListener`**: the reflection ctor lookup now throws a clear
+  `InvalidOperationException` instead of a bare `NullReferenceException` when the
+  connection type lacks an `ISocket` constructor.
+
+**Status — deferred, by decision:**
+- Replacing `PeerWireListener`'s reflection-based construction with an injected
+  `Func<ISocket, IPeerConnection>` factory, and fixing `StopListening` (it calls
+  `EndAccept` rather than stopping the socket): both are public-API/behavioural
+  changes to a working, test-covered listener; deferred.
+- Removing `PeerMessageBuilder`'s `IDisposable`: it's a public interface on the
+  type — source-breaking for any `using` consumer. Left in place.
+- The fuller `LocalPeerDiscovery` SRP split (separating thread management from
+  socket setup / parsing / announce formatting) and its busy-spin receive loop:
+  deferred — LPD has no automated coverage beyond the new parser test, so a
+  larger restructure carries regression risk for structural gain.
 
 - **`PeerWireListener.Callback`** (`:83-101`) constructs the connection via
   reflection (`typeof(T).GetConstructor(...)` then `Invoke`), which NREs if the

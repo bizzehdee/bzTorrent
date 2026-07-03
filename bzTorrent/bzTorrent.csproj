@@ -22,6 +22,9 @@
         <AnalysisLevel>latest</AnalysisLevel>
     </PropertyGroup>
     <ItemGroup>
+        <InternalsVisibleTo Include="bzTorrent.Tests" />
+    </ItemGroup>
+    <ItemGroup>
         <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.*" PrivateAssets="All" />
         <PackageReference Include="bzBencode" Version="1.0.8" />
     </ItemGroup>
