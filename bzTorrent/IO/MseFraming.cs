@@ -12,7 +12,7 @@ namespace bzTorrent.IO
 	internal static class MseFraming
 	{
 		/// <summary>Blocking read of exactly <paramref name="length"/> bytes.</summary>
-		public static byte[] ReadExact(ISocket socket, int length)
+		public static byte[] ReadExact(IConnectableSocket socket, int length)
 		{
 			var buffer = new byte[length];
 			var offset = 0;
@@ -80,7 +80,7 @@ namespace bzTorrent.IO
 				}
 			}
 
-			public byte[] Read(ISocket socket, int length)
+			public byte[] Read(IConnectableSocket socket, int length)
 			{
 				while (buffer.Count < length)
 				{

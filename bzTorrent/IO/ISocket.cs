@@ -1,4 +1,4 @@
-﻿/*
+/*
 Copyright (c) 2023, Darren Horrocks
 All rights reserved.
 
@@ -25,7 +25,7 @@ ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
 LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
 ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 using System;
@@ -34,38 +34,64 @@ using System.Net.Sockets;
 
 namespace bzTorrent.IO
 {
-	public interface ISocket : IDisposable
+	/// <summary>
+	/// Members common to every socket flavour: lifecycle, timeouts and options.
+	/// </summary>
+	public interface ISocketCore : IDisposable
 	{
 		bool Connected { get; }
 		int ReceiveTimeout { get; set; }
 		int SendTimeout { get; set; }
-		 bool NoDelay { get; set; }
+		bool NoDelay { get; set; }
 		bool ExclusiveAddressUse { get; set; }
 
-		void Connect(EndPoint remoteEP);
 		void Bind(EndPoint localEP);
-		void Listen(int backlog);
 		void Disconnect(bool reuseSocket);
-
-		ISocket Accept();
-		IAsyncResult BeginAccept(AsyncCallback callback, object state);
-		ISocket EndAccept(IAsyncResult ar);
-
-		IAsyncResult BeginReceive(byte[] buffer, int offset, int size, SocketFlags socketFlags, AsyncCallback callback, object state);
-		int EndReceive(IAsyncResult asyncResult);
-		IAsyncResult BeginReceiveFrom(byte[] buffer, int offset, int size, SocketFlags socketFlags, ref EndPoint remoteEP, AsyncCallback callback, object state);
-		int EndReceiveFrom(IAsyncResult asyncResult, ref EndPoint endPoint);
-
-		int Send(byte[] buffer);
-		int SendTo(byte[] buffer, EndPoint remoteEP);
-
-		// Synchronous receive used by the MSE/PE handshake (which is negotiated inline before
-		// the async receive loop takes over).
-		int Receive(byte[] buffer, int offset, int size);
 
 		void SetSocketOption(SocketOptionLevel optionLevel, SocketOptionName optionName, bool optionValue);
 		void SetSocketOption(SocketOptionLevel optionLevel, SocketOptionName optionName, int optionValue);
 		void SetSocketOption(SocketOptionLevel optionLevel, SocketOptionName optionName, object optionValue);
 		void Close();
+	}
+
+	/// <summary>Connection-oriented (stream) socket operations.</summary>
+	public interface IConnectableSocket : ISocketCore
+	{
+		void Connect(EndPoint remoteEP);
+		int Send(byte[] buffer);
+
+		// Synchronous receive used by the MSE/PE handshake (negotiated inline before the async
+		// receive loop takes over).
+		int Receive(byte[] buffer, int offset, int size);
+
+		IAsyncResult BeginReceive(byte[] buffer, int offset, int size, SocketFlags socketFlags, AsyncCallback callback, object state);
+		int EndReceive(IAsyncResult asyncResult);
+	}
+
+	/// <summary>Connectionless (datagram) socket operations.</summary>
+	public interface IDatagramSocket : ISocketCore
+	{
+		int SendTo(byte[] buffer, EndPoint remoteEP);
+		IAsyncResult BeginReceiveFrom(byte[] buffer, int offset, int size, SocketFlags socketFlags, ref EndPoint remoteEP, AsyncCallback callback, object state);
+		int EndReceiveFrom(IAsyncResult asyncResult, ref EndPoint endPoint);
+	}
+
+	/// <summary>Passive-open (listening) socket operations.</summary>
+	public interface IListenerSocket : ISocketCore
+	{
+		void Listen(int backlog);
+		ISocket Accept();
+		IAsyncResult BeginAccept(AsyncCallback callback, object state);
+		ISocket EndAccept(IAsyncResult ar);
+	}
+
+	/// <summary>
+	/// The full socket surface. Composed of the three capability interfaces so a consumer can
+	/// depend on just the one it needs (e.g. the MSE handshake takes an
+	/// <see cref="IConnectableSocket"/>); this remains the type the generic connection/listener
+	/// and the concrete BaseSocket implementations use.
+	/// </summary>
+	public interface ISocket : IConnectableSocket, IDatagramSocket, IListenerSocket
+	{
 	}
 }

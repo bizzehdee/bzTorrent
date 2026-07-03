@@ -60,7 +60,7 @@ namespace bzTorrent.IO
 		/// payload was negotiated.
 		/// </summary>
 		public void CompleteOutgoing(
-			ISocket socket,
+			IConnectableSocket socket,
 			byte[] remotePublicKey,
 			BigInteger privateKey,
 			string infoHash,
@@ -127,7 +127,7 @@ namespace bzTorrent.IO
 		/// negotiated.
 		/// </summary>
 		public byte[] CompleteIncoming(
-			ISocket socket,
+			IConnectableSocket socket,
 			byte[] initialBuffer,
 			PeerEncryptionOptions options,
 			bool requireEncryption,

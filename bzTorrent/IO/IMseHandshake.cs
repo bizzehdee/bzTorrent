@@ -13,7 +13,7 @@ namespace bzTorrent.IO
 		byte[] CreatePadding(PeerEncryptionOptions options);
 
 		void CompleteOutgoing(
-			ISocket socket,
+			IConnectableSocket socket,
 			byte[] remotePublicKey,
 			BigInteger privateKey,
 			string infoHash,
@@ -23,7 +23,7 @@ namespace bzTorrent.IO
 			out RC4Cipher receiveCipher);
 
 		byte[] CompleteIncoming(
-			ISocket socket,
+			IConnectableSocket socket,
 			byte[] initialBuffer,
 			PeerEncryptionOptions options,
 			bool requireEncryption,
