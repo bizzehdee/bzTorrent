@@ -35,7 +35,7 @@ using bzTorrent.Data;
 using bzTorrent.Protocol.Handlers;
 using System;
 using System.Net;
-using static bzTorrent.IPeerWireClient;
+using static bzTorrent.IPeerEvents;
 
 namespace bzTorrent
 {

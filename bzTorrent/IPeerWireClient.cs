@@ -28,79 +28,14 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
 */
 
-using System;
-using System.Net;
-using bzTorrent.Data;
-using bzTorrent.IO;
-
 namespace bzTorrent
 {
-	public interface IPeerWireClient
+	/// <summary>
+	/// A peer wire client. Composed of the three segregated interfaces so a consumer can depend
+	/// on just the surface it needs — connection control, message sending, or inbound events —
+	/// while this remains the full facade.
+	/// </summary>
+	public interface IPeerWireClient : IPeerConnectionControl, IPeerMessageSender, IPeerEvents
 	{
-		public PeerEncryptionMode EncryptionMode { get; }
-		public bool IsEncrypted { get; }
-
-		public delegate void DroppedConnectionDelegate(IPeerWireClient client);
-		public delegate void NoDataDelegate(IPeerWireClient client);
-		public delegate void HandshakeCompleteDelegate(IPeerWireClient client);
-		public delegate void KeepAliveDelegate(IPeerWireClient client);
-		public delegate void ChokeDelegate(IPeerWireClient client);
-		public delegate void UnChokeDelegate(IPeerWireClient client);
-		public delegate void InterestedDelegate(IPeerWireClient client);
-		public delegate void NotInterestedDelegate(IPeerWireClient client);
-		public delegate void HaveDelegate(IPeerWireClient client, int pieceIdx);
-		public delegate void BitFieldDelegate(IPeerWireClient client, int size, bool[] bitfield);
-		public delegate void RequestDelegate(IPeerWireClient client, int pieceIdx, int start, int length);
-		public delegate void PieceDelegate(IPeerWireClient client, int pieceIdx, int start, byte[] buffer);
-		public delegate void CancelDelegate(IPeerWireClient client, int pieceIdx, int start, int length);
-		public delegate bool CommandDelegate(IPeerWireClient client, int commandLength, byte commandId, byte[] payload);
-
-		int Timeout { get; }
-		bool[] PeerBitField { get; set; }
-		bool KeepConnectionAlive { get; set; }
-
-		string LocalPeerID { get; set; }
-		string RemotePeerID { get; }
-		string Hash { get; set; }
-
-		event DroppedConnectionDelegate DroppedConnection;
-		event NoDataDelegate NoData;
-		event HandshakeCompleteDelegate HandshakeComplete;
-		event KeepAliveDelegate KeepAlive;
-		event ChokeDelegate Choke;
-		event UnChokeDelegate UnChoke;
-		event InterestedDelegate Interested;
-		event NotInterestedDelegate NotInterested;
-		event HaveDelegate Have;
-		event BitFieldDelegate BitField;
-		event RequestDelegate Request;
-		event PieceDelegate Piece;
-		event CancelDelegate Cancel;
-
-		void Connect(IPEndPoint endPoint);
-		void Connect(string ipHost, int port);
-		void Disconnect();
-
-		bool Handshake();
-		bool Handshake(string hash, string peerId);
-
-		bool Process();
-
-		bool SendKeepAlive();
-		bool SendChoke();
-		bool SendUnChoke();
-		bool SendInterested();
-		bool SendNotInterested();
-		bool SendHave(uint index);
-		bool SendBitField(bool[] bitField);
-		bool SendBitField(bool[] bitField, bool obsf);
-		bool SendRequest(uint index, uint start, uint length);
-		bool SendPiece(uint index, uint start, byte[] data);
-		bool SendCancel(uint index, uint start, uint length);
-
-		bool SendPacket(PeerWirePacket packet);
-
-		void RegisterBTExtension(IProtocolExtension extension);
-		void UnregisterBTExtension(IProtocolExtension extension);
 	}
 }
