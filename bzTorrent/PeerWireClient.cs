@@ -294,51 +294,51 @@ namespace bzTorrent
 			}
 		}
 
-		public bool SendKeepAlive()
+		// Single send path for every outbound message: the message id comes from the
+		// PeerClientCommands enum (not a magic literal), and the optional payload is added by
+		// the caller. Collapses nine near-identical Send* bodies.
+		private bool SendCommand(PeerClientCommands command, Action<PeerMessageBuilder> addPayload = null)
 		{
-			_peerConnection.Send(new PeerMessageBuilder(128).Message());
+			var builder = new PeerMessageBuilder((byte)command);
+			addPayload?.Invoke(builder);
+			_peerConnection.Send(builder.Message());
 
 			return true;
+		}
+
+		public bool SendKeepAlive()
+		{
+			return SendCommand(PeerClientCommands.KeepAlive);
 		}
 
 		public bool SendChoke()
 		{
-			_peerConnection.Send(new PeerMessageBuilder(0).Message());
-
-			return true;
+			return SendCommand(PeerClientCommands.Choke);
 		}
 
 		public bool SendUnChoke()
 		{
-			_peerConnection.Send(new PeerMessageBuilder(1).Message());
-
-			return true;
+			return SendCommand(PeerClientCommands.Unchoke);
 		}
 
 		public bool SendInterested()
 		{
-			_peerConnection.Send(new PeerMessageBuilder(2).Message());
-
-			return true;
+			return SendCommand(PeerClientCommands.Interested);
 		}
 
 		public bool SendNotInterested()
 		{
-			_peerConnection.Send(new PeerMessageBuilder(3).Message());
-
-			return true;
+			return SendCommand(PeerClientCommands.NotInterested);
 		}
 
 		public bool SendHave(uint index)
 		{
-			_peerConnection.Send(new PeerMessageBuilder(4).Add(index).Message());
-
-			return true;
+			return SendCommand(PeerClientCommands.Have, b => b.Add(index));
 		}
 
-		public void SendBitField(bool[] bitField)
+		public bool SendBitField(bool[] bitField)
 		{
-			SendBitField(bitField, false);
+			return SendBitField(bitField, false);
 		}
 
 		public bool SendBitField(bool[] bitField, bool obsf)
@@ -383,7 +383,7 @@ namespace bzTorrent
 				}
 			}
 
-			_peerConnection.Send(new PeerMessageBuilder(5).Add(bytes).Message());
+			SendCommand(PeerClientCommands.Bitfield, b => b.Add(bytes));
 
 			if (obsfIDs.Length <= 0)
 			{
@@ -400,23 +400,17 @@ namespace bzTorrent
 
 		public bool SendRequest(uint index, uint start, uint length)
 		{
-			_peerConnection.Send(new PeerMessageBuilder(6).Add(index).Add(start).Add(length).Message());
-
-			return true;
+			return SendCommand(PeerClientCommands.Request, b => b.Add(index).Add(start).Add(length));
 		}
 
 		public bool SendPiece(uint index, uint start, byte[] data)
 		{
-			_peerConnection.Send(new PeerMessageBuilder(7).Add(index).Add(start).Add(data).Message());
-
-			return true;
+			return SendCommand(PeerClientCommands.Piece, b => b.Add(index).Add(start).Add(data));
 		}
 
 		public bool SendCancel(uint index, uint start, uint length)
 		{
-			_peerConnection.Send(new PeerMessageBuilder(8).Add(index).Add(start).Add(length).Message());
-
-			return true;
+			return SendCommand(PeerClientCommands.Cancel, b => b.Add(index).Add(start).Add(length));
 		}
 
 		#region Processors

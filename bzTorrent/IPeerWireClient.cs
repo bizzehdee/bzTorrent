@@ -92,7 +92,7 @@ namespace bzTorrent
 		bool SendInterested();
 		bool SendNotInterested();
 		bool SendHave(uint index);
-		void SendBitField(bool[] bitField);
+		bool SendBitField(bool[] bitField);
 		bool SendBitField(bool[] bitField, bool obsf);
 		bool SendRequest(uint index, uint start, uint length);
 		bool SendPiece(uint index, uint start, byte[] data);

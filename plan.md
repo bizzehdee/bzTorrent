@@ -360,7 +360,30 @@ a general crypto/encoding toolbox, and socket-read framing.
 
 ---
 
-## Phase 6 — PeerWireClient & IPeerWireClient (SRP / ISP / OCP / DRY)
+## Phase 6 — PeerWireClient & IPeerWireClient (SRP / ISP / OCP / DRY) — ◑ PARTIAL
+
+**Status — done:**
+- **Collapsed the nine `Send*` methods** into one `SendCommand(PeerClientCommands,
+  Action<PeerMessageBuilder>)` helper. The message id now comes from the
+  `PeerClientCommands` enum instead of the raw literals (`0`–`8`, `128`) that were
+  a second, drift-prone encoding parallel to the receive-side switch.
+- **`SendBitField(bool[])` now returns `bool`** (was `void`), matching its
+  `(bool[], bool)` overload; interface updated to match.
+
+**Status — deferred, by decision:**
+- **Split the fat `IPeerWireClient` interface (ISP) + consolidate the 12
+  delegates into generic `EventArgs`:** not done. Like the `ISocket` segregation
+  (Phase 3), this is a wide, source-breaking change to a public API — it ripples
+  through every event subscriber (Demo, tests), the protocol-extension surface
+  (`IProtocolExtension.OnCommand(IPeerWireClient, …)`), and `PeerWireListener` —
+  for a mostly-structural gain. Revisit as a deliberate major-version API change.
+- **Make `ProcessCommand` fully table-driven (OCP):** left as the small
+  enum-based `switch`. The five no-payload base commands (choke/unchoke/…) just
+  raise events; routing them through `MessageDispatcher` would add a handler
+  class each for negligible OCP benefit on a stable, rarely-changed set. The
+  data-carrying messages already go through the dispatcher.
+- **`IPAddress.Parse` in `Connect(string, int)`:** left in place — parsing an IP
+  literal in a convenience overload is reasonable and not worth an abstraction.
 
 - **De-duplicate the `Send*` methods** (`PeerWireClient.cs:297-420`): nine methods
   are `_peerConnection.Send(new PeerMessageBuilder(N)...Message()); return true;`
