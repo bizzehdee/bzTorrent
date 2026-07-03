@@ -45,6 +45,8 @@ namespace bzTorrent.IO
 		private volatile bool receiving = false;
 		private byte[] currentPacketBuffer = null;
 		private const int socketBufferSize = 16 * 1024;
+		private const int DhPublicKeyLength = 96;   // MSE Diffie-Hellman public key (Yb)
+		private readonly IMseHandshake mseHandshake = new MseHandshake();
 		private readonly byte[] socketBuffer = new byte[socketBufferSize];
 		private readonly ConcurrentQueue<PeerWirePacket> receiveQueue = new();
 		private readonly ConcurrentQueue<PeerWirePacket> sendQueue = new();
@@ -262,23 +264,12 @@ namespace bzTorrent.IO
 				cryptoProvide |= PeerEncryptionType.PlainText;
 			}
 
-			var localPublicKey = MessageStreamEncryption.CreateLocalPublicKey(out var privateKey);
-			socket.Send(localPublicKey.Cat(MessageStreamEncryption.CreatePadding(EncryptionOptions)));
+			var localPublicKey = mseHandshake.CreateLocalPublicKey(out var privateKey);
+			socket.Send(localPublicKey.Cat(mseHandshake.CreatePadding(EncryptionOptions)));
 
-			var remotePublicKey = new byte[96];
-			var offset = 0;
-			while (offset < remotePublicKey.Length)
-			{
-				var received = socket.Receive(remotePublicKey, offset, remotePublicKey.Length - offset);
-				if (received <= 0)
-				{
-					throw new InvalidOperationException("Socket closed during MSE public key exchange");
-				}
+			var remotePublicKey = MseFraming.ReadExact(socket, DhPublicKeyLength);
 
-				offset += received;
-			}
-
-			MessageStreamEncryption.CompleteOutgoing(socket, remotePublicKey, privateKey, infoHash, EncryptionOptions, cryptoProvide, out var outSend, out var outReceive);
+			mseHandshake.CompleteOutgoing(socket, remotePublicKey, privateKey, infoHash, EncryptionOptions, cryptoProvide, out var outSend, out var outReceive);
 			sendCipher = outSend;
 			receiveCipher = outReceive;
 			encryptionNegotiated = true;
@@ -343,7 +334,7 @@ namespace bzTorrent.IO
 							return;
 						}
 
-						socketBufferCopy = MessageStreamEncryption.CompleteIncoming(socket, socketBufferCopy, EncryptionOptions, EncryptionMode == PeerEncryptionMode.RequireEncryption, out _, out var inSend, out var inReceive);
+						socketBufferCopy = mseHandshake.CompleteIncoming(socket, socketBufferCopy, EncryptionOptions, EncryptionMode == PeerEncryptionMode.RequireEncryption, out _, out var inSend, out var inReceive);
 						sendCipher = inSend;
 						receiveCipher = inReceive;
 						encryptionNegotiated = true;

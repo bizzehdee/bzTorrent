@@ -311,7 +311,33 @@ type split lands.
 
 ---
 
-## Phase 5 — MessageStreamEncryption (SRP / DRY)
+## Phase 5 — MessageStreamEncryption (SRP / DRY) — ✅ DONE
+
+**Status:** The 534-line `MessageStreamEncryption` god class is split into:
+- `IO/MseCrypto.cs` — pure crypto/encoding utilities (Hash, Xor, BytesEqual,
+  Ascii, Concat, big-endian BigInteger conversion, RandomBytes/RandomInt).
+- `IO/MseFraming.cs` — socket read framing: `ReadExact`, the collapsed
+  `ScanForNeedle` (the two near-identical needle scanners are now one method
+  parameterized by a `Func<byte>` byte source), and the `StreamBuffer` FIFO.
+- `IO/MseHandshake.cs` (+ `IO/IMseHandshake.cs`) — the handshake state machine
+  (`CompleteOutgoing`/`CompleteIncoming`/`CreateLocalPublicKey`/`CreatePadding`),
+  DH constants and the MSE prime.
+
+Also done:
+- Deleted the parallel big-endian/hex helpers (`UInt16BE`/`UInt32BE`/
+  `ReadUInt16BE`/`ReadUInt32BE`/`HexToBytes`) — now routed through the Phase-0
+  `PackHelper`/`UnpackHelper`/`HexCodec`.
+- De-duplicated the shared-secret expression into `ComputeSharedSecret`, and
+  collapsed the `Hash` accumulate-loop into `sha1.ComputeHash(Concat(parts))`.
+- **`ReadExact` is now the one blocking-read helper** (`MseFraming.ReadExact`);
+  `PeerWireConnection.BeginOutgoingEncryption`'s duplicate 96-byte read loop was
+  replaced with it (resolving a Phase 4 deferral).
+- **`IMseHandshake` DIP abstraction** (resolving the other Phase 4 deferral):
+  `PeerWireConnection` now depends on `IMseHandshake` (default `new MseHandshake()`
+  field) instead of the concrete static class.
+
+Behaviour-preserving — validated by the MSE/PE handshake tests (RC4 + plaintext
+negotiation, both halves, over TCP loopback). Full suite green (182).
 
 `IO/MessageStreamEncryption.cs` (534 lines) mixes the MSE handshake state machine,
 a general crypto/encoding toolbox, and socket-read framing.
