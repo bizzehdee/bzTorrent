@@ -26,6 +26,7 @@ namespace bzTorrent.DHT
         private readonly UdpClient _udp;
         private readonly DHTRoutingTable _routingTable = new DHTRoutingTable();
         private readonly DHTTransactionRegistry _transactions = new DHTTransactionRegistry();
+        private readonly DHTQueryResponder _queryResponder;
         private readonly object _sendLock = new();
         private CancellationTokenSource _cts;
         private bool _disposed = false;
@@ -54,6 +55,17 @@ namespace bzTorrent.DHT
             _udp = new UdpClient(AddressFamily.InterNetworkV6);
             _udp.Client.DualMode = true;
             _udp.Client.Bind(new IPEndPoint(IPAddress.IPv6Any, port));
+
+            _queryResponder = new DHTQueryResponder(_nodeId, _routingTable, K, SendTo);
+        }
+
+        // Sends a datagram, applying the dual-stack destination mapping and serialising sends.
+        private void SendTo(byte[] bytes, IPEndPoint to)
+        {
+            lock (_sendLock)
+            {
+                _udp.Send(bytes, bytes.Length, ToSendEndpoint(to));
+            }
         }
 
         // Dual-stack sockets require the destination endpoint to be IPv6-family; map an IPv4
@@ -348,66 +360,8 @@ namespace bzTorrent.DHT
                 }
                 else if (y == "q")
                 {
-                    HandleQuery(from, message);
+                    _queryResponder.Respond(from, message);
                 }
-            }
-            catch { }
-        }
-
-        private void HandleQuery(IPEndPoint from, BDict message)
-        {
-            if (!message.TryGetString("q", out var q)) return;
-            if (!message.TryGetBytes("t", out var txId)) return;
-            if (!message.TryGetDict("a", out var a)) return;
-
-            if (a.TryGetBytes("id", out var queryNodeId))
-                _routingTable.AddOrUpdate(new DHTNode(queryNodeId, from));
-
-            BDict responseArgs;
-            switch (q)
-            {
-                case "ping":
-                    responseArgs = new BDict { { "id", new BString { ByteValue = _nodeId } } };
-                    break;
-
-                case "find_node":
-                    if (!a.TryGetBytes("target", out var target)) return;
-                    responseArgs = AddCompactNodes(
-                        new BDict { { "id", new BString { ByteValue = _nodeId } } },
-                        _routingTable.GetClosest(target, K));
-                    break;
-
-                case "get_peers":
-                    if (!a.TryGetBytes("info_hash", out var infoHash)) return;
-                    responseArgs = AddCompactNodes(
-                        new BDict
-                        {
-                            { "id", new BString { ByteValue = _nodeId } },
-                            { "token", new BString { ByteValue = from.Address.GetAddressBytes() } }
-                        },
-                        _routingTable.GetClosest(infoHash, K));
-                    break;
-
-                case "announce_peer":
-                    responseArgs = new BDict { { "id", new BString { ByteValue = _nodeId } } };
-                    break;
-
-                default:
-                    return;
-            }
-
-            var response = new BDict
-            {
-                { "t", new BString { ByteValue = txId } },
-                { "y", new BString("r") },
-                { "r", responseArgs }
-            };
-
-            try
-            {
-                var bytes = BencodingUtils.EncodeBytes(response);
-                lock (_sendLock)
-                    _udp.Send(bytes, bytes.Length, ToSendEndpoint(from));
             }
             catch { }
         }
@@ -449,42 +403,6 @@ namespace bzTorrent.DHT
             }
 
             return discovered;
-        }
-
-        // Adds "nodes" (IPv4, 26-byte entries) and/or "nodes6" (IPv6, 38-byte entries) to a
-        // response dict, each only when the closest-nodes set actually contains that family —
-        // CompactNodes/CompactNodes6 filter by family themselves, so a mixed-family node list
-        // (routing table entries can be either) never gets truncated/corrupted into the wrong
-        // format.
-        private static BDict AddCompactNodes(BDict responseArgs, IList<DHTNode> closest)
-        {
-            var nodes4 = CompactNodes(closest);
-            if (nodes4.Length > 0)
-            {
-                responseArgs["nodes"] = new BString { ByteValue = nodes4 };
-            }
-
-            var nodes6 = CompactNodes6(closest);
-            if (nodes6.Length > 0)
-            {
-                responseArgs["nodes6"] = new BString { ByteValue = nodes6 };
-            }
-
-            return responseArgs;
-        }
-
-        private static byte[] CompactNodes(IList<DHTNode> nodes)
-        {
-            var ipv4Nodes = nodes.Where(n => n.EndPoint.AddressFamily == AddressFamily.InterNetwork)
-                .Select(n => (n.Id, n.EndPoint)).ToList();
-            return CompactPeer.WriteNodes(ipv4Nodes, isV6: false);
-        }
-
-        private static byte[] CompactNodes6(IList<DHTNode> nodes)
-        {
-            var ipv6Nodes = nodes.Where(n => n.EndPoint.AddressFamily == AddressFamily.InterNetworkV6)
-                .Select(n => (n.Id, n.EndPoint)).ToList();
-            return CompactPeer.WriteNodes(ipv6Nodes, isV6: true);
         }
 
         private static IEnumerable<DHTNode> ParseCompactNodes(byte[] data)
