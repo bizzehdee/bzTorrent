@@ -40,13 +40,9 @@ namespace bzTorrent.Data
 	{
 		public string Name { get; private set; }
 
-		public byte[] Hash { get; private set; }
+		public InfoHash Hash { get; private set; }
 
-		public string HashString
-		{
-			get => UnpackHelper.Hex(Hash);
-			private set => Hash = PackHelper.Hex(value);
-		}
+		public string HashString => Hash?.Hex;
 
 		public ICollection<string> Trackers { get; set; }
 
@@ -78,7 +74,7 @@ namespace bzTorrent.Data
 						continue;
 					}
 
-					magnet.HashString = pair.Value.Substring(9);
+					magnet.Hash = InfoHash.FromHex(pair.Value.Substring(9));
 				}
 
 				if (pair.Key == "dn")

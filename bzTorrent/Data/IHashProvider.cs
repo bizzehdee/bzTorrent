@@ -32,7 +32,7 @@ namespace bzTorrent.Data
 {
 	public interface IHashProvider
 	{
-		public byte[] Hash { get; }
+		public InfoHash Hash { get; }
 
 		public string HashString { get; }
 

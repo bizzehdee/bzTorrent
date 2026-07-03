@@ -47,13 +47,9 @@ namespace bzTorrent.Data
 		private IBencodingType _root;
 		private readonly ICollection<MetadataFileInfo> files = new List<MetadataFileInfo>();
 
-		public byte[] Hash { get; private set; }
+		public InfoHash Hash { get; private set; }
 
-		public string HashString
-		{
-			get => UnpackHelper.Hex(Hash);
-			private set => Hash = PackHelper.Hex(value);
-		}
+		public string HashString => Hash?.Hex;
 
 		public string Comment { get; private set; }
 
@@ -100,7 +96,7 @@ namespace bzTorrent.Data
 				return false;
 			}
 
-			HashString = magnetLink.HashString;
+			Hash = magnetLink.Hash;
 			Name = magnetLink.Name;
 
 			if (magnetLink.Trackers != null)
@@ -217,7 +213,7 @@ namespace bzTorrent.Data
 			using (var sha1 = new SHA1Managed())
 			{
 				var str = BencodingUtils.EncodeBytes(infoDict);
-				Hash = sha1.ComputeHash(str);
+				Hash = new InfoHash(sha1.ComputeHash(str));
 			}
 
 			files.Clear();
