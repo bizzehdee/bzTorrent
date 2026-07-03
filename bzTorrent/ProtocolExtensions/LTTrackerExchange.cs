@@ -44,7 +44,7 @@ namespace bzTorrent.ProtocolExtensions
 			get => "lt_tex";
 		}
 
-		public void Init(ExtendedProtocolExtensions parent)
+		public void Init(IExtensionHost parent)
 		{
 
 		}

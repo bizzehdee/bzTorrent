@@ -37,7 +37,7 @@ namespace bzTorrent.ProtocolExtensions
 {
 	public class UTPeerExchange : IBTExtension
 	{
-		private ExtendedProtocolExtensions _parent;
+		private IExtensionHost _parent;
 
 		public string Protocol
 		{
@@ -50,7 +50,7 @@ namespace bzTorrent.ProtocolExtensions
 		public event AddedDelegate Added;
 		public event DroppedDelegate Dropped;
 
-		public void Init(ExtendedProtocolExtensions parent)
+		public void Init(IExtensionHost parent)
 		{
 			_parent = parent;
 		}

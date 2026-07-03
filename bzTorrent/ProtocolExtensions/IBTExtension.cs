@@ -33,7 +33,7 @@ namespace bzTorrent.ProtocolExtensions
 	public interface IBTExtension
 	{
 		string Protocol { get; }
-		void Init(ExtendedProtocolExtensions parent);
+		void Init(IExtensionHost host);
 		void Deinit();
 		void OnHandshake(IPeerWireClient peerWireClient, byte[] handshake);
 		void OnExtendedMessage(IPeerWireClient peerWireClient, byte[] bytes);

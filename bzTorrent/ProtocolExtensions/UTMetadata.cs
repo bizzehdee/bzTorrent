@@ -42,7 +42,7 @@ namespace bzTorrent.ProtocolExtensions
 		private long _piecesReceived;
 		private byte[] _metadataBuffer;
 		private bool[] _piecesWritten;
-		private ExtendedProtocolExtensions _parent;
+		private IExtensionHost _parent;
 
 		public string Protocol
 		{
@@ -52,7 +52,7 @@ namespace bzTorrent.ProtocolExtensions
 		public delegate void MetaDataReceivedDelegate(IPeerWireClient peerWireClient, IBTExtension extension, BDict metadata);
 		public event MetaDataReceivedDelegate MetaDataReceived;
 
-		public void Init(ExtendedProtocolExtensions parent)
+		public void Init(IExtensionHost parent)
 		{
 			_parent = parent;
 			_metadataBuffer = Array.Empty<byte>();

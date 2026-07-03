@@ -70,7 +70,7 @@ namespace bzTorrent.ProtocolExtensions
 	/// </summary>
 	public class UTHolepunchExtension : IBTExtension
 	{
-		private ExtendedProtocolExtensions _parent;
+		private IExtensionHost _parent;
 
 		public string Protocol => "ut_holepunch";
 
@@ -82,7 +82,7 @@ namespace bzTorrent.ProtocolExtensions
 		public event ConnectDelegate Connect;
 		public event ErrorDelegate Error;
 
-		public void Init(ExtendedProtocolExtensions parent)
+		public void Init(IExtensionHost parent)
 		{
 			_parent = parent;
 		}

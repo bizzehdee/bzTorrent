@@ -35,7 +35,7 @@ using System.Text;
 
 namespace bzTorrent.ProtocolExtensions
 {
-	public class ExtendedProtocolExtensions : IProtocolExtension
+	public class ExtendedProtocolExtensions : IProtocolExtension, IExtensionHost
 	{
 		public class ClientProtocolIDMap
 		{
