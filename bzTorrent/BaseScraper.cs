@@ -133,9 +133,7 @@ namespace bzTorrent
 		/// </summary>
 		protected static byte[] CopyBytes(byte[] sourceArray, int startIndex, int length)
 		{
-			var result = new byte[length];
-			Array.Copy(sourceArray, startIndex, result, 0, length);
-			return result;
+			return sourceArray.GetBytes(startIndex, length);
 		}
 
 		public class AnnounceInfo

@@ -63,7 +63,7 @@ namespace bzTorrent
 			return this;
 		}
 
-		public PeerMessageBuilder Add(uint n, PackHelper.Endianness endianness = PackHelper.Endianness.Big)
+		public PeerMessageBuilder Add(uint n, Endianness endianness = Endianness.Big)
 		{
 			MessagePayload.AddRange(PackHelper.UInt32(n));
 

@@ -34,109 +34,23 @@ namespace bzTorrent.Helpers
 {
 	public static class UnpackHelper
 	{
-		public enum Endianness
-		{
-			Machine,
-			Big,
-			Little
-		}
+		public static short Int16(byte[] bytes, int start, Endianness e = Endianness.Machine) => BitConverter.ToInt16(Slice(bytes, start, 2, e), 0);
 
-		public static short Int16(byte[] bytes, int start, Endianness e = Endianness.Machine)
-		{
-			var intBytes = bytes.GetBytes(start, 2);
+		public static int Int32(byte[] bytes, int start, Endianness e = Endianness.Machine) => BitConverter.ToInt32(Slice(bytes, start, 4, e), 0);
 
-			if (NeedsFlipping(e))
-			{
-				Array.Reverse(intBytes);
-			}
+		public static long Int64(byte[] bytes, int start, Endianness e = Endianness.Machine) => BitConverter.ToInt64(Slice(bytes, start, 8, e), 0);
 
-			return BitConverter.ToInt16(intBytes, 0);
-		}
+		public static ushort UInt16(byte[] bytes, int start, Endianness e = Endianness.Machine) => BitConverter.ToUInt16(Slice(bytes, start, 2, e), 0);
 
-		public static int Int32(byte[] bytes, int start, Endianness e = Endianness.Machine)
-		{
-			var intBytes = bytes.GetBytes(start, 4);
+		public static uint UInt32(byte[] bytes, int start, Endianness e = Endianness.Machine) => BitConverter.ToUInt32(Slice(bytes, start, 4, e), 0);
 
-			if (NeedsFlipping(e))
-			{
-				Array.Reverse(intBytes);
-			}
+		public static ulong UInt64(byte[] bytes, int start, Endianness e = Endianness.Machine) => BitConverter.ToUInt64(Slice(bytes, start, 8, e), 0);
 
-			return BitConverter.ToInt32(intBytes, 0);
-		}
+		public static string Hex(byte[] bytes) => HexCodec.Encode(bytes);
 
-		public static long Int64(byte[] bytes, int start, Endianness e = Endianness.Machine)
-		{
-			var intBytes = bytes.GetBytes(start, 8);
-
-			if (NeedsFlipping(e))
-			{
-				Array.Reverse(intBytes);
-			}
-
-			return BitConverter.ToInt64(intBytes, 0);
-		}
-
-		public static ushort UInt16(byte[] bytes, int start, Endianness e = Endianness.Machine)
-		{
-			var intBytes = bytes.GetBytes(start, 2);
-
-			if (NeedsFlipping(e))
-			{
-				Array.Reverse(intBytes);
-			}
-
-			return BitConverter.ToUInt16(intBytes, 0);
-		}
-
-		public static uint UInt32(byte[] bytes, int start, Endianness e = Endianness.Machine)
-		{
-			var intBytes = bytes.GetBytes(start, 4);
-
-			if (NeedsFlipping(e))
-			{
-				Array.Reverse(intBytes);
-			}
-
-			return BitConverter.ToUInt32(intBytes, 0);
-		}
-
-		public static ulong UInt64(byte[] bytes, int start, Endianness e = Endianness.Machine)
-		{
-			var intBytes = bytes.GetBytes(start, 8);
-
-			if (NeedsFlipping(e))
-			{
-				Array.Reverse(intBytes);
-			}
-
-			return BitConverter.ToUInt64(intBytes, 0);
-		}
-
-		private static bool NeedsFlipping(Endianness e)
-		{
-			switch (e)
-			{
-				case Endianness.Big:
-					return BitConverter.IsLittleEndian;
-				case Endianness.Little:
-					return !BitConverter.IsLittleEndian;
-				default:
-					break;
-			}
-
-			return false;
-		}
-		public static string Hex(byte[] bytes, Endianness e = Endianness.Machine)
-		{
-			var str = "";
-
-			foreach (var b in bytes)
-			{
-				str += $"{b:X2}";
-			}
-
-			return str;
-		}
+		// Extracts <paramref name="length"/> bytes at <paramref name="start"/> and
+		// reorders them from the requested endianness into machine order ready for
+		// BitConverter. Collapses the six near-identical integer readers above.
+		private static byte[] Slice(byte[] bytes, int start, int length, Endianness e) => ByteOrder.Order(bytes.GetBytes(start, length), e);
 	}
 }

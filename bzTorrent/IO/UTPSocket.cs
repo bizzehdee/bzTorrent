@@ -53,12 +53,12 @@ namespace bzTorrent.IO
 		{
 			Version = (byte)(buffer[0] & 0x0F);
 			PacketType = (UTPSocket.PacketType)((buffer[0] & 0xF0) >> 4);
-			ConnectionIdRecvd = UnpackHelper.UInt16(buffer, 2, UnpackHelper.Endianness.Big);
-			TimestampRecvd = UnpackHelper.UInt32(buffer, 4, UnpackHelper.Endianness.Big);
-			TimestampDiffRecvd = UnpackHelper.UInt32(buffer, 8, UnpackHelper.Endianness.Big);
-			WndSizeRecvd = UnpackHelper.UInt32(buffer, 12, UnpackHelper.Endianness.Big);
-			SeqNumberRecvd = UnpackHelper.UInt16(buffer, 16, UnpackHelper.Endianness.Big);
-			AckNumberRecvd = UnpackHelper.UInt16(buffer, 18, UnpackHelper.Endianness.Big);
+			ConnectionIdRecvd = UnpackHelper.UInt16(buffer, 2, Endianness.Big);
+			TimestampRecvd = UnpackHelper.UInt32(buffer, 4, Endianness.Big);
+			TimestampDiffRecvd = UnpackHelper.UInt32(buffer, 8, Endianness.Big);
+			WndSizeRecvd = UnpackHelper.UInt32(buffer, 12, Endianness.Big);
+			SeqNumberRecvd = UnpackHelper.UInt16(buffer, 16, Endianness.Big);
+			AckNumberRecvd = UnpackHelper.UInt16(buffer, 18, Endianness.Big);
 		}
 	}
 

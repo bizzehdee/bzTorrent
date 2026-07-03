@@ -28,7 +28,7 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
 */
 
-using System;
+using System.Collections.Generic;
 using System.Net;
 using bzBencode;
 using bzTorrent.Helpers;
@@ -73,15 +73,12 @@ namespace bzTorrent.ProtocolExtensions
 				var pexList = (BString)d["added"];
 				var pexFlags = (BString)d["added.f"];
 
-				for (var i = 0; i < pexList.ByteValue.Length / 6; i++)
+				var added = new List<IPEndPoint>(CompactPeer.ParsePeers(pexList.ByteValue, isV6: false));
+				for (var i = 0; i < added.Count; i++)
 				{
-					var ip = UnpackHelper.UInt32(pexList.ByteValue, i * 6, UnpackHelper.Endianness.Little);
-					var port = UnpackHelper.UInt16(pexList.ByteValue, (i * 6) + 4, UnpackHelper.Endianness.Big);
-					var flags = pexFlags.ByteValue[i];
+					var flags = i < pexFlags.ByteValue.Length ? pexFlags.ByteValue[i] : (byte)0;
 
-					var ipAddr = new IPEndPoint(ip, port);
-
-					Added?.Invoke(peerWireClient, this, ipAddr, flags);
+					Added?.Invoke(peerWireClient, this, added[i], flags);
 				}
 			}
 
@@ -89,13 +86,8 @@ namespace bzTorrent.ProtocolExtensions
 			{
 				var pexList = (BString)d["dropped"];
 
-				for (var i = 0; i < pexList.ByteValue.Length / 6; i++)
+				foreach (var ipAddr in CompactPeer.ParsePeers(pexList.ByteValue, isV6: false))
 				{
-					var ip = UnpackHelper.UInt32(pexList.ByteValue, i * 6, UnpackHelper.Endianness.Little);
-					var port = UnpackHelper.UInt16(pexList.ByteValue, (i * 6) + 4, UnpackHelper.Endianness.Big);
-
-					var ipAddr = new IPEndPoint(ip, port);
-
 					Dropped?.Invoke(peerWireClient, this, ipAddr);
 				}
 			}
@@ -112,27 +104,12 @@ namespace bzTorrent.ProtocolExtensions
 
 			if (addedEndPoints != null)
 			{
-				var added = new byte[addedEndPoints.Length * 6];
-				for (var x = 0; x < addedEndPoints.Length; x++)
-				{
-					addedEndPoints[x].Address.GetAddressBytes().CopyTo(added, x * 6);
-					BitConverter.GetBytes((ushort)addedEndPoints[x].Port).CopyTo(added, (x * 6) + 4);
-				}
-
-				d.Add("added", new BString { ByteValue = added });
+				d.Add("added", new BString { ByteValue = CompactPeer.WritePeers(addedEndPoints, isV6: false) });
 			}
 
 			if (droppedEndPoints != null)
 			{
-				var dropped = new byte[droppedEndPoints.Length * 6];
-				for (var x = 0; x < droppedEndPoints.Length; x++)
-				{
-					droppedEndPoints[x].Address.GetAddressBytes().CopyTo(dropped, x * 6);
-
-					dropped.SetValue((ushort)droppedEndPoints[x].Port, (x * 6) + 2);
-				}
-
-				d.Add("dropped", new BString { ByteValue = dropped });
+				d.Add("dropped", new BString { ByteValue = CompactPeer.WritePeers(droppedEndPoints, isV6: false) });
 			}
 
 			_parent.SendExtended(peerWireClient, _parent.GetIncomingMessageID(peerWireClient, this), BencodingUtils.EncodeBytes(d));

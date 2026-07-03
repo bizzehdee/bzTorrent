@@ -88,7 +88,7 @@ namespace bzTorrent.Tests.ProtocolExtensions
             sent.Payload[1].Should().Be((byte)UTHolepunchMessageType.Rendezvous);
             sent.Payload[2].Should().Be(0x04, "IPv4 address type");
             sent.Payload.GetBytes(3, 4).Should().BeEquivalentTo(target.Address.GetAddressBytes());
-            UnpackHelper.UInt16(sent.Payload, 7, UnpackHelper.Endianness.Big).Should().Be((ushort)target.Port);
+            UnpackHelper.UInt16(sent.Payload, 7, Endianness.Big).Should().Be((ushort)target.Port);
         }
 
         [Fact]

@@ -46,8 +46,8 @@ namespace bzTorrent.Protocol.Handlers
                 return HandlerResult.CloseConnection;
             }
 
-            var index = UnpackHelper.Int32(packet.Payload, 0, UnpackHelper.Endianness.Big);
-            var begin = UnpackHelper.Int32(packet.Payload, 4, UnpackHelper.Endianness.Big);
+            var index = UnpackHelper.Int32(packet.Payload, 0, Endianness.Big);
+            var begin = UnpackHelper.Int32(packet.Payload, 4, Endianness.Big);
 
             // Extract the remaining data (from byte 8 onwards)
             var buffer = packet.Payload.GetBytes(8);

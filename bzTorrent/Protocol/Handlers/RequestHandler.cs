@@ -53,9 +53,9 @@ namespace bzTorrent.Protocol.Handlers
                 return HandlerResult.CloseConnection;
             }
 
-            var index = UnpackHelper.Int32(packet.Payload, 0, UnpackHelper.Endianness.Big);
-            var begin = UnpackHelper.Int32(packet.Payload, 4, UnpackHelper.Endianness.Big);
-            var length = UnpackHelper.Int32(packet.Payload, 8, UnpackHelper.Endianness.Big);
+            var index = UnpackHelper.Int32(packet.Payload, 0, Endianness.Big);
+            var begin = UnpackHelper.Int32(packet.Payload, 4, Endianness.Big);
+            var length = UnpackHelper.Int32(packet.Payload, 8, Endianness.Big);
 
             if (_isCancel)
             {

@@ -8,6 +8,7 @@ using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using bzBencode;
+using bzTorrent.Helpers;
 
 namespace bzTorrent.DHT
 {
@@ -41,7 +42,7 @@ namespace bzTorrent.DHT
 
 		public DHTClient(int port = 0)
         {
-            _nodeId = new byte[20];
+            _nodeId = new byte[CompactPeer.NodeIdLength];
             using (var rng = RandomNumberGenerator.Create())
 			{
 				rng.GetBytes(_nodeId);
@@ -499,88 +500,36 @@ namespace bzTorrent.DHT
 
         private static byte[] CompactNodes(IList<DHTNode> nodes)
         {
-            var ipv4Nodes = nodes.Where(n => n.EndPoint.AddressFamily == AddressFamily.InterNetwork).ToList();
-            var result = new byte[ipv4Nodes.Count * 26];
-            for (int i = 0; i < ipv4Nodes.Count; i++)
-            {
-                Array.Copy(ipv4Nodes[i].Id, 0, result, i * 26, 20);
-                var addr = ipv4Nodes[i].EndPoint.Address.GetAddressBytes();
-                Array.Copy(addr, 0, result, i * 26 + 20, 4);
-                result[i * 26 + 24] = (byte)((ipv4Nodes[i].EndPoint.Port >> 8) & 0xFF);
-                result[i * 26 + 25] = (byte)(ipv4Nodes[i].EndPoint.Port & 0xFF);
-            }
-            return result;
+            var ipv4Nodes = nodes.Where(n => n.EndPoint.AddressFamily == AddressFamily.InterNetwork)
+                .Select(n => (n.Id, n.EndPoint)).ToList();
+            return CompactPeer.WriteNodes(ipv4Nodes, isV6: false);
         }
 
         private static byte[] CompactNodes6(IList<DHTNode> nodes)
         {
-            var ipv6Nodes = nodes.Where(n => n.EndPoint.AddressFamily == AddressFamily.InterNetworkV6).ToList();
-            var result = new byte[ipv6Nodes.Count * 38];
-            for (int i = 0; i < ipv6Nodes.Count; i++)
-            {
-                Array.Copy(ipv6Nodes[i].Id, 0, result, i * 38, 20);
-                var addr = ipv6Nodes[i].EndPoint.Address.GetAddressBytes();
-                Array.Copy(addr, 0, result, i * 38 + 20, 16);
-                result[i * 38 + 36] = (byte)((ipv6Nodes[i].EndPoint.Port >> 8) & 0xFF);
-                result[i * 38 + 37] = (byte)(ipv6Nodes[i].EndPoint.Port & 0xFF);
-            }
-            return result;
+            var ipv6Nodes = nodes.Where(n => n.EndPoint.AddressFamily == AddressFamily.InterNetworkV6)
+                .Select(n => (n.Id, n.EndPoint)).ToList();
+            return CompactPeer.WriteNodes(ipv6Nodes, isV6: true);
         }
 
         private static IEnumerable<DHTNode> ParseCompactNodes(byte[] data)
         {
-            for (int i = 0; i + 26 <= data.Length; i += 26)
-            {
-                var id = new byte[20];
-                Array.Copy(data, i, id, 0, 20);
-                var ip = new IPAddress(new byte[] { data[i + 20], data[i + 21], data[i + 22], data[i + 23] });
-                var port = (data[i + 24] << 8) | data[i + 25];
-                if (port > 0)
-                    yield return new DHTNode(id, new IPEndPoint(ip, port));
-            }
+            return CompactPeer.ParseNodes(data, isV6: false).Select(n => new DHTNode(n.Id, n.EndPoint));
         }
 
         private static IEnumerable<DHTNode> ParseCompactNodes6(byte[] data)
         {
-            for (int i = 0; i + 38 <= data.Length; i += 38)
-            {
-                var id = new byte[20];
-                Array.Copy(data, i, id, 0, 20);
-                var addr = new byte[16];
-                Array.Copy(data, i + 20, addr, 0, 16);
-                var ip = new IPAddress(addr);
-                var port = (data[i + 36] << 8) | data[i + 37];
-                if (port > 0)
-                    yield return new DHTNode(id, new IPEndPoint(ip, port));
-            }
+            return CompactPeer.ParseNodes(data, isV6: true).Select(n => new DHTNode(n.Id, n.EndPoint));
         }
 
         private static IEnumerable<IPEndPoint> ParseCompactPeers(BList values)
         {
-            foreach (var item in values)
-            {
-                var bytes = ((BString)item).ByteValue;
-                if (bytes == null || bytes.Length < 6) continue;
-                var ip = new IPAddress(new byte[] { bytes[0], bytes[1], bytes[2], bytes[3] });
-                var port = (bytes[4] << 8) | bytes[5];
-                if (port > 0)
-                    yield return new IPEndPoint(ip, port);
-            }
+            return CompactPeer.ParsePeerEntries(values.Select(item => ((BString)item).ByteValue), isV6: false, skipZeroPort: true);
         }
 
         private static IEnumerable<IPEndPoint> ParseCompactPeers6(BList values)
         {
-            foreach (var item in values)
-            {
-                var bytes = ((BString)item).ByteValue;
-                if (bytes == null || bytes.Length < 18) continue;
-                var addr = new byte[16];
-                Array.Copy(bytes, 0, addr, 0, 16);
-                var ip = new IPAddress(addr);
-                var port = (bytes[16] << 8) | bytes[17];
-                if (port > 0)
-                    yield return new IPEndPoint(ip, port);
-            }
+            return CompactPeer.ParsePeerEntries(values.Select(item => ((BString)item).ByteValue), isV6: true, skipZeroPort: true);
         }
 
         private static string EndpointKey(IPEndPoint ep) => $"{ep.Address}:{ep.Port}";

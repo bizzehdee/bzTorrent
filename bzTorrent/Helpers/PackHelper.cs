@@ -29,116 +29,30 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 using System;
-using System.Net;
 
 namespace bzTorrent.Helpers
 {
 	public static class PackHelper
 	{
-		public enum Endianness
-		{
-			Machine,
-			Big,
-			Little
-		}
+		// Integers are packed in network (big-endian) byte order. All six
+		// signed/unsigned widths share the one conversion below instead of the
+		// previous mix of IPAddress.HostToNetworkOrder and hand-rolled shifts.
+		public static byte[] Int16(short i) => ByteOrder.Order(BitConverter.GetBytes(i), Endianness.Big);
 
-		private static bool NeedsFlipping(Endianness e)
-		{
-			switch (e)
-			{
-				case Endianness.Big:
-					return BitConverter.IsLittleEndian;
-				case Endianness.Little:
-					return !BitConverter.IsLittleEndian;
-				case Endianness.Machine:
-				default:
-					break;
-			}
+		public static byte[] Int32(int i) => ByteOrder.Order(BitConverter.GetBytes(i), Endianness.Big);
 
-			return false;
-		}
+		public static byte[] Int64(long i) => ByteOrder.Order(BitConverter.GetBytes(i), Endianness.Big);
 
-		public static byte[] Int16(short i)
-		{
-			return BitConverter.GetBytes(IPAddress.HostToNetworkOrder(i));
-		}
+		public static byte[] UInt16(ushort value) => ByteOrder.Order(BitConverter.GetBytes(value), Endianness.Big);
 
-		public static byte[] Int32(int i)
-		{
-			return BitConverter.GetBytes(IPAddress.HostToNetworkOrder(i));
-		}
+		public static byte[] UInt32(uint value) => ByteOrder.Order(BitConverter.GetBytes(value), Endianness.Big);
 
-		public static byte[] Int64(long i)
-		{
-			return BitConverter.GetBytes(IPAddress.HostToNetworkOrder(i));
-		}
+		public static byte[] UInt64(ulong value) => ByteOrder.Order(BitConverter.GetBytes(value), Endianness.Big);
 
-		public static byte[] UInt16(ushort value)
-		{
-			var bytes = BitConverter.GetBytes(value);
+		public static byte[] Float(float f, Endianness e = Endianness.Machine) => ByteOrder.Order(BitConverter.GetBytes(f), e);
 
-			var byteMarker = bytes.Length;
-			ushort result = 0;
-			for (var i = 0; i < bytes.Length; i++)
-			{
-				byteMarker--;
-				result = (ushort)(result | bytes[i] << (byteMarker * 8));
-			}
+		public static byte[] Double(double f, Endianness e = Endianness.Machine) => ByteOrder.Order(BitConverter.GetBytes(f), e);
 
-			return BitConverter.GetBytes(result);
-		}
-
-		public static byte[] UInt32(uint value)
-		{
-			var byte1 = (value >> 0) & 0xff;
-			var byte2 = (value >> 8) & 0xff;
-			var byte3 = (value >> 16) & 0xff;
-			var byte4 = (value >> 24) & 0xff;
-
-			return BitConverter.GetBytes(byte1 << 24 | byte2 << 16 | byte3 << 8 | byte4 << 0);
-		}
-
-		public static byte[] UInt64(ulong value)
-		{
-			var byte1 = (value >> 0) & 0xff;
-			var byte2 = (value >> 8) & 0xff;
-			var byte3 = (value >> 16) & 0xff;
-			var byte4 = (value >> 24) & 0xff;
-			var byte5 = (value >> 32) & 0xff;
-			var byte6 = (value >> 40) & 0xff;
-			var byte7 = (value >> 48) & 0xff;
-			var byte8 = (value >> 56) & 0xff;
-
-			return BitConverter.GetBytes(byte1 << 56 | byte2 << 48 | byte3 << 40 | byte4 << 32 | byte5 << 24 | byte6 << 16 | byte7 << 8 | byte8 << 0);
-		}
-
-		// No refs
-		public static byte[] Float(float f, Endianness e = Endianness.Machine)
-		{
-			return BitConverter.GetBytes(f);
-		}
-
-		// No refs
-		public static byte[] Double(double f, Endianness e = Endianness.Machine)
-		{
-			return BitConverter.GetBytes(f);
-		}
-
-		// All refs specify machine
-		public static byte[] Hex(string str, Endianness e = Endianness.Machine)
-		{
-			if ((str.Length % 2) == 1)
-			{
-				str += '0';
-			}
-
-			var bytes = new byte[str.Length / 2];
-			for (var i = 0; i < str.Length; i += 2)
-			{
-				bytes[i / 2] = Convert.ToByte(str.Substring(NeedsFlipping(e) ? ((str.Length - (i * 2)) - 2) : i, 2), 16);
-			}
-
-			return bytes;
-		}
+		public static byte[] Hex(string str) => HexCodec.Decode(str);
 	}
 }

@@ -95,23 +95,23 @@ namespace bzTorrent.ProtocolExtensions
 
 		private void ProcessSuggest(IPeerWireClient client, byte[] payload)
 		{
-			var index = UnpackHelper.Int32(payload, 0, UnpackHelper.Endianness.Big);
+			var index = UnpackHelper.Int32(payload, 0, Endianness.Big);
 
 			OnSuggest(client, index);
 		}
 
 		private void ProcessAllowFast(IPeerWireClient client, byte[] payload)
 		{
-			var index = UnpackHelper.Int32(payload, 0, UnpackHelper.Endianness.Big);
+			var index = UnpackHelper.Int32(payload, 0, Endianness.Big);
 
 			OnAllowFast(client, index);
 		}
 
 		private void ProcessReject(IPeerWireClient client, byte[] payload)
 		{
-			var index = UnpackHelper.Int32(payload, 0, UnpackHelper.Endianness.Big);
-			var begin = UnpackHelper.Int32(payload, 4, UnpackHelper.Endianness.Big);
-			var length = UnpackHelper.Int32(payload, 8, UnpackHelper.Endianness.Big);
+			var index = UnpackHelper.Int32(payload, 0, Endianness.Big);
+			var begin = UnpackHelper.Int32(payload, 4, Endianness.Big);
+			var length = UnpackHelper.Int32(payload, 8, Endianness.Big);
 
 			OnReject(client, index, begin, length);
 		}

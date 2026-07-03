@@ -63,7 +63,7 @@ namespace bzTorrent.ProtocolExtensions
 				return false;
 			}
 
-			var port = UnpackHelper.UInt16(payload, 0, UnpackHelper.Endianness.Big);
+			var port = UnpackHelper.UInt16(payload, 0, Endianness.Big);
 
 			OnPort(client, port);
 			return true;

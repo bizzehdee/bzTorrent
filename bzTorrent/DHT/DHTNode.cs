@@ -1,5 +1,6 @@
 using System;
 using System.Net;
+using bzTorrent.Helpers;
 
 namespace bzTorrent.DHT
 {
@@ -19,7 +20,7 @@ namespace bzTorrent.DHT
         // Returns negative if a is closer to target than b
         public static int CompareDistance(byte[] a, byte[] b, byte[] target)
         {
-            for (int i = 0; i < 20; i++)
+            for (int i = 0; i < CompactPeer.NodeIdLength; i++)
             {
                 int da = (a[i] ^ target[i]) & 0xFF;
                 int db = (b[i] ^ target[i]) & 0xFF;

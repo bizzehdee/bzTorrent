@@ -45,7 +45,7 @@ namespace bzTorrent.Protocol.Handlers
                 return HandlerResult.CloseConnection; // malformed: need 4 bytes for piece index
             }
 
-            var pieceIndex = UnpackHelper.Int32(packet.Payload, 0, UnpackHelper.Endianness.Big);
+            var pieceIndex = UnpackHelper.Int32(packet.Payload, 0, Endianness.Big);
             client.RaiseHave(pieceIndex);
 
             return HandlerResult.Handled;

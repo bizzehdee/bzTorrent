@@ -112,7 +112,7 @@ namespace bzTorrent.ProtocolExtensions
 			}
 
 			var addressBytes = bytes.GetBytes(2, addrLength);
-			var port = UnpackHelper.UInt16(bytes, 2 + addrLength, UnpackHelper.Endianness.Big);
+			var port = UnpackHelper.UInt16(bytes, 2 + addrLength, Endianness.Big);
 			var endpoint = new IPEndPoint(new IPAddress(addressBytes), port);
 
 			switch (messageType)
@@ -128,7 +128,7 @@ namespace bzTorrent.ProtocolExtensions
 				case UTHolepunchMessageType.Error:
 					if (bytes.Length >= 2 + addrLength + 2 + 4)
 					{
-						var errorCode = (UTHolepunchErrorCode)UnpackHelper.UInt32(bytes, 2 + addrLength + 2, UnpackHelper.Endianness.Big);
+						var errorCode = (UTHolepunchErrorCode)UnpackHelper.UInt32(bytes, 2 + addrLength + 2, Endianness.Big);
 						Error?.Invoke(peerWireClient, this, endpoint, errorCode);
 					}
 					break;

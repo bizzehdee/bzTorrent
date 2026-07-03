@@ -55,11 +55,7 @@ namespace bzTorrent.Helpers
 			}
 
 			var intBytes = new byte[l];
-
-			for (var i = 0; i < l; i++)
-			{
-				intBytes[i] = bytes[start + i];
-			}
+			Array.Copy(bytes, start, intBytes, 0, l);
 
 			return intBytes;
 		}

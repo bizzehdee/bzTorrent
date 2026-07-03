@@ -59,7 +59,7 @@ namespace bzTorrent.Tests.IO
             synResult.AsyncWaitHandle.WaitOne(TimeSpan.FromSeconds(5)).Should().BeTrue("the client should have sent a SYN");
             IPEndPoint clientEndPoint = null;
             var syn = fakePeer.EndReceive(synResult, ref clientEndPoint);
-            var connectionId = UnpackHelper.UInt16(syn, 2, UnpackHelper.Endianness.Big);
+            var connectionId = UnpackHelper.UInt16(syn, 2, Endianness.Big);
 
             const ushort fakePeerStateSeq = 100;
             var statePacket = BuildPacket(UTPSocket.PacketType.STState, connectionId, fakePeerStateSeq, ack: 1);

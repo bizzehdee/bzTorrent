@@ -47,7 +47,7 @@ namespace bzTorrent.Data
 				return false;
 			}
 
-			var commandLength = UnpackHelper.UInt32(currentPacketBuffer, 0, UnpackHelper.Endianness.Big);
+			var commandLength = UnpackHelper.UInt32(currentPacketBuffer, 0, Endianness.Big);
 			CommandLength = commandLength;
 
 			if (CommandLength == 0)

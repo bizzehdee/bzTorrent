@@ -111,17 +111,7 @@ namespace bzTorrent
 		/// </summary>
 		private static IEnumerable<IPEndPoint> GetPeers(byte[] peerData)
 		{
-			for (var i = 0; i + 6 <= peerData.Length; i += 6)
-			{
-				// Build the address from its raw network-order bytes directly, not via
-				// IPAddress(long)/IPEndPoint(long,int) — those constructors reinterpret the
-				// value through BitConverter on the host's endianness, which double-flips a
-				// big-endian-decoded uint back into the wrong byte order on little-endian hosts.
-				var ip = new IPAddress(peerData.GetBytes(i, 4));
-				var port = UnpackHelper.UInt16(peerData, i + 4, UnpackHelper.Endianness.Big);
-
-				yield return new IPEndPoint(ip, port);
-			}
+			return CompactPeer.ParsePeers(peerData, isV6: false);
 		}
 
 		/// <summary>
@@ -130,13 +120,7 @@ namespace bzTorrent
 		/// </summary>
 		private static IEnumerable<IPEndPoint> GetPeers6(byte[] peerData)
 		{
-			for (var i = 0; i + 18 <= peerData.Length; i += 18)
-			{
-				var addrBytes = peerData.GetBytes(i, 16);
-				var port = UnpackHelper.UInt16(peerData, i + 16, UnpackHelper.Endianness.Big);
-
-				yield return new IPEndPoint(new IPAddress(addrBytes), port);
-			}
+			return CompactPeer.ParsePeers(peerData, isV6: true);
 		}
 
 		/// <summary>

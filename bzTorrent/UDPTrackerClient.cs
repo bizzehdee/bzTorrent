@@ -105,8 +105,8 @@ namespace bzTorrent
 				throw new InvalidOperationException("UDP client did not receive complete response");
 			}
 
-			var action = UnpackHelper.UInt32(response, 0, UnpackHelper.Endianness.Big);
-			var transactionId = UnpackHelper.UInt32(response, 4, UnpackHelper.Endianness.Big);
+			var action = UnpackHelper.UInt32(response, 0, Endianness.Big);
+			var transactionId = UnpackHelper.UInt32(response, 4, Endianness.Big);
 
 			if (action != expectedAction || transactionId != expectedTransactionId)
 			{
@@ -124,9 +124,9 @@ namespace bzTorrent
 
 			foreach (var hash in hashes)
 			{
-				var seeders = UnpackHelper.UInt32(response, startIndex, UnpackHelper.Endianness.Big);
-				var completed = UnpackHelper.UInt32(response, startIndex + 4, UnpackHelper.Endianness.Big);
-				var leechers = UnpackHelper.UInt32(response, startIndex + 8, UnpackHelper.Endianness.Big);
+				var seeders = UnpackHelper.UInt32(response, startIndex, Endianness.Big);
+				var completed = UnpackHelper.UInt32(response, startIndex + 4, Endianness.Big);
+				var leechers = UnpackHelper.UInt32(response, startIndex + 8, Endianness.Big);
 
 				result.Add(hash, new ScrapeInfo(seeders, completed, leechers, ScraperType.UDP));
 				startIndex += 12;
@@ -144,36 +144,13 @@ namespace bzTorrent
 		/// </summary>
 		private static List<IPEndPoint> ParseAnnouncePeers(byte[] response, AddressFamily family, out int waitTime, out int leechers, out int seeders)
 		{
-			var peers = new List<IPEndPoint>();
-			waitTime = (int)UnpackHelper.UInt32(response, 8, UnpackHelper.Endianness.Big);
-			leechers = (int)UnpackHelper.UInt32(response, 12, UnpackHelper.Endianness.Big);
-			seeders = (int)UnpackHelper.UInt32(response, 16, UnpackHelper.Endianness.Big);
+			waitTime = (int)UnpackHelper.UInt32(response, 8, Endianness.Big);
+			leechers = (int)UnpackHelper.UInt32(response, 12, Endianness.Big);
+			seeders = (int)UnpackHelper.UInt32(response, 16, Endianness.Big);
 
-			var stride = family == AddressFamily.InterNetworkV6 ? 18 : 6;
-			for (var i = 20; i + stride <= response.Length; i += stride)
-			{
-				IPAddress ip;
-				int portOffset;
-				if (stride == 18)
-				{
-					ip = new IPAddress(CopyBytes(response, i, 16));
-					portOffset = i + 16;
-				}
-				else
-				{
-					// Built from raw network-order bytes directly, not IPAddress(long) — that
-					// constructor reinterprets the value through BitConverter on the host's
-					// endianness, which double-flips a big-endian-decoded uint back into the
-					// wrong byte order on little-endian hosts.
-					ip = new IPAddress(CopyBytes(response, i, 4));
-					portOffset = i + 4;
-				}
-
-				var port = UnpackHelper.UInt16(response, portOffset, UnpackHelper.Endianness.Big);
-				peers.Add(new IPEndPoint(ip, port));
-			}
-
-			return peers;
+			// Peer entries begin after the 20-byte announce header.
+			var isV6 = family == AddressFamily.InterNetworkV6;
+			return new List<IPEndPoint>(CompactPeer.ParsePeers(response, isV6, start: 20));
 		}
 
 		public IDictionary<string, ScrapeInfo> Scrape(string url, string[] hashes)
