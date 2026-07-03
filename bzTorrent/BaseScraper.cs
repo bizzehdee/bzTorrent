@@ -129,23 +129,6 @@ namespace bzTorrent
 		}
 
 		/// <summary>
-		/// URL-encodes a byte array to a percent-encoded string.
-		/// </summary>
-		protected static string UrlEncodeBytes(byte[] bytes)
-		{
-			return bytes.Aggregate(new StringBuilder(), (sb, b) => sb.Append($"%{b:X2}"), sb => sb.ToString());
-		}
-
-		/// <summary>
-		/// Converts a hex string to its URL-encoded representation.
-		/// </summary>
-		protected static string UrlEncodeHexString(string hexString)
-		{
-			var bytes = PackHelper.Hex(hexString);
-			return UrlEncodeBytes(bytes);
-		}
-
-		/// <summary>
 		/// Copies a portion of a byte array.
 		/// </summary>
 		protected static byte[] CopyBytes(byte[] sourceArray, int startIndex, int length)

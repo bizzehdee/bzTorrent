@@ -63,9 +63,9 @@ namespace bzTorrent
 		{
 			var urlBuilder = new StringBuilder(url.Replace("scrape", "announce"));
 			urlBuilder.Append("?info_hash=");
-			urlBuilder.Append(UrlEncodeHexString(hash));
+			urlBuilder.Append(TrackerUrlEncoder.EncodeHexString(hash));
 			urlBuilder.Append("&peer_id=");
-			urlBuilder.Append(UrlEncodeBytes(Encoding.ASCII.GetBytes(peerId)));
+			urlBuilder.Append(TrackerUrlEncoder.EncodeBytes(Encoding.ASCII.GetBytes(peerId)));
 			urlBuilder.Append("&port=").Append(listenPort);
 			urlBuilder.Append("&uploaded=").Append(bytesUploaded);
 			urlBuilder.Append("&downloaded=").Append(bytesDownloaded);
@@ -226,7 +226,7 @@ namespace bzTorrent
 
 			foreach (var hash in hashes)
 			{
-				scrapeUrl.Append("info_hash=").Append(UrlEncodeHexString(hash)).Append("&");
+				scrapeUrl.Append("info_hash=").Append(TrackerUrlEncoder.EncodeHexString(hash)).Append("&");
 			}
 
 			try
