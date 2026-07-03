@@ -38,8 +38,7 @@ namespace bzTorrent
 		int Port { get; }
 
 		AnnounceInfo Announce(string url, string hash, string peerId);
-		AnnounceInfo Announce(string url, string hash, string peerId, long bytesDownloaded, long bytesLeft, long bytesUploaded,
-			int eventTypeFilter, int ipAddress, int numWant, int listenPort, int extensions);
+		AnnounceInfo Announce(AnnounceRequest request);
 		IDictionary<string, AnnounceInfo> Announce(string url, string[] hashes, string peerId);
 		IDictionary<string, ScrapeInfo> Scrape(string url, string[] hashes);
 	}

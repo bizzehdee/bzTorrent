@@ -87,7 +87,7 @@ namespace bzTorrent.Tests
             using var server = new FixedResponseServer(body);
             var client = new HTTPTrackerClient(5);
 
-            var result = client.Announce($"http://127.0.0.1:{server.Port}/announce", new string('a', 40), "-bz0001-000000000000", 0, 0, 0, 2, 0, -1, 6881, 0);
+            var result = client.Announce(new AnnounceRequest { Url = $"http://127.0.0.1:{server.Port}/announce", Hash = new string('a', 40), PeerId = "-bz0001-000000000000", ListenPort = 6881 });
 
             result.Should().NotBeNull();
             result.Seeders.Should().Be(5);
@@ -118,7 +118,7 @@ namespace bzTorrent.Tests
             using var server = new FixedResponseServer(body);
             var client = new HTTPTrackerClient(5);
 
-            var result = client.Announce($"http://127.0.0.1:{server.Port}/announce", new string('a', 40), "-bz0001-000000000000", 0, 0, 0, 2, 0, -1, 6881, 0);
+            var result = client.Announce(new AnnounceRequest { Url = $"http://127.0.0.1:{server.Port}/announce", Hash = new string('a', 40), PeerId = "-bz0001-000000000000", ListenPort = 6881 });
 
             result.Should().NotBeNull();
             result.Peers.Should().ContainSingle(p => p.Address.Equals(IPAddress.Parse("fe80::1")));

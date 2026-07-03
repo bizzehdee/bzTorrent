@@ -45,7 +45,13 @@ namespace bzTorrent.Tests
             var trackerPort = ((IPEndPoint)fakeTracker.Client.LocalEndPoint).Port;
             var client = new UDPTrackerClient(5);
 
-            var result = client.Announce($"udp://127.0.0.1:{trackerPort}/announce", new string('a', 40), "-bz0001-000000000000", 0, 0, 0, 2, 0, -1, 6881, 0);
+            var result = client.Announce(new AnnounceRequest
+            {
+                Url = $"udp://127.0.0.1:{trackerPort}/announce",
+                Hash = new string('a', 40),
+                PeerId = "-bz0001-000000000000",
+                ListenPort = 6881,
+            });
 
             serverTask.Wait(TimeSpan.FromSeconds(5));
 

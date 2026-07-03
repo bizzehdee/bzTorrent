@@ -190,12 +190,10 @@ namespace bzTorrent
 			return result;
 		}
 
-		public override AnnounceInfo Announce(string url, string hash, string peerId, long bytesDownloaded,
-			long bytesLeft, long bytesUploaded, int eventTypeFilter, int ipAddress, int numWant,
-			int listenPort, int extensions)
+		public override AnnounceInfo Announce(AnnounceRequest request)
 		{
-			var announceUrl = BuildAnnounceUrl(url, hash, peerId, bytesDownloaded, bytesLeft, 
-				bytesUploaded, numWant, listenPort);
+			var announceUrl = BuildAnnounceUrl(request.Url, request.Hash, request.PeerId, request.BytesDownloaded,
+				request.BytesLeft, request.BytesUploaded, request.NumWant, request.ListenPort);
 
 			try
 			{

@@ -194,11 +194,9 @@ namespace bzTorrent
 			}
 		}
 
-		public override AnnounceInfo Announce(string url, string hash, string peerId, long bytesDownloaded,
-			long bytesLeft, long bytesUploaded, int eventTypeFilter, int ipAddress, int numWant,
-			int listenPort, int extensions)
+		public override AnnounceInfo Announce(AnnounceRequest request)
 		{
-			ValidateInput(url, new[] { hash }, ScraperType.UDP);
+			ValidateInput(request.Url, new[] { request.Hash }, ScraperType.UDP);
 
 			var transactionId = Random.Next(0, 65535);
 
@@ -210,23 +208,23 @@ namespace bzTorrent
 					_currentConnectionId = EstablishConnection(udpClient, transactionId);
 
 					// Build announce request
-					var hashBytes = PackHelper.Hex(hash).ToArray();
+					var hashBytes = PackHelper.Hex(request.Hash).ToArray();
 					var key = Random.Next(0, 65535);
 
 					var sendBuf = _currentConnectionId          /*connection id*/
 						.Concat(PackHelper.Int32(1))           /*action: announce*/
 						.Concat(PackHelper.Int32(transactionId)) /*transaction id*/
 						.Concat(hashBytes)                      /*info hash*/
-						.Concat(Encoding.ASCII.GetBytes(peerId)) /*peer id*/
-						.Concat(PackHelper.Int64(bytesDownloaded)) /*bytes downloaded*/
-						.Concat(PackHelper.Int64(bytesLeft))     /*bytes left*/
-						.Concat(PackHelper.Int64(bytesUploaded)) /*bytes uploaded*/
-						.Concat(PackHelper.Int32(eventTypeFilter)) /*event*/
-						.Concat(PackHelper.Int32(ipAddress))    /*ip address*/
+						.Concat(Encoding.ASCII.GetBytes(request.PeerId)) /*peer id*/
+						.Concat(PackHelper.Int64(request.BytesDownloaded)) /*bytes downloaded*/
+						.Concat(PackHelper.Int64(request.BytesLeft))     /*bytes left*/
+						.Concat(PackHelper.Int64(request.BytesUploaded)) /*bytes uploaded*/
+						.Concat(PackHelper.Int32(request.Event)) /*event*/
+						.Concat(PackHelper.Int32(request.IpAddress))    /*ip address*/
 						.Concat(PackHelper.Int32(key))          /*key*/
-						.Concat(PackHelper.Int32(numWant))      /*num want*/
-						.Concat(PackHelper.Int32(listenPort))   /*port*/
-						.Concat(PackHelper.Int32(extensions))   /*extensions*/
+						.Concat(PackHelper.Int32(request.NumWant))      /*num want*/
+						.Concat(PackHelper.Int32(request.ListenPort))   /*port*/
+						.Concat(PackHelper.Int32(request.Extensions))   /*extensions*/
 						.ToArray();
 
 					udpClient.Send(sendBuf, sendBuf.Length);

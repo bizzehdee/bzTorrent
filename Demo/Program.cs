@@ -154,13 +154,16 @@ namespace Demo
                 try
                 {
                     Console.WriteLine($"Requesting peers from {tracker}");
-                    announceInfo = trackerClient.Announce(
-                        tracker,
-                        downloadMetadata.HashString,
-                        peerId,
-                        0,
-                        downloadMetadata.PieceHashes.Count * downloadMetadata.PieceSize,
-                        0, 0, 0, 256, 12345, 0);
+                    announceInfo = trackerClient.Announce(new AnnounceRequest
+                    {
+                        Url = tracker,
+                        Hash = downloadMetadata.HashString,
+                        PeerId = peerId,
+                        BytesLeft = downloadMetadata.PieceHashes.Count * downloadMetadata.PieceSize,
+                        Event = 0,
+                        NumWant = 256,
+                        ListenPort = 12345,
+                    });
                 }
                 catch (Exception ex)
                 {

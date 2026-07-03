@@ -60,20 +60,14 @@ namespace bzTorrent
 			Timeout = timeout;
 		}
 
-		// Defaults for the convenience Announce(url, hash, peerId) overload.
-		private const int DefaultEvent = 2;         // "started"
-		private const int DefaultNumWant = -1;      // let the tracker decide
-		private const int DefaultListenPort = 12345;
-
 		// The full announce, implemented per transport (HTTP/UDP).
-		public abstract AnnounceInfo Announce(string url, string hash, string peerId, long bytesDownloaded,
-			long bytesLeft, long bytesUploaded, int eventTypeFilter, int ipAddress, int numWant,
-			int listenPort, int extensions);
+		public abstract AnnounceInfo Announce(AnnounceRequest request);
 
-		// Convenience announce with sensible defaults — was duplicated verbatim in both clients.
+		// Convenience announce with default request parameters — was duplicated verbatim in both
+		// clients.
 		public AnnounceInfo Announce(string url, string hash, string peerId)
 		{
-			return Announce(url, hash, peerId, 0, 0, 0, DefaultEvent, 0, DefaultNumWant, DefaultListenPort, 0);
+			return Announce(new AnnounceRequest { Url = url, Hash = hash, PeerId = peerId });
 		}
 
 		// Announce a set of hashes. Was duplicated in both clients (UDP additionally validates the
