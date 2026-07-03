@@ -196,7 +196,7 @@ namespace Demo
         {
             if (useUtp)
             {
-                RunPeerConnection<UTPSocket>(peer);
+                RunPeerConnection<UTPConnection>(peer);
             }
             else
             {

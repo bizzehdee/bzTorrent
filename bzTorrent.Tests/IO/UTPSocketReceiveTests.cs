@@ -18,7 +18,7 @@ namespace bzTorrent.Tests.IO
     public class UTPSocketReceiveTests : IDisposable
     {
         private readonly UdpClient fakePeer = new(new IPEndPoint(IPAddress.Loopback, 0));
-        private UTPSocket utp;
+        private UTPConnection utp;
 
         public void Dispose()
         {
@@ -26,7 +26,7 @@ namespace bzTorrent.Tests.IO
             fakePeer.Dispose();
         }
 
-        private static byte[] BuildPacket(UTPSocket.PacketType type, ushort connectionId, ushort seq, ushort ack, byte[] payload = null)
+        private static byte[] BuildPacket(UTPPacketType type, ushort connectionId, ushort seq, ushort ack, byte[] payload = null)
         {
             payload ??= Array.Empty<byte>();
             var typeAndVersion = new byte[] { (byte)(((byte)type << 4) | 1) };
@@ -50,7 +50,7 @@ namespace bzTorrent.Tests.IO
         // real data send — which increments before sending — must be exactly one more.
         private (ushort ConnectionId, ushort FirstDataSeq) ConnectAndHandshake()
         {
-            utp = new UTPSocket { ReceiveTimeout = 5000 };
+            utp = new UTPConnection { ReceiveTimeout = 5000 };
             var fakePeerEndPoint = (IPEndPoint)fakePeer.Client.LocalEndPoint;
 
             utp.Connect(fakePeerEndPoint);
@@ -62,7 +62,7 @@ namespace bzTorrent.Tests.IO
             var connectionId = UnpackHelper.UInt16(syn, 2, Endianness.Big);
 
             const ushort fakePeerStateSeq = 100;
-            var statePacket = BuildPacket(UTPSocket.PacketType.STState, connectionId, fakePeerStateSeq, ack: 1);
+            var statePacket = BuildPacket(UTPPacketType.STState, connectionId, fakePeerStateSeq, ack: 1);
             fakePeer.Send(statePacket, statePacket.Length, clientEndPoint);
 
             // Give the client's internal (already-armed) receive a moment to process the
@@ -79,7 +79,7 @@ namespace bzTorrent.Tests.IO
             var clientEndPoint = utp.LocalEndPoint;
 
             var payload = Encoding.ASCII.GetBytes("hello-utp");
-            var dataPacket = BuildPacket(UTPSocket.PacketType.STData, (ushort)(connectionId + 1), seq, ack: 1, payload);
+            var dataPacket = BuildPacket(UTPPacketType.STData, (ushort)(connectionId + 1), seq, ack: 1, payload);
             fakePeer.Send(dataPacket, dataPacket.Length, clientEndPoint);
 
             var buffer = new byte[64];
@@ -98,13 +98,13 @@ namespace bzTorrent.Tests.IO
             // Send seq+1 first (the gap at `seq` is still outstanding) — Receive() must not
             // return this yet, it should keep pumping until the missing packet arrives.
             var second = Encoding.ASCII.GetBytes("second");
-            var secondPacket = BuildPacket(UTPSocket.PacketType.STData, (ushort)(connectionId + 1), (ushort)(seq + 1), ack: 1, second);
+            var secondPacket = BuildPacket(UTPPacketType.STData, (ushort)(connectionId + 1), (ushort)(seq + 1), ack: 1, second);
             fakePeer.Send(secondPacket, secondPacket.Length, clientEndPoint);
 
             Thread.Sleep(100);
 
             var first = Encoding.ASCII.GetBytes("first!");
-            var firstPacket = BuildPacket(UTPSocket.PacketType.STData, (ushort)(connectionId + 1), seq, ack: 1, first);
+            var firstPacket = BuildPacket(UTPPacketType.STData, (ushort)(connectionId + 1), seq, ack: 1, first);
             fakePeer.Send(firstPacket, firstPacket.Length, clientEndPoint);
 
             var buffer = new byte[64];

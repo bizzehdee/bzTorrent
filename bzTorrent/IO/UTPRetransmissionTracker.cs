@@ -45,7 +45,7 @@ namespace bzTorrent.IO
 		public class TrackedPacket
 		{
 			public ushort Seq { get; internal set; }
-			public UTPSocket.PacketType Type { get; internal set; }
+			public UTPPacketType Type { get; internal set; }
 			public byte[] Payload { get; internal set; }
 			public DateTime LastSentAt { get; internal set; }
 			public int TransmitCount { get; internal set; }
@@ -71,7 +71,7 @@ namespace bzTorrent.IO
 			return (ushort)(reference - seq) < 0x8000;
 		}
 
-		public void OnSent(ushort seq, UTPSocket.PacketType type, byte[] payload, DateTime now)
+		public void OnSent(ushort seq, UTPPacketType type, byte[] payload, DateTime now)
 		{
 			sentPackets[seq] = new TrackedPacket { Seq = seq, Type = type, Payload = payload ?? Array.Empty<byte>(), LastSentAt = now, TransmitCount = 1 };
 		}

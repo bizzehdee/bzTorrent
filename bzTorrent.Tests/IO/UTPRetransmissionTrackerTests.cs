@@ -12,7 +12,7 @@ namespace bzTorrent.Tests.IO
         {
             var sut = new UTPRetransmissionTracker();
             var now = DateTime.UtcNow;
-            sut.OnSent(1, UTPSocket.PacketType.STData, new byte[100], now);
+            sut.OnSent(1, UTPPacketType.STData, new byte[100], now);
 
             var bytesAcked = sut.OnAck(1, now.AddMilliseconds(50));
 
@@ -25,9 +25,9 @@ namespace bzTorrent.Tests.IO
         {
             var sut = new UTPRetransmissionTracker();
             var now = DateTime.UtcNow;
-            sut.OnSent(1, UTPSocket.PacketType.STData, new byte[10], now);
-            sut.OnSent(2, UTPSocket.PacketType.STData, new byte[20], now);
-            sut.OnSent(3, UTPSocket.PacketType.STData, new byte[30], now);
+            sut.OnSent(1, UTPPacketType.STData, new byte[10], now);
+            sut.OnSent(2, UTPPacketType.STData, new byte[20], now);
+            sut.OnSent(3, UTPPacketType.STData, new byte[30], now);
 
             var bytesAcked = sut.OnAck(2, now.AddMilliseconds(10));
 
@@ -40,10 +40,10 @@ namespace bzTorrent.Tests.IO
         {
             var sut = new UTPRetransmissionTracker();
             var now = DateTime.UtcNow;
-            sut.OnSent(65534, UTPSocket.PacketType.STData, new byte[5], now);
-            sut.OnSent(65535, UTPSocket.PacketType.STData, new byte[5], now);
-            sut.OnSent(0, UTPSocket.PacketType.STData, new byte[5], now);
-            sut.OnSent(1, UTPSocket.PacketType.STData, new byte[5], now);
+            sut.OnSent(65534, UTPPacketType.STData, new byte[5], now);
+            sut.OnSent(65535, UTPPacketType.STData, new byte[5], now);
+            sut.OnSent(0, UTPPacketType.STData, new byte[5], now);
+            sut.OnSent(1, UTPPacketType.STData, new byte[5], now);
 
             var bytesAcked = sut.OnAck(0, now.AddMilliseconds(10));
 
@@ -56,7 +56,7 @@ namespace bzTorrent.Tests.IO
         {
             var sut = new UTPRetransmissionTracker();
             var now = DateTime.UtcNow;
-            sut.OnSent(1, UTPSocket.PacketType.STData, new byte[10], now);
+            sut.OnSent(1, UTPPacketType.STData, new byte[10], now);
 
             var due = sut.GetDueForRetransmit(now.AddMilliseconds(10));
 
@@ -68,7 +68,7 @@ namespace bzTorrent.Tests.IO
         {
             var sut = new UTPRetransmissionTracker();
             var now = DateTime.UtcNow;
-            sut.OnSent(1, UTPSocket.PacketType.STData, new byte[10], now);
+            sut.OnSent(1, UTPPacketType.STData, new byte[10], now);
 
             var due = sut.GetDueForRetransmit(now.AddMilliseconds(sut.RtoMs + 1));
 
@@ -80,7 +80,7 @@ namespace bzTorrent.Tests.IO
         {
             var sut = new UTPRetransmissionTracker();
             var now = DateTime.UtcNow;
-            sut.OnSent(1, UTPSocket.PacketType.STData, new byte[10], now);
+            sut.OnSent(1, UTPPacketType.STData, new byte[10], now);
 
             var initialRto = sut.RtoMs;
             var firstDueAt = now.AddMilliseconds(initialRto + 1);
@@ -101,7 +101,7 @@ namespace bzTorrent.Tests.IO
         {
             var sut = new UTPRetransmissionTracker();
             var now = DateTime.UtcNow;
-            sut.OnSent(1, UTPSocket.PacketType.STData, new byte[10], now);
+            sut.OnSent(1, UTPPacketType.STData, new byte[10], now);
 
             var packet = sut.GetDueForRetransmit(now.AddSeconds(1))[0];
             for (var i = 0; i < UTPRetransmissionTracker.MaxRetransmits; i++)
@@ -121,7 +121,7 @@ namespace bzTorrent.Tests.IO
             // every acked packet was retransmitted.
             var sut = new UTPRetransmissionTracker();
             var now = DateTime.UtcNow;
-            sut.OnSent(1, UTPSocket.PacketType.STData, new byte[10], now);
+            sut.OnSent(1, UTPPacketType.STData, new byte[10], now);
 
             var packet = sut.GetDueForRetransmit(now.AddSeconds(1))[0];
             sut.MarkRetransmitted(packet, now.AddSeconds(1));
@@ -137,7 +137,7 @@ namespace bzTorrent.Tests.IO
         {
             var sut = new UTPRetransmissionTracker();
             var now = DateTime.UtcNow;
-            sut.OnSent(1, UTPSocket.PacketType.STData, new byte[10], now);
+            sut.OnSent(1, UTPPacketType.STData, new byte[10], now);
 
             sut.OnAck(1, now.AddMilliseconds(200));
 
@@ -149,8 +149,8 @@ namespace bzTorrent.Tests.IO
         {
             var sut = new UTPRetransmissionTracker();
             var now = DateTime.UtcNow;
-            sut.OnSent(1, UTPSocket.PacketType.STData, new byte[100], now);
-            sut.OnSent(2, UTPSocket.PacketType.STData, new byte[200], now);
+            sut.OnSent(1, UTPPacketType.STData, new byte[100], now);
+            sut.OnSent(2, UTPPacketType.STData, new byte[200], now);
 
             sut.BytesInFlight.Should().Be(300);
         }

@@ -40,7 +40,7 @@ namespace bzTorrent.IO
 	public class UTPPacketHeader
 	{
 		public byte Version { get; internal set; }
-		public UTPSocket.PacketType PacketType { get; internal set; }
+		public UTPPacketType PacketType { get; internal set; }
 		public ushort ConnectionIdRecvd { get; internal set; }
 		public uint TimestampRecvd { get; internal set; }
 		public uint TimestampDiffRecvd { get; internal set; }
@@ -78,7 +78,7 @@ namespace bzTorrent.IO
 			return new UTPPacketHeader
 			{
 				Version = (byte)(buffer[0] & 0x0F),
-				PacketType = (UTPSocket.PacketType)((buffer[0] & 0xF0) >> 4),
+				PacketType = (UTPPacketType)((buffer[0] & 0xF0) >> 4),
 				ConnectionIdRecvd = UnpackHelper.UInt16(buffer, 2, Endianness.Big),
 				TimestampRecvd = UnpackHelper.UInt32(buffer, 4, Endianness.Big),
 				TimestampDiffRecvd = UnpackHelper.UInt32(buffer, 8, Endianness.Big),
@@ -91,7 +91,7 @@ namespace bzTorrent.IO
 		/// <summary>
 		/// Builds a complete uTP datagram (20-byte header + payload).
 		/// </summary>
-		public static byte[] BuildPacket(UTPSocket.PacketType packetType, ushort connectionId, uint timestamp, uint timestampDiff, uint wndSize, ushort seq, ushort ack, byte[] payload)
+		public static byte[] BuildPacket(UTPPacketType packetType, ushort connectionId, uint timestamp, uint timestampDiff, uint wndSize, ushort seq, ushort ack, byte[] payload)
 		{
 			var typeAndVersion = new byte[] { (byte)(((byte)packetType << 4) | ProtocolVersion) };
 			var extension = new byte[] { 0 };

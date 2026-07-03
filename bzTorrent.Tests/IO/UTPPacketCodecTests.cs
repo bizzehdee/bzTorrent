@@ -14,7 +14,7 @@ namespace bzTorrent.Tests.IO
             var payload = new byte[] { 1, 2, 3, 4 };
 
             var packet = UTPPacketCodec.BuildPacket(
-                UTPSocket.PacketType.STData,
+                UTPPacketType.STData,
                 connectionId: 0xABCD,
                 timestamp: 0x11223344,
                 timestampDiff: 0x55667788,
@@ -27,7 +27,7 @@ namespace bzTorrent.Tests.IO
 
             var header = UTPPacketCodec.Parse(packet);
             header.Version.Should().Be(1);
-            header.PacketType.Should().Be(UTPSocket.PacketType.STData);
+            header.PacketType.Should().Be(UTPPacketType.STData);
             header.ConnectionIdRecvd.Should().Be(0xABCD);
             header.TimestampRecvd.Should().Be(0x11223344);
             header.TimestampDiffRecvd.Should().Be(0x55667788);
@@ -39,7 +39,7 @@ namespace bzTorrent.Tests.IO
         [Fact]
         public void BuildPacket_EncodesTypeAndVersionInFirstByte()
         {
-            var packet = UTPPacketCodec.BuildPacket(UTPSocket.PacketType.STSyn, 1, 0, 0, 0, 0, 0, null);
+            var packet = UTPPacketCodec.BuildPacket(UTPPacketType.STSyn, 1, 0, 0, 0, 0, 0, null);
 
             // High nibble = packet type (STSyn = 4), low nibble = version (1).
             packet[0].Should().Be((4 << 4) | 1);
@@ -49,7 +49,7 @@ namespace bzTorrent.Tests.IO
         [Fact]
         public void BuildPacket_NullPayload_ProducesBareHeader()
         {
-            var packet = UTPPacketCodec.BuildPacket(UTPSocket.PacketType.STState, 1, 0, 0, 0, 0, 0, null);
+            var packet = UTPPacketCodec.BuildPacket(UTPPacketType.STState, 1, 0, 0, 0, 0, 0, null);
 
             packet.Length.Should().Be(UTPPacketCodec.HeaderSize);
         }
@@ -57,7 +57,7 @@ namespace bzTorrent.Tests.IO
         [Fact]
         public void Parse_PortFieldsAreBigEndian()
         {
-            var packet = UTPPacketCodec.BuildPacket(UTPSocket.PacketType.STData, 0x1234, 0, 0, 0, 0, 0, null);
+            var packet = UTPPacketCodec.BuildPacket(UTPPacketType.STData, 0x1234, 0, 0, 0, 0, 0, null);
 
             // connection id at bytes 2-3, big-endian.
             packet[2].Should().Be(0x12);
