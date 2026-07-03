@@ -128,7 +128,7 @@ namespace bzTorrent
 				var completed = UnpackHelper.UInt32(response, startIndex + 4, Endianness.Big);
 				var leechers = UnpackHelper.UInt32(response, startIndex + 8, Endianness.Big);
 
-				result.Add(hash, new ScrapeInfo(seeders, completed, leechers, ScraperType.UDP));
+				result.Add(hash, ScrapeInfo.FromUdp(seeders, completed, leechers));
 				startIndex += 12;
 			}
 

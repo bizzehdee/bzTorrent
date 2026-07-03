@@ -150,7 +150,7 @@ namespace Demo
 
             while (downloadMetadata.PieceHashes.Count == 0 || currentPiece < downloadMetadata.PieceHashes.Count)
             {
-                BaseScraper.AnnounceInfo announceInfo = null;
+                AnnounceInfo announceInfo = null;
                 try
                 {
                     Console.WriteLine($"Requesting peers from {tracker}");

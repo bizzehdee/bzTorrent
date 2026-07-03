@@ -158,47 +158,5 @@ namespace bzTorrent
 		{
 			return sourceArray.GetBytes(startIndex, length);
 		}
-
-		public class AnnounceInfo
-		{
-			public IEnumerable<IPEndPoint> Peers { get; set; }
-			public int WaitTime { get; set; }
-			public int Seeders { get; set; }
-			public int Leechers { get; set; }
-
-			public AnnounceInfo(IEnumerable<IPEndPoint> peers, int a, int b, int c)
-			{
-				Peers = peers;
-
-				WaitTime = a;
-				Seeders = b;
-				Leechers = c;
-			}
-		}
-
-		public class ScrapeInfo
-		{
-			public uint Seeders { get; set; }
-			public uint Complete { get; set; }
-			public uint Leechers { get; set; }
-			public uint Downloaded { get; set; }
-			public uint Incomplete { get; set; }
-
-			public ScrapeInfo(uint a, uint b, uint c, ScraperType type)
-			{
-				if (type == ScraperType.HTTP)
-				{
-					Complete = a;
-					Downloaded = b;
-					Incomplete = c;
-				}
-				else if (type == ScraperType.UDP)
-				{
-					Seeders = a;
-					Complete = b;
-					Leechers = c;
-				}
-			}
-		}
 	}
 }

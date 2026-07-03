@@ -180,11 +180,10 @@ namespace bzTorrent
 				}
 
 				var hash = UnpackHelper.Hex(BencodingUtils.ExtendedASCIIEncoding.GetBytes(key));
-				var scrapeInfo = new ScrapeInfo(
+				var scrapeInfo = ScrapeInfo.FromHttp(
 					(uint)((BInt)fileInfo["complete"]).Value,
 					(uint)((BInt)fileInfo["downloaded"]).Value,
-					(uint)((BInt)fileInfo["incomplete"]).Value,
-					ScraperType.HTTP);
+					(uint)((BInt)fileInfo["incomplete"]).Value);
 				result.Add(hash, scrapeInfo);
 			}
 

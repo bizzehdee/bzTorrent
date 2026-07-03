@@ -37,10 +37,10 @@ namespace bzTorrent
 		string Tracker { get; }
 		int Port { get; }
 
-		BaseScraper.AnnounceInfo Announce(string url, string hash, string peerId);
-		BaseScraper.AnnounceInfo Announce(string url, string hash, string peerId, long bytesDownloaded, long bytesLeft, long bytesUploaded,
+		AnnounceInfo Announce(string url, string hash, string peerId);
+		AnnounceInfo Announce(string url, string hash, string peerId, long bytesDownloaded, long bytesLeft, long bytesUploaded,
 			int eventTypeFilter, int ipAddress, int numWant, int listenPort, int extensions);
-		IDictionary<string, BaseScraper.AnnounceInfo> Announce(string url, string[] hashes, string peerId);
-		IDictionary<string, BaseScraper.ScrapeInfo> Scrape(string url, string[] hashes);
+		IDictionary<string, AnnounceInfo> Announce(string url, string[] hashes, string peerId);
+		IDictionary<string, ScrapeInfo> Scrape(string url, string[] hashes);
 	}
 }
