@@ -28,14 +28,13 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
 */
 
-using System;
 using System.Collections.Generic;
 using bzTorrent.Data;
 using bzTorrent.Helpers;
 
 namespace bzTorrent
 {
-	public class PeerMessageBuilder : IDisposable
+	public class PeerMessageBuilder
 	{
 		private const int LengthPrefixSize = 4;   // 4-byte big-endian length prefix
 		private const int MessageIdSize = 1;      // 1-byte message id
@@ -90,11 +89,6 @@ namespace bzTorrent
 			};
 
 			return packet;
-		}
-
-		public void Dispose()
-		{
-			MessagePayload.Clear();
 		}
 	}
 }
