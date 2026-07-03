@@ -85,6 +85,21 @@ namespace bzTorrent
 		}
 
 		#region Internal event raisers (for handlers)
+		/// <summary>Raise the KeepAlive event. Called by the dispatcher.</summary>
+		public void RaiseKeepAlive() => KeepAlive?.Invoke(this);
+
+		/// <summary>Raise the Choke event. Called by the dispatcher.</summary>
+		public void RaiseChoke() => Choke?.Invoke(this);
+
+		/// <summary>Raise the UnChoke event. Called by the dispatcher.</summary>
+		public void RaiseUnChoke() => UnChoke?.Invoke(this);
+
+		/// <summary>Raise the Interested event. Called by the dispatcher.</summary>
+		public void RaiseInterested() => Interested?.Invoke(this);
+
+		/// <summary>Raise the NotInterested event. Called by the dispatcher.</summary>
+		public void RaiseNotInterested() => NotInterested?.Invoke(this);
+
 		/// <summary>Raise the Have event. Called by HaveHandler.</summary>
 		public void RaiseHave(int pieceIndex)
 		{
@@ -253,44 +268,25 @@ namespace bzTorrent
 				return;
 			}
 
-			switch (command.Command)
+			// Built-in handlers, table-driven: keep-alive/choke/unchoke/interested/not-interested
+			// plus have/bitfield/request/piece/cancel are all registered on the dispatcher.
+			if (_messageDispatcher.Dispatch(this, command))
 			{
-				case PeerClientCommands.KeepAlive:
-					KeepAlive?.Invoke(this);
-					break;
-				case PeerClientCommands.Choke:
-					Choke?.Invoke(this);
-					break;
-				case PeerClientCommands.Unchoke:
-					UnChoke?.Invoke(this);
-					break;
-				case PeerClientCommands.Interested:
-					Interested?.Invoke(this);
-					break;
-				case PeerClientCommands.NotInterested:
-					NotInterested?.Invoke(this);
-					break;
-				default:
-					// Try built-in handlers (Have, Bitfield, Request, Piece, Cancel)
-					if (_messageDispatcher.Dispatch(this, command))
-					{
-						return;
-					}
+				return;
+			}
 
-					// Fall through to extension handlers
-					foreach (var extension in _btProtocolExtensions)
-					{
-						if (!extension.CommandIDs.Contains(b => b == (byte)command.Command))
-						{
-							continue;
-						}
+			// Fall through to extension handlers for commands the dispatcher doesn't own.
+			foreach (var extension in _btProtocolExtensions)
+			{
+				if (!extension.CommandIDs.Contains(b => b == (byte)command.Command))
+				{
+					continue;
+				}
 
-						if (extension.OnCommand(this, (int)command.CommandLength, (byte)command.Command, command.Payload))
-						{
-							break;
-						}
-					}
+				if (extension.OnCommand(this, (int)command.CommandLength, (byte)command.Command, command.Payload))
+				{
 					break;
+				}
 			}
 		}
 

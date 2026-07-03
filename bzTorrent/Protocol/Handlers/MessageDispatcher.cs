@@ -44,6 +44,11 @@ namespace bzTorrent.Protocol.Handlers
         public MessageDispatcher()
         {
             // Register default handlers for standard protocol messages
+            RegisterHandler((byte)PeerClientCommands.KeepAlive, new SimpleCommandHandler(c => c.RaiseKeepAlive()));
+            RegisterHandler((byte)PeerClientCommands.Choke, new SimpleCommandHandler(c => c.RaiseChoke()));
+            RegisterHandler((byte)PeerClientCommands.Unchoke, new SimpleCommandHandler(c => c.RaiseUnChoke()));
+            RegisterHandler((byte)PeerClientCommands.Interested, new SimpleCommandHandler(c => c.RaiseInterested()));
+            RegisterHandler((byte)PeerClientCommands.NotInterested, new SimpleCommandHandler(c => c.RaiseNotInterested()));
             RegisterHandler((byte)PeerClientCommands.Have, new HaveHandler());
             RegisterHandler((byte)PeerClientCommands.Bitfield, new BitfieldHandler());
             RegisterHandler((byte)PeerClientCommands.Request, new RequestHandler(isCancel: false));
