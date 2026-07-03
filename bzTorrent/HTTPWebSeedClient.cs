@@ -102,7 +102,7 @@ namespace bzTorrent
 			}
 
 			var baseUrl = webSeedUrl.EndsWith("/", StringComparison.Ordinal) ? webSeedUrl : webSeedUrl + "/";
-			var pathSegments = file.Filename.Split('\\').Select(Uri.EscapeDataString);
+			var pathSegments = file.Filename.Split(MetadataFileInfo.PathSeparator).Select(Uri.EscapeDataString);
 
 			return baseUrl + Uri.EscapeDataString(metadata.Name) + "/" + string.Join("/", pathSegments);
 		}

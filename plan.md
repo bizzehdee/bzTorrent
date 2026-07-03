@@ -609,7 +609,35 @@ The library has **two competing dispatch designs**: the clean table-driven
 
 ---
 
-## Phase 10 — Metadata god class (SRP)
+## Phase 10 — Metadata god class (SRP) — ◑ PARTIAL
+
+**Status — done:**
+- Extracted the disk-based torrent creation into `Data/TorrentBuilder.cs`
+  (file enumeration, piece hashing, info/announce dict assembly, piece-size
+  heuristic). `Metadata.CreateFromPath` is now a thin facade that calls
+  `TorrentBuilder.Build(...)` then `LoadRoot` — non-breaking (public API
+  preserved), and it removes ~130 lines of the "build a torrent from disk"
+  concern from the parse/hold/serialise class. Covered by `MetadataCreationTests`.
+- Fixed the `CreationDate` epoch read: `new DateTime(1970,1,1).AddSeconds(ts)`
+  (Kind=Unspecified) -> `DateTimeOffset.FromUnixTimeSeconds(ts).UtcDateTime`
+  (same tick value, now correctly UTC; matches the Unix-time write side).
+- De-duplicated the multi-file path separator: `MetadataFileInfo.PathSeparator`
+  is now the single source for the join (`Metadata`) and the split
+  (`HTTPWebSeedClient`), so they can't drift.
+
+**Status — deferred, by decision:**
+- Splitting the remaining **parser** and **serializer** responsibilities into
+  separate public types, and **renaming the `Load(BDict)` overload** (which really
+  means "load the info dict"): source-breaking changes to the public `Metadata` /
+  `IMetadata` API (the Demo and tests use `Load`/`Save`/`FromFile`/properties
+  directly). Major-version change.
+- The standalone **`InfoHash` value type** (deferred here from Phase 0.4): the
+  `HashString` get/set already routes through the shared `HexCodec`, so the
+  duplication is gone; a dedicated value type would rewire the `string Hash`
+  storage the bencode load/save depends on — bundle it with the parser split.
+- Making the path separator **portable** (rather than the current Windows-style
+  `'\\'`) is a wire-behaviour change for existing torrents/tests; left as-is (now
+  at least single-sourced).
 
 `Data/Metadata.cs` (523 lines) conflates parsing, disk-based creation, and
 serialization.

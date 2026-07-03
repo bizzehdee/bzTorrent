@@ -32,6 +32,11 @@ namespace bzTorrent.Data
 {
 	public class MetadataFileInfo
 	{
+		// A multi-file torrent's per-file "path" component list is joined into Filename with this
+		// separator; consumers that need the components back (e.g. WebSeed URL building) split on
+		// it. Defined once here so the join (Metadata) and split (HTTPWebSeedClient) can't drift.
+		public const char PathSeparator = '\\';
+
 		public long Id { get; set; }
 		public string Filename { get; set; }
 		public long FileStartByte { get; set; }

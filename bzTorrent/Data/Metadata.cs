@@ -180,7 +180,9 @@ namespace bzTorrent.Data
 			if (dictRoot.ContainsKey("creation date"))
 			{
 				long ts = (BInt)dictRoot["creation date"];
-				CreationDate = new DateTime(1970, 1, 1).AddSeconds(ts);
+				// Unix epoch seconds -> a UTC DateTime (the old new DateTime(1970,1,1) had
+				// Kind=Unspecified; the write side already uses Unix time via DateTimeOffset).
+				CreationDate = DateTimeOffset.FromUnixTimeSeconds(ts).UtcDateTime;
 			}
 
 			if (dictRoot.ContainsKey("url-list"))
@@ -242,9 +244,9 @@ namespace bzTorrent.Data
 						foreach (var type in filenameList)
 						{
 							filename += (BString)type;
-							filename += "\\";
+							filename += MetadataFileInfo.PathSeparator;
 						}
-						filename = filename.Trim('\\');
+						filename = filename.Trim(MetadataFileInfo.PathSeparator);
 					}
 
 					if (fileDict.ContainsKey("length"))
@@ -362,161 +364,11 @@ namespace bzTorrent.Data
 		/// <param name="pieceSize">Piece size in bytes. Pass 0 to pick a size automatically based on total content size.</param>
 		public static IMetadata CreateFromPath(string sourcePath, IEnumerable<string> announceUrls = null, long pieceSize = 0, string comment = null, bool isPrivate = false)
 		{
-			if (string.IsNullOrEmpty(sourcePath))
-			{
-				throw new ArgumentNullException(nameof(sourcePath));
-			}
-
-			var isDirectory = Directory.Exists(sourcePath);
-			if (!isDirectory && !File.Exists(sourcePath))
-			{
-				throw new FileNotFoundException("Source path not found", sourcePath);
-			}
-
-			var fileEntries = new List<(string RelativePath, string FullPath, long Size)>();
-			string torrentName;
-
-			if (isDirectory)
-			{
-				torrentName = new DirectoryInfo(sourcePath).Name;
-				var basePath = Path.GetFullPath(sourcePath);
-				foreach (var file in Directory.EnumerateFiles(sourcePath, "*", SearchOption.AllDirectories).OrderBy(f => f, StringComparer.Ordinal))
-				{
-					var relative = Path.GetFullPath(file).Substring(basePath.Length)
-						.TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-					fileEntries.Add((relative, file, new FileInfo(file).Length));
-				}
-
-				if (fileEntries.Count == 0)
-				{
-					throw new InvalidOperationException("Source directory contains no files");
-				}
-			}
-			else
-			{
-				torrentName = Path.GetFileName(sourcePath);
-				fileEntries.Add((torrentName, sourcePath, new FileInfo(sourcePath).Length));
-			}
-
-			var totalSize = fileEntries.Sum(f => f.Size);
-			if (pieceSize <= 0)
-			{
-				pieceSize = RecommendedPieceSize(totalSize);
-			}
-
-			var infoDict = new BDict
-			{
-				["piece length"] = (BInt)pieceSize,
-				["pieces"] = new BString { ByteValue = HashPieces(fileEntries, pieceSize) },
-				["name"] = (BString)torrentName
-			};
-
-			if (isPrivate)
-			{
-				infoDict["private"] = (BInt)1;
-			}
-
-			if (isDirectory)
-			{
-				var filesList = new BList();
-				foreach (var entry in fileEntries)
-				{
-					var pathParts = entry.RelativePath.Split(new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar }, StringSplitOptions.RemoveEmptyEntries);
-					var pathList = new BList();
-					foreach (var part in pathParts)
-					{
-						pathList.Add((BString)part);
-					}
-
-					filesList.Add(new BDict
-					{
-						["length"] = (BInt)entry.Size,
-						["path"] = pathList
-					});
-				}
-				infoDict["files"] = filesList;
-			}
-			else
-			{
-				infoDict["length"] = (BInt)totalSize;
-			}
-
-			var rootDict = new BDict { ["info"] = infoDict };
-
-			var trackers = announceUrls?.Where(t => !string.IsNullOrWhiteSpace(t)).ToList() ?? new List<string>();
-			if (trackers.Count > 0)
-			{
-				rootDict["announce"] = (BString)trackers[0];
-
-				var announceList = new BList();
-				foreach (var tracker in trackers)
-				{
-					var tier = new BList { (BString)tracker };
-					announceList.Add(tier);
-				}
-				rootDict["announce-list"] = announceList;
-			}
-
-			if (!string.IsNullOrEmpty(comment))
-			{
-				rootDict["comment"] = (BString)comment;
-			}
-
-			rootDict["created by"] = (BString)"bzTorrent";
-			rootDict["creation date"] = (BInt)DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+			var rootDict = TorrentBuilder.Build(sourcePath, announceUrls, pieceSize, comment, isPrivate);
 
 			var metadata = new Metadata();
 			metadata.LoadRoot(rootDict);
 			return metadata;
-		}
-
-		private static long RecommendedPieceSize(long totalSize)
-		{
-			// Common client heuristic: bigger torrents get bigger pieces so the piece count
-			// (and the "pieces" field/tracker overhead it drives) stays reasonable.
-			var pieceSize = 16L * 1024;
-			while (totalSize / pieceSize > 1500 && pieceSize < 16L * 1024 * 1024)
-			{
-				pieceSize *= 2;
-			}
-			return pieceSize;
-		}
-
-		private static byte[] HashPieces(List<(string RelativePath, string FullPath, long Size)> fileEntries, long pieceSize)
-		{
-			using (var sha1 = new SHA1Managed())
-			using (var hashOutput = new MemoryStream())
-			{
-				var buffer = new byte[pieceSize];
-				var bufferFill = 0;
-
-				void FlushPiece()
-				{
-					if (bufferFill == 0) return;
-					var hash = sha1.ComputeHash(buffer, 0, bufferFill);
-					hashOutput.Write(hash, 0, hash.Length);
-					bufferFill = 0;
-				}
-
-				foreach (var entry in fileEntries)
-				{
-					using (var fileStream = File.Open(entry.FullPath, FileMode.Open, FileAccess.Read, FileShare.Read))
-					{
-						int read;
-						while ((read = fileStream.Read(buffer, bufferFill, (int)(pieceSize - bufferFill))) > 0)
-						{
-							bufferFill += read;
-							if (bufferFill == pieceSize)
-							{
-								FlushPiece();
-							}
-						}
-					}
-				}
-				FlushPiece();
-
-				return hashOutput.ToArray();
-			}
 		}
 		#endregion
 	}
