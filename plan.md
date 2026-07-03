@@ -408,7 +408,37 @@ a general crypto/encoding toolbox, and socket-read framing.
 
 ---
 
-## Phase 7 — DHTClient god class (SRP / DIP / DRY)
+## Phase 7 — DHTClient god class (SRP / DIP / DRY) — ◑ PARTIAL
+
+**Status — done:**
+- Extracted `DHT/DHTTransactionRegistry.cs` (SRP): transaction-id allocation and
+  the pending-request correlation table (`_txCounter` + `_pending` + `NextTxId`)
+  now live in one focused type; `DHTClient` delegates via `Register`/`Abandon`/
+  `Cancel`/`Complete`.
+- De-duplicated the query envelope into `BuildQuery(txId, name, args)` (was
+  copy-pasted in `FindNodeAsync` and `GetPeersQueryAsync`).
+- De-duplicated node-list ingestion into `IngestNodes(r)` (was copy-pasted in
+  `FindNodeAsync` and `QueryNodeForPeersAsync`, with divergent guarded vs
+  unguarded casts — now uniformly guarded).
+- (`DHTRoutingTable.IdsEqual` was already length-agnostic; the node-id `20`
+  literals were removed back in Phase 0.)
+
+Validated by the real two-instance loopback DHT round-trip tests (which exercise
+send/receive, query+response, tx-id correlation and node ingestion). Suite green (182).
+
+**Status — deferred, by decision:**
+- The deeper split (a `PeerSearch` for the Kademlia iterative loop, a transport
+  wrapper around `UdpClient`, a separate inbound server-query handler) and
+  **DIP-injecting the transport/RNG**: deferred. This is async UDP networking
+  whose automated coverage is the loopback round-trip only; a large split here
+  carries real regression risk (peer-discovery breakage is exactly the class of
+  bug that's hard to catch without live-network testing), for structural gain.
+  The high-duplication codec was already extracted in Phase 0, and the two
+  worst remaining DRY sites plus the transaction-correlation SRP concern are now
+  addressed.
+- The **guarded bencode accessor** (dozens of unchecked `((BString)v).ByteValue`
+  casts) is deferred to Phase 8, where it's introduced as a shared helper for the
+  extension work and retrofitted to DHT there (avoids double-churn).
 
 `DHT/DHTClient.cs` (595 lines) holds six responsibilities. Beyond the compact
 codec extraction (0.3):

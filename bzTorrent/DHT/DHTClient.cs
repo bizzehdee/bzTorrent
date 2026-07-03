@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Collections.Concurrent;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
@@ -25,10 +24,8 @@ namespace bzTorrent.DHT
         private readonly byte[] _nodeId;
         private readonly UdpClient _udp;
         private readonly DHTRoutingTable _routingTable = new DHTRoutingTable();
-        private readonly ConcurrentDictionary<string, TaskCompletionSource<BDict>> _pending
-            = new();
+        private readonly DHTTransactionRegistry _transactions = new DHTTransactionRegistry();
         private readonly object _sendLock = new();
-        private int _txCounter = 0;
         private CancellationTokenSource _cts;
         private bool _disposed = false;
 
@@ -223,23 +220,7 @@ namespace bzTorrent.DHT
                         PeerFound?.Invoke(peer);
                 }
 
-                if (r.TryGetValue("nodes", out var nodesVal))
-                {
-                    foreach (var n in ParseCompactNodes(((BString)nodesVal).ByteValue))
-                    {
-                        _routingTable.AddOrUpdate(n);
-                        discovered.Add(n);
-                    }
-                }
-
-                if (r.TryGetValue("nodes6", out var nodes6Val))
-                {
-                    foreach (var n in ParseCompactNodes6(((BString)nodes6Val).ByteValue))
-                    {
-                        _routingTable.AddOrUpdate(n);
-                        discovered.Add(n);
-                    }
-                }
+                discovered.AddRange(IngestNodes(r));
             }
             catch { }
             return discovered;
@@ -249,20 +230,13 @@ namespace bzTorrent.DHT
         {
             try
             {
-                var (txId, txKey) = NextTxId();
-                var query = new BDict
+                var (txId, txKey) = _transactions.NextTxId();
+                var query = BuildQuery(txId, "find_node", new BDict
                 {
-                    { "t", new BString { ByteValue = txId } },
-                    { "y", new BString("q") },
-                    { "q", new BString("find_node") },
-                    { "a", new BDict
-                        {
-                            { "id", new BString { ByteValue = _nodeId } },
-                            { "target", new BString { ByteValue = target } },
-                            { "want", WantBoth() }
-                        }
-                    }
-                };
+                    { "id", new BString { ByteValue = _nodeId } },
+                    { "target", new BString { ByteValue = target } },
+                    { "want", WantBoth() }
+                });
                 var response = await SendQueryAsync(endpoint, query, txKey);
                 if (response == null || !response.TryGetValue("r", out var rv) || !(rv is BDict r))
                 {
@@ -276,37 +250,20 @@ namespace bzTorrent.DHT
                     _routingTable.AddOrUpdate(new DHTNode(idStr.ByteValue, endpoint));
                 }
 
-                if (r.TryGetValue("nodes", out var nodesVal) && nodesVal is BString nodesStr)
-                {
-                    foreach (var node in ParseCompactNodes(nodesStr.ByteValue))
-                        _routingTable.AddOrUpdate(node);
-                }
-
-                if (r.TryGetValue("nodes6", out var nodes6Val) && nodes6Val is BString nodes6Str)
-                {
-                    foreach (var node in ParseCompactNodes6(nodes6Str.ByteValue))
-                        _routingTable.AddOrUpdate(node);
-                }
+                IngestNodes(r);
             }
             catch { }
         }
 
         private async Task<BDict> GetPeersQueryAsync(IPEndPoint endpoint, byte[] infoHash)
         {
-            var (txId, txKey) = NextTxId();
-            var query = new BDict
+            var (txId, txKey) = _transactions.NextTxId();
+            var query = BuildQuery(txId, "get_peers", new BDict
             {
-                { "t", new BString { ByteValue = txId } },
-                { "y", new BString("q") },
-                { "q", new BString("get_peers") },
-                { "a", new BDict
-                    {
-                        { "id", new BString { ByteValue = _nodeId } },
-                        { "info_hash", new BString { ByteValue = infoHash } },
-                        { "want", WantBoth() }
-                    }
-                }
-            };
+                { "id", new BString { ByteValue = _nodeId } },
+                { "info_hash", new BString { ByteValue = infoHash } },
+                { "want", WantBoth() }
+            });
             return await SendQueryAsync(endpoint, query, txKey);
         }
 
@@ -319,8 +276,7 @@ namespace bzTorrent.DHT
 
         private async Task<BDict> SendQueryAsync(IPEndPoint endpoint, BDict query, string txKey)
         {
-            var tcs = new TaskCompletionSource<BDict>();
-            _pending[txKey] = tcs;
+            var tcs = _transactions.Register(txKey);
 
             try
             {
@@ -330,16 +286,12 @@ namespace bzTorrent.DHT
             }
             catch
             {
-                _pending.TryRemove(txKey, out _);
+                _transactions.Abandon(txKey);
                 return null;
             }
 
             var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(RequestTimeoutSeconds));
-            timeoutCts.Token.Register(() =>
-            {
-                _pending.TryRemove(txKey, out _);
-                tcs.TrySetCanceled();
-            });
+            timeoutCts.Token.Register(() => _transactions.Cancel(txKey));
 
             try
             {
@@ -394,9 +346,7 @@ namespace bzTorrent.DHT
                 {
                     if (message.TryGetValue("t", out var tVal))
                     {
-                        var key = Convert.ToBase64String(((BString)tVal).ByteValue);
-                        if (_pending.TryRemove(key, out var tcs))
-                            tcs.TrySetResult(message);
+                        _transactions.Complete(((BString)tVal).ByteValue, message);
                     }
                 }
                 else if (y == "q")
@@ -469,11 +419,43 @@ namespace bzTorrent.DHT
             catch { }
         }
 
-        private (byte[] txId, string txKey) NextTxId()
+        // Builds the standard query envelope { t, y:"q", q, a } shared by every outgoing query.
+        private static BDict BuildQuery(byte[] txId, string queryName, BDict args)
         {
-            var id = Interlocked.Increment(ref _txCounter);
-            var bytes = new byte[] { (byte)((id >> 8) & 0xFF), (byte)(id & 0xFF) };
-            return (bytes, Convert.ToBase64String(bytes));
+            return new BDict
+            {
+                { "t", new BString { ByteValue = txId } },
+                { "y", new BString("q") },
+                { "q", new BString(queryName) },
+                { "a", args }
+            };
+        }
+
+        // Adds any "nodes"/"nodes6" entries from a response's "r" dict to the routing table and
+        // returns them. Shared by the find_node and get_peers response handlers.
+        private IReadOnlyList<DHTNode> IngestNodes(BDict r)
+        {
+            var discovered = new List<DHTNode>();
+
+            if (r.TryGetValue("nodes", out var nodesVal) && nodesVal is BString nodesStr)
+            {
+                foreach (var node in ParseCompactNodes(nodesStr.ByteValue))
+                {
+                    _routingTable.AddOrUpdate(node);
+                    discovered.Add(node);
+                }
+            }
+
+            if (r.TryGetValue("nodes6", out var nodes6Val) && nodes6Val is BString nodes6Str)
+            {
+                foreach (var node in ParseCompactNodes6(nodes6Str.ByteValue))
+                {
+                    _routingTable.AddOrUpdate(node);
+                    discovered.Add(node);
+                }
+            }
+
+            return discovered;
         }
 
         // Adds "nodes" (IPv4, 26-byte entries) and/or "nodes6" (IPv6, 38-byte entries) to a
