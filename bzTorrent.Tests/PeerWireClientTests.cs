@@ -173,5 +173,26 @@ namespace bzTorrent.Tests
 
             mockPeerConnection.Verify();
         }
+
+        [Theory]
+        [InlineData(1, 1)]   // not a multiple of 8: used to throw IndexOutOfRangeException
+        [InlineData(7, 1)]
+        [InlineData(8, 1)]
+        [InlineData(9, 2)]
+        [InlineData(16, 2)]
+        public void SendBitField_PadsToByteBoundary_InsteadOfThrowing(int pieceCount, int expectedByteCount)
+        {
+            var fake = new Helpers.FakePeerConnection();
+            var client = new PeerWireClient(fake);
+            var bitField = new bool[pieceCount];
+            bitField[0] = true;
+
+            client.SendBitField(bitField);
+
+            var sent = fake.Outbound.Single();
+            sent.Command.Should().Be(PeerClientCommands.Bitfield);
+            sent.Payload.Length.Should().Be(expectedByteCount);
+            (sent.Payload[0] & 0x80).Should().NotBe(0, "piece 0 is the MSB of the first byte");
+        }
     }
 }

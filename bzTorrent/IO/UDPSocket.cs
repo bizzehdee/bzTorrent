@@ -64,6 +64,23 @@ namespace bzTorrent.IO
 			isConnected = false;
 		}
 
+		// Connect() deliberately never calls the underlying Socket.Connect (multicast
+		// destinations, and wanting to keep receiving from other senders after "connecting",
+		// don't play well with a truly connected UDP socket) — it just remembers the intended
+		// destination. So Send() must route through SendTo using that remembered endpoint,
+		// rather than the base implementation's plain _socket.Send(buffer), which requires an
+		// actually-connected socket and throws SocketException(10057/89) "Destination address
+		// required" otherwise.
+		public override int Send(byte[] buffer)
+		{
+			if (!isConnected)
+			{
+				throw new SocketException((int)SocketError.NotConnected);
+			}
+
+			return SendTo(buffer, endPoint);
+		}
+
 		// UDP has no passive-open concept; Accept/EndAccept intentionally fall through to
 		// BaseSocket's NotSupportedException rather than calling _socket.Accept() (which is
 		// meaningless on a datagram socket).

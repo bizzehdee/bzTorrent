@@ -51,5 +51,22 @@ namespace bzTorrent.Tests
         {
             LocalPeerDiscovery<UDPSocket>.TryParseSearchPacket(null, out _, out _).Should().BeFalse();
         }
+
+        [Fact]
+        public void OpenThenClose_WhileReceivePending_DoesNotCrashProcess()
+        {
+            // Regression: Close() closes the reader socket while BeginReceiveFrom's callback
+            // may still be pending. That callback runs on a thread-pool thread outside
+            // Close()'s own try/catch, so EndReceiveFrom throwing there used to be an
+            // unhandled exception that terminated the whole process (not just this test),
+            // not merely a failed assertion. Repeated a few times to make the race likely to
+            // land inside the receive-pending window.
+            for (var i = 0; i < 20; i++)
+            {
+                using var lpd = new LocalPeerDiscovery<UDPSocket>();
+                lpd.Open();
+                lpd.Close();
+            }
+        }
     }
 }

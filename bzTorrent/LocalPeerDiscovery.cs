@@ -145,29 +145,65 @@ namespace bzTorrent
 				{
 					isReceiving = true;
 
-					EndPoint endPoint = new IPEndPoint(0, 0);
-					udpReaderSocket.BeginReceiveFrom(buffer, 0, buffer.Length, SocketFlags.None, ref endPoint, (cb) => {
-						EndPoint internalRemoteEP = new IPEndPoint(0, 0);
-
-						var length = udpReaderSocket.EndReceiveFrom(cb, ref internalRemoteEP);
-
-						if (length <= 0)
+					try
+					{
+						EndPoint endPoint = new IPEndPoint(0, 0);
+						udpReaderSocket.BeginReceiveFrom(buffer, 0, buffer.Length, SocketFlags.None, ref endPoint, (cb) =>
 						{
-							return;
-						}
+							// This callback runs on a thread-pool thread, outside Close()/Dispose()'s
+							// own try/catch — Close() closing the socket while a receive is pending
+							// makes EndReceiveFrom throw (ObjectDisposedException or SocketException),
+							// and an unhandled exception on a thread-pool thread crashes the whole
+							// process, not just this component. Must always be swallowed here.
+							try
+							{
+								EndPoint internalRemoteEP = new IPEndPoint(0, 0);
 
-						var remoteAddress = ((IPEndPoint)internalRemoteEP).Address;
+								var length = udpReaderSocket.EndReceiveFrom(cb, ref internalRemoteEP);
 
-						// Decode only the bytes actually received, not the whole 16 KB buffer.
-						var packet = Encoding.ASCII.GetString(buffer, 0, length).Trim();
+								if (length <= 0)
+								{
+									return;
+								}
 
-						if (TryParseSearchPacket(packet, out var remotePort, out var remoteHash))
-						{
-							NewPeer?.Invoke(remoteAddress, remotePort, remoteHash);
-						}
+								var remoteAddress = ((IPEndPoint)internalRemoteEP).Address;
 
-						isReceiving = false;
-					}, null);
+								// Decode only the bytes actually received, not the whole 16 KB buffer.
+								var packet = Encoding.ASCII.GetString(buffer, 0, length).Trim();
+
+								if (TryParseSearchPacket(packet, out var remotePort, out var remoteHash))
+								{
+									NewPeer?.Invoke(remoteAddress, remotePort, remoteHash);
+								}
+							}
+							catch (ObjectDisposedException)
+							{
+								// Socket was closed while this receive was in flight — normal during shutdown.
+							}
+							catch (SocketException)
+							{
+								// Receive aborted (e.g. socket closed during shutdown) — normal during shutdown.
+							}
+							finally
+							{
+								isReceiving = false;
+							}
+						}, null);
+					}
+					catch (ObjectDisposedException)
+					{
+						// BeginReceiveFrom itself can throw synchronously, on this loop's own
+						// thread, if Close() disposed the socket concurrently between the
+						// while-condition check above and this call — not just inside the async
+						// callback above. _killSwitch is set right before Close() does that, so
+						// the loop condition will pick it up on the next iteration; nothing else
+						// to do here but stop trying to receive on this pass.
+						return;
+					}
+					catch (SocketException)
+					{
+						return;
+					}
 				}
 			}
 		}

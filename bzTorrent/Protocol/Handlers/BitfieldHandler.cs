@@ -40,15 +40,13 @@ namespace bzTorrent.Protocol.Handlers
     {
         public HandlerResult Handle(PeerWireClient client, PeerWirePacket packet)
         {
-            if (packet.Payload.Length < packet.CommandLength)
-            {
-                // Not sent entire bitfield; close connection per protocol
-                return HandlerResult.CloseConnection;
-            }
-
-            var bitfieldLength = packet.Payload.Length;
+            // packet.CommandLength includes the 1-byte message ID (per PeerWirePacket.Parse,
+            // Payload.Length is always CommandLength - 1 for anything that reached a handler
+            // at all), so comparing Payload.Length against CommandLength directly was always
+            // true and closed the connection on every single incoming bitfield.
             try
             {
+                var bitfieldLength = packet.Payload.Length;
                 // Parse payload into bool[]; keeps parsing logic isolated and testable
                 var bitfield = BitfieldParser.Parse(packet.Payload, bitfieldLength * 8);
                 client.PeerBitField = bitfield;

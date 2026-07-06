@@ -128,33 +128,42 @@ namespace bzTorrent.Tests.Integration
         }
 
         [Fact]
-        public void Bitfield_MalformedPayload_ClosesConnection()
+        public void Bitfield_RealisticallyShapedPayload_IsHandledWithoutClosingConnection()
         {
+            // Regression test: PeerWirePacket.Parse always produces CommandLength ==
+            // Payload.Length + 1 (the message ID byte), never Payload.Length ==
+            // CommandLength as an earlier version of this test assumed. BitfieldHandler
+            // used to compare Payload.Length against CommandLength directly, which is
+            // always false for a real packet — closing the connection on every single
+            // incoming bitfield ever received.
             var fake = new FakePeerConnection();
             var client = new bzTorrent.PeerWireClient(fake);
 
             client.Hash = new string('a', 40);
             client.LocalPeerID = new string('p', 20);
 
-            // Establish handshake state
             fake.RemoteHandshake = new PeerClientHandshake { PeerId = new string('r', 20), InfoHash = client.Hash };
             client.Process();
 
-            // Enqueue a Bitfield packet that claims a larger CommandLength than actual payload
-            var payload = new byte[] { 0x00, 0x00 }; // 2 bytes
+            var payload = new byte[] { 0x00, 0x00 }; // 2 bytes -> 16 pieces
             var packet = new PeerWirePacket
             {
                 Command = PeerClientCommands.Bitfield,
                 Payload = payload,
-                CommandLength = 10 // larger than actual payload
+                CommandLength = (uint)(payload.Length + 1)
             };
+
+            bool[] receivedBitfield = null;
+            client.BitField += (c, size, bits) => receivedBitfield = bits;
 
             fake.EnqueuePacket(packet);
 
             var processed = client.Process();
 
-            processed.Should().BeFalse();
-            fake.Connected.Should().BeFalse();
+            processed.Should().BeTrue();
+            fake.Connected.Should().BeTrue();
+            receivedBitfield.Should().NotBeNull();
+            receivedBitfield.Should().HaveCount(16);
         }
 
         [Fact]

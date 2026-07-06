@@ -109,18 +109,68 @@ namespace bzTorrent.Tests.Protocol.Handlers
         }
 
         [Fact]
-        public void Handle_PayloadTooShort_ReturnsCloseConnection()
+        public void Handle_PacketShapedLikeARealParsedPacket_ReturnsHandled()
         {
-            // Arrange
+            // PeerWirePacket.Parse always produces CommandLength == Payload.Length + 1 (the
+            // "+1" is the message ID byte already stripped into Command). A single-byte
+            // bitfield (e.g. a 1-8 piece torrent) parses to CommandLength = 2, Payload.Length
+            // = 1 — this used to be misread as "an incomplete bitfield" and disconnect every
+            // single peer that ever sent one.
             var mockConn = new Mock<IPeerConnection>();
             var client = new PeerWireClient(mockConn.Object);
             var handler = new BitfieldHandler();
-            var payload = new byte[] { 0xFF }; // Only 1 byte
-            var packet = new PeerWirePacket 
-            { 
-                Command = PeerClientCommands.Bitfield, 
-                Payload = payload, 
-                CommandLength = 2 // Expecting 2 bytes
+            var payload = new byte[] { 0x80 };
+            var packet = new PeerWirePacket
+            {
+                Command = PeerClientCommands.Bitfield,
+                Payload = payload,
+                CommandLength = 2
+            };
+
+            bool bitfieldInvoked = false;
+            client.BitField += (c, size, bits) => bitfieldInvoked = true;
+
+            // Act
+            var result = handler.Handle(client, packet);
+
+            // Assert
+            result.Should().Be(HandlerResult.Handled);
+            bitfieldInvoked.Should().BeTrue();
+        }
+
+        [Fact]
+        public void Handle_EmptyPayload_ReturnsHandledWithEmptyBitfield()
+        {
+            // A torrent with 0 pieces (not yet resolved from a magnet link) has an empty
+            // bitfield to send/receive — that's valid, not malformed.
+            var mockConn = new Mock<IPeerConnection>();
+            var client = new PeerWireClient(mockConn.Object);
+            var handler = new BitfieldHandler();
+            var packet = new PeerWirePacket
+            {
+                Command = PeerClientCommands.Bitfield,
+                Payload = Array.Empty<byte>(),
+                CommandLength = 1
+            };
+
+            // Act
+            var result = handler.Handle(client, packet);
+
+            // Assert
+            result.Should().Be(HandlerResult.Handled);
+        }
+
+        [Fact]
+        public void Handle_NullPayload_ReturnsCloseConnection()
+        {
+            var mockConn = new Mock<IPeerConnection>();
+            var client = new PeerWireClient(mockConn.Object);
+            var handler = new BitfieldHandler();
+            var packet = new PeerWirePacket
+            {
+                Command = PeerClientCommands.Bitfield,
+                Payload = null,
+                CommandLength = 0
             };
 
             // Act

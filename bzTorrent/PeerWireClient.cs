@@ -361,7 +361,10 @@ namespace bzTorrent
 				}
 			}
 
-			var bytes = new byte[bitField.Length / 8];
+			// Round up: a bitField.Length not a multiple of 8 (i.e. almost any real piece
+			// count) previously truncated the byte count, throwing IndexOutOfRangeException
+			// on the last partial byte instead of zero-padding it as the wire format expects.
+			var bytes = new byte[(bitField.Length + 7) / 8];
 
 			for (uint i = 0; i < bitField.Length; i++)
 			{
