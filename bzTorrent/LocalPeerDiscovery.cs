@@ -82,7 +82,10 @@ namespace bzTorrent
 			SetupReaderSocket(address, lpdMulticastPort);
 			SetupSenderSocket(address, lpdMulticastPort);
 
-			thread = new Thread(Process);
+			// Background so a running LPD listener never keeps the process alive after the app
+			// asks to exit (the receive loop can be parked in a blocking socket read that Stop's
+			// bounded Join won't unstick).
+			thread = new Thread(Process) { IsBackground = true };
 			thread.Start();
 		}
 
