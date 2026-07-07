@@ -176,6 +176,8 @@ namespace bzTorrent
 				throw new ArgumentOutOfRangeException(nameof(peerId), "Peer ID must be 20 bytes exactly");
 			}
 
+			Hash = hash;
+
 			byte[] reservedBytes = { 0, 0, 0, 0, 0, 0, 0, 0 };
 
 			foreach (var extension in _btProtocolExtensions)
@@ -237,6 +239,19 @@ namespace bzTorrent
 
 			if (!ReceivedHandshake && _peerConnection.RemoteHandshake != null)
 			{
+				// A peer answering with a different info-hash than the one we asked for is
+				// either a misbehaving/malicious peer or a tracker/PEX mixup - either way it
+				// is not part of this torrent's swarm and must not be treated as one. Only
+				// enforced when we dialed out expecting a specific hash (Hash set via
+				// Handshake(hash, peerId)) - an inbound-accepted connection has no expected
+				// hash of its own yet, since the initiator's handshake is what tells a
+				// listener which torrent the connection is even for.
+				if (!string.IsNullOrEmpty(Hash) && !string.Equals(_peerConnection.RemoteHandshake.InfoHash, Hash, StringComparison.OrdinalIgnoreCase))
+				{
+					_peerConnection.Disconnect();
+					return false;
+				}
+
 				ReceivedHandshake = true;
 
 				RemotePeerID = _peerConnection.RemoteHandshake.PeerId;

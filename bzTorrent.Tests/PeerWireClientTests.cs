@@ -174,6 +174,71 @@ namespace bzTorrent.Tests
             mockPeerConnection.Verify();
         }
 
+        [Fact]
+        public void ProcessWithMismatchedRemoteInfoHashDisconnectsAndDoesNotCompleteHandshake()
+        {
+            var endPoint = new IPEndPoint(IPAddress.Parse("127.0.0.1"), 5001);
+            var hashId = "C1463792A1FF36A237E3A0F68BADEB0D3764E9BB";
+            var peerId = "B1463792A1FF36A237E3";
+
+            var mockPeerConnection = new Mock<IPeerConnection>();
+            mockPeerConnection.Setup(f => f.Connect(It.IsAny<IPEndPoint>()));
+            mockPeerConnection.Setup(f => f.Disconnect()).Verifiable();
+            mockPeerConnection.Setup(f => f.Connected).Returns(true);
+            mockPeerConnection.Setup(f => f.Process());
+            mockPeerConnection.Setup(f => f.HasPackets()).Returns(false);
+            mockPeerConnection.Setup(f => f.RemoteHandshake).Returns(new PeerClientHandshake
+            {
+                InfoHash = "0000000000000000000000000000000000000000",
+                PeerId = "OTHERPEERID00000000",
+            });
+
+            var peerWireClient = new PeerWireClient(mockPeerConnection.Object);
+            var handshakeCompleted = false;
+            peerWireClient.HandshakeComplete += _ => handshakeCompleted = true;
+
+            peerWireClient.Connect(endPoint);
+            peerWireClient.Handshake(hashId, peerId);
+
+            peerWireClient.Process().Should().BeFalse("a peer answering with a different info-hash is not part of this torrent's swarm");
+
+            peerWireClient.ReceivedHandshake.Should().BeFalse();
+            handshakeCompleted.Should().BeFalse();
+            mockPeerConnection.Verify(f => f.Disconnect(), Times.AtLeastOnce);
+        }
+
+        [Fact]
+        public void ProcessWithMatchingRemoteInfoHashCompletesHandshake()
+        {
+            var endPoint = new IPEndPoint(IPAddress.Parse("127.0.0.1"), 5001);
+            var hashId = "C1463792A1FF36A237E3A0F68BADEB0D3764E9BB";
+            var peerId = "B1463792A1FF36A237E3";
+
+            var mockPeerConnection = new Mock<IPeerConnection>();
+            mockPeerConnection.Setup(f => f.Connect(It.IsAny<IPEndPoint>()));
+            mockPeerConnection.Setup(f => f.Disconnect());
+            mockPeerConnection.Setup(f => f.Connected).Returns(true);
+            mockPeerConnection.Setup(f => f.Process());
+            mockPeerConnection.Setup(f => f.HasPackets()).Returns(false);
+            mockPeerConnection.Setup(f => f.RemoteHandshake).Returns(new PeerClientHandshake
+            {
+                InfoHash = hashId,
+                PeerId = "OTHERPEERID00000000",
+            });
+
+            var peerWireClient = new PeerWireClient(mockPeerConnection.Object);
+            var handshakeCompleted = false;
+            peerWireClient.HandshakeComplete += _ => handshakeCompleted = true;
+
+            peerWireClient.Connect(endPoint);
+            peerWireClient.Handshake(hashId, peerId);
+
+            peerWireClient.Process().Should().BeTrue();
+
+            peerWireClient.ReceivedHandshake.Should().BeTrue();
+            handshakeCompleted.Should().BeTrue();
+        }
+
         [Theory]
         [InlineData(1, 1)]   // not a multiple of 8: used to throw IndexOutOfRangeException
         [InlineData(7, 1)]
