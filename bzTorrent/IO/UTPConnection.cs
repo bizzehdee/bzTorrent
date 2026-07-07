@@ -93,6 +93,12 @@ namespace bzTorrent.IO
 		// the socket (or, for an accepted child, before registering as a waiting receiver) again.
 		private readonly Queue<byte[]> deliverableQueue = new();
 
+		// Data the caller asked to Send() before the SYN was acked (connection not yet
+		// established). Sent on an unestablished connection it would carry ack_nr=0, which peers
+		// reject (they drop it and then FIN); so it's held here and flushed - with the correct
+		// ack - the moment the ST_STATE arrives. Guarded by stateLock.
+		private readonly List<byte[]> pendingSends = new();
+
 		private int pendingDeliveredLength;
 
 		private Timer retransmitTimer;
@@ -197,8 +203,41 @@ namespace bzTorrent.IO
 
 		public override int Send(byte[] buffer)
 		{
+			lock (stateLock)
+			{
+				if (!isFullyConnected)
+				{
+					// SYN sent but not yet acked - hold this data and send it once the connection
+					// is established (see FlushPendingSends), so it goes out with a valid ack_nr.
+					pendingSends.Add(buffer ?? Array.Empty<byte>());
+					return buffer?.Length ?? 0;
+				}
+			}
+
 			WaitForSendWindow(buffer?.Length ?? 0);
 			return SenduTPData(UTPPacketType.STData, buffer);
+		}
+
+		// Flushes data queued by Send() before the connection was established, in order, now that
+		// it can be sent with a valid ack. Called once, when the ST_STATE establishes the connection.
+		private void FlushPendingSends()
+		{
+			List<byte[]> toSend;
+			lock (stateLock)
+			{
+				if (pendingSends.Count == 0)
+				{
+					return;
+				}
+
+				toSend = new List<byte[]>(pendingSends);
+				pendingSends.Clear();
+			}
+
+			foreach (var data in toSend)
+			{
+				SenduTPData(UTPPacketType.STData, data);
+			}
 		}
 
 		// Blocks (briefly) until the LEDBAT send window has room for dataLength bytes, so a
@@ -250,7 +289,14 @@ namespace bzTorrent.IO
 				SeqNumber++;
 			}
 
-			var seq = SeqNumber;
+			// A data/SYN/FIN packet consumes a sequence number and is sent under it. A state (ack)
+			// packet consumes none, but libutp semantics require it to advertise the NEXT sequence
+			// number we'll send - i.e. the seq our first following ST_DATA will carry - not the
+			// current (already-used) one. That lets the peer baseline its ack_nr to seq-1 on the
+			// establishing ST_STATE and treat our first real data packet as in-order. Advertising
+			// the current seq instead would leave the peer's baseline one behind, making our first
+			// data look like a duplicate and getting it dropped by its reorder buffer.
+			var seq = packetType == UTPPacketType.STState ? (ushort)(SeqNumber + 1) : SeqNumber;
 			var sendData = data ?? Array.Empty<byte>();
 			var sent = SendPacket(packetType, sendData, seq);
 
@@ -432,18 +478,23 @@ namespace bzTorrent.IO
 
 			byte[] readyPayload = null;
 
+			var justEstablished = false;
 			if (isFullyConnected == false)
 			{
 				//syn sent but not received status yet
 				if (currentPacketHeader.PacketType == UTPPacketType.STState && currentPacketHeader.ConnectionIdRecvd == ConnectionIdLocal)
 				{
 					isFullyConnected = true;
-					// The acceptor's ST_STATE reply carries its own (unincremented) current
-					// seq_nr; its first real ST_DATA send increments from there. So our "next
-					// expected" baseline is exactly that seq_nr, not seq_nr-1 — matches how an
-					// accepted connection seeds AckNumber from the SYN's seq_nr (see the internal
-					// accept constructor above).
-					AckNumber = currentPacketHeader.SeqNumberRecvd;
+					justEstablished = true;
+					// The acceptor's ST_STATE (a state packet) carries its next-to-send seq_nr
+					// WITHOUT consuming it - its first real ST_DATA will reuse that same seq_nr.
+					// So the last sequence we've actually "received" is seq_nr - 1, and that's the
+					// ack_nr our packets must carry until that first data arrives. Acking seq_nr
+					// itself acks a packet the peer hasn't sent yet, which real peers (e.g.
+					// libutp/qBittorrent) reject - they silently drop our data and then FIN,
+					// so the connection never gets past the handshake. (Differs from the accept
+					// side, where the SYN *does* consume a seq, so there AckNumber = SYN seq_nr.)
+					AckNumber = (ushort)(currentPacketHeader.SeqNumberRecvd - 1);
 				}
 			}
 			else
@@ -477,10 +528,11 @@ namespace bzTorrent.IO
 						}
 					}
 				}
-				else
-				{
-					AckNumber = currentPacketHeader.SeqNumberRecvd;
-				}
+				// An ST_STATE (pure ack) must NOT advance AckNumber: it's a state packet whose
+				// seq_nr is the sender's next-to-send and consumes no sequence number. Advancing
+				// to it made the peer's first real ST_DATA (which reuses that same seq_nr) look
+				// like an already-seen packet, so the reorder buffer dropped it and the BitTorrent
+				// handshake never arrived. Only ST_DATA advances AckNumber (via the reorder buffer).
 
 				if (currentPacketHeader.PacketType == UTPPacketType.STFin)
 				{
@@ -493,6 +545,13 @@ namespace bzTorrent.IO
 				{
 					SendAck();
 				}
+			}
+
+			// The SYN was just acked: send anything the caller queued before establishment now
+			// (with the ack this ST_STATE seeded), so its handshake goes out on a live connection.
+			if (justEstablished)
+			{
+				FlushPendingSends();
 			}
 
 			return readyPayload;

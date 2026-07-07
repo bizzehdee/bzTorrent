@@ -44,10 +44,11 @@ namespace bzTorrent.Tests.IO
         }
 
         // Handshakes utp with the fake peer (SYN -> ST_STATE) and returns the connection id and
-        // the seq number the fake peer's *first* ST_DATA packet must carry. The ST_STATE reply
-        // carries the peer's current (unincremented) seq counter; the client's AckNumber baseline
-        // is seeded directly from that value (see UTPSocket.ProcessIncomingPacket), so the first
-        // real data send — which increments before sending — must be exactly one more.
+        // the seq number the fake peer's *first* ST_DATA packet must carry. Per libutp, an
+        // ST_STATE advertises the sender's NEXT-to-send seq, and the sender's first ST_DATA reuses
+        // that same seq. The client baselines its AckNumber to seq-1 on the establishing ST_STATE
+        // (see UTPConnection.ProcessIncomingPacket), so the first real data packet — carrying the
+        // ST_STATE's seq unchanged — is exactly ack+1 and lands in-order.
         private (ushort ConnectionId, ushort FirstDataSeq) ConnectAndHandshake()
         {
             utp = new UTPConnection { ReceiveTimeout = 5000 };
@@ -69,7 +70,7 @@ namespace bzTorrent.Tests.IO
             // ST_STATE and flip isFullyConnected before we start sending it ST_DATA.
             Thread.Sleep(200);
 
-            return (connectionId, (ushort)(fakePeerStateSeq + 1));
+            return (connectionId, fakePeerStateSeq);
         }
 
         [Fact]
