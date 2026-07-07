@@ -146,6 +146,30 @@ namespace bzTorrent.DHT
             _ = SearchLoopAsync(infoHash, ct);
         }
 
+        /// <summary>
+        /// A snapshot of the current routing-table nodes, so they can be persisted and fed
+        /// back in on a later run (see <see cref="AddKnownNodes"/>) to avoid a cold DHT start.
+        /// </summary>
+        public IReadOnlyList<DHTNode> GetKnownNodes() => _routingTable.GetAll();
+
+        /// <summary>
+        /// Seeds the routing table with previously-known nodes. This lets the search loop
+        /// proceed immediately (it otherwise blocks until bootstrap finds a node); stale nodes
+        /// simply fail to respond and get superseded as fresh ones are learned.
+        /// </summary>
+        public void AddKnownNodes(IEnumerable<DHTNode> nodes)
+        {
+            if (nodes == null)
+            {
+                return;
+            }
+
+            foreach (var node in nodes)
+            {
+                _routingTable.AddOrUpdate(node);
+            }
+        }
+
         private async Task SearchLoopAsync(byte[] infoHash, CancellationToken ct)
         {
             // Wait until we have routing table entries from bootstrap
